@@ -1,6 +1,4 @@
 # StudyBuddy.02
-# StudyBuddy.02
-
 AI-powered tutor matchmaking and teacher CRM platform.
 
 ---
