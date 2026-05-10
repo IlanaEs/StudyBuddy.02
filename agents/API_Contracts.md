@@ -1,0 +1,759 @@
+# API_Contracts.md
+
+# StudyBuddy.03 — API Contracts
+
+This document defines the official API contract rules for StudyBuddy.02.
+
+It exists to keep:
+- frontend and backend aligned
+- response formats consistent
+- lifecycle states predictable
+- permissions explicit
+- nullable fields safe
+- integration QA possible
+
+This document is mandatory for:
+- Frontend Agent
+- Backend Agent
+- Supabase Data Agent
+- QA Integration Agent
+- Codex tasks
+
+---
+
+# 1. Core API Philosophy
+
+StudyBuddy APIs are not generic CRUD endpoints.
+
+They represent:
+- lifecycle actions
+- CRM relationships
+- booking state transitions
+- matching decisions
+- role-based visibility
+- operational dashboards
+
+Every API must be:
+- role-aware
+- ownership-aware
+- lifecycle-aware
+- state-safe
+- frontend-friendly
+- QA-testable
+
+---
+
+# 2. Global Response Format
+
+All successful responses MUST use:
+
+```json
+{
+  "data": {}
+}
+```
+
+All error responses MUST use:
+
+```json
+{
+  "error": "Human readable error message"
+}
+```
+
+Never mix formats.
+
+Wrong:
+
+```json
+{
+  "success": true,
+  "result": {}
+}
+```
+
+Wrong:
+
+```json
+{
+  "message": "ok",
+  "payload": {}
+}
+```
+
+---
+
+# 3. Naming Convention
+
+API payload fields MUST use:
+
+```text
+snake_case
+```
+
+Correct:
+
+```json
+{
+  "teacher_id": "uuid",
+  "scheduled_start_at": "2026-05-10T16:00:00Z"
+}
+```
+
+Wrong:
+
+```json
+{
+  "teacherId": "uuid",
+  "scheduledStartAt": "2026-05-10T16:00:00Z"
+}
+```
+
+Frontend may map to camelCase internally, but API contracts stay snake_case.
+
+---
+
+# 4. Date & Time Format
+
+All API timestamps MUST use ISO 8601 strings.
+
+Example:
+
+```json
+{
+  "created_at": "2026-05-10T18:30:00Z"
+}
+```
+
+Rules:
+- backend stores canonical timestamps
+- frontend handles display formatting
+- timezone conversion belongs to presentation layer
+- API must not return informal dates
+
+Wrong:
+
+```json
+{
+  "date": "tomorrow at 5"
+}
+```
+
+---
+
+# 5. ID Format
+
+All IDs must be UUID strings.
+
+Example:
+
+```json
+{
+  "lesson_id": "b8f7f9f1-1e2a-4f2b-bf53-03a45e82f3b1"
+}
+```
+
+Do not expose internal numeric IDs.
+
+---
+
+# 6. Error Code Standards
+
+Use consistent status codes:
+
+| Code | Meaning |
+|---|---|
+| 400 | Invalid request |
+| 401 | Unauthenticated |
+| 403 | Forbidden / ownership mismatch |
+| 404 | Entity not found or not visible |
+| 409 | Conflict / invalid state |
+| 422 | Validation failed |
+| 500 | Unexpected server error |
+
+Errors must be safe.
+
+Do not expose:
+- raw SQL errors
+- stack traces
+- auth tokens
+- internal table structure
+- sensitive ownership details
+
+---
+
+# 7. Pagination Contract
+
+All list endpoints must support pagination when result size may grow.
+
+Request query:
+
+```text
+?page=1&limit=20
+```
+
+Response:
+
+```json
+{
+  "data": {
+    "items": [],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "total": 0,
+      "has_next": false
+    }
+  }
+}
+```
+
+Unbounded list endpoints are forbidden.
+
+---
+
+# 8. Nullable Field Rules
+
+Nullable fields must be explicit.
+
+Use:
+
+```json
+{
+  "meeting_link": null,
+  "completed_at": null
+}
+```
+
+Do not omit fields randomly.
+
+Frontend must be able to safely render:
+- loading state
+- empty state
+- null value
+- missing optional feature
+
+---
+
+# 9. Enum Rules
+
+API enum values must match DB enums exactly.
+
+Do not invent API-only enum values.
+
+Allowed examples:
+
+```text
+booking_status:
+pending
+approved
+rejected
+expired
+cancelled
+```
+
+```text
+lesson_status:
+scheduled
+completed
+cancelled
+no_show
+```
+
+Forbidden examples:
+
+```text
+in_progress
+awaiting_payment
+done
+rescheduled
+pending_teacher
+```
+
+If new enum is needed:
+
+```text
+[MISSING PRODUCT DECISION]
+```
+
+---
+
+# 10. Auth Contract
+
+Protected endpoints require:
+
+```http
+Authorization: Bearer <supabase_jwt>
+```
+
+Backend must:
+- verify JWT
+- resolve local user
+- enforce role
+- enforce ownership
+- enforce relationship access
+
+Frontend role checks are not enough.
+
+---
+
+# 11. Ownership Contract
+
+Every protected API must define:
+
+- allowed roles
+- ownership rule
+- visibility rule
+- forbidden access case
+
+Example:
+
+```text
+Only the assigned teacher may approve a booking request.
+```
+
+Example:
+
+```text
+A parent may access only students linked to their user.
+```
+
+---
+
+# 12. Core API Domains
+
+The API is organized around domains:
+
+```text
+/auth
+/users
+/teachers
+/students
+/parents
+/matching
+/bookings
+/lessons
+/crm
+/conversations
+/files
+/notifications
+/subscriptions
+/admin
+```
+
+Avoid generic routes like:
+
+```text
+/data
+/actions
+/dashboard-api
+/misc
+```
+
+---
+
+# 13. Matching API Rules
+
+Matching must preserve:
+
+```text
+Matchmaking > Marketplace
+```
+
+The matching API must return:
+- maximum 3 teachers
+- rank
+- match_score
+- reason
+- linked intake_id
+
+Example response:
+
+```json
+{
+  "data": {
+    "intake_id": "uuid",
+    "matches": [
+      {
+        "match_result_id": "uuid",
+        "teacher_id": "uuid",
+        "rank": 1,
+        "match_score": 94.5,
+        "reason": "Strong subject fit and matching availability."
+      }
+    ]
+  }
+}
+```
+
+Forbidden:
+- infinite tutor browsing
+- random teacher lists
+- unfiltered marketplace results
+
+---
+
+# 14. Booking API Rules
+
+Booking APIs must protect the locked booking model.
+
+Booking approval must:
+- verify teacher ownership
+- verify booking is pending
+- verify slot is still available
+- prevent double booking
+- create lesson atomically
+- create/update CRM relationship
+- return stable response
+
+Approval response example:
+
+```json
+{
+  "data": {
+    "booking_request_id": "uuid",
+    "booking_status": "approved",
+    "lesson": {
+      "lesson_id": "uuid",
+      "status": "scheduled",
+      "scheduled_start_at": "2026-05-10T16:00:00Z",
+      "scheduled_end_at": "2026-05-10T17:00:00Z"
+    }
+  }
+}
+```
+
+---
+
+# 15. Lesson API Rules
+
+Lesson APIs must preserve lifecycle integrity.
+
+Allowed lesson statuses:
+
+```text
+scheduled
+completed
+cancelled
+no_show
+```
+
+Lesson response example:
+
+```json
+{
+  "data": {
+    "lesson_id": "uuid",
+    "teacher_id": "uuid",
+    "student_id": "uuid",
+    "subject_id": "uuid",
+    "status": "scheduled",
+    "scheduled_start_at": "2026-05-10T16:00:00Z",
+    "scheduled_end_at": "2026-05-10T17:00:00Z",
+    "meeting_link": null,
+    "completed_at": null
+  }
+}
+```
+
+Do not add payment-based lesson statuses.
+
+---
+
+# 16. CRM API Rules
+
+CRM APIs must be relationship-scoped.
+
+Teacher CRM response example:
+
+```json
+{
+  "data": {
+    "student_id": "uuid",
+    "relationship_status": "active",
+    "source": "matched",
+    "latest_lesson": null,
+    "internal_notes": "Visible to teacher only."
+  }
+}
+```
+
+Rules:
+- teacher sees own CRM students only
+- private notes are teacher-only
+- shared summaries may be visible to student/parent
+- archived relationships must not behave as active
+
+---
+
+# 17. Parent Dashboard Contract
+
+Parent dashboard must be scoped to linked children only.
+
+Response example:
+
+```json
+{
+  "data": {
+    "selected_student": {
+      "student_id": "uuid",
+      "full_name": "Student Name",
+      "grade_level": "10"
+    },
+    "children": [],
+    "next_lesson": null,
+    "alerts": [],
+    "learning_metrics": null,
+    "latest_teacher_feedback": null,
+    "payment_summary": null,
+    "quick_actions": []
+  }
+}
+```
+
+Rules:
+- nullable fields must be explicit
+- parent cannot access unrelated child
+- private teacher notes must never appear
+
+---
+
+# 18. Chat Contract
+
+Chat must be relationship-scoped.
+
+Message response example:
+
+```json
+{
+  "data": {
+    "message_id": "uuid",
+    "conversation_id": "uuid",
+    "sender_user_id": "uuid",
+    "message_type": "text",
+    "content": "Message content",
+    "created_at": "2026-05-10T18:30:00Z",
+    "read_at": null
+  }
+}
+```
+
+Rules:
+- conversation must belong to valid relationship
+- archived conversations cannot behave as active
+- unauthorized users cannot read messages
+
+---
+
+# 19. Files Contract
+
+Files are stored in Supabase Storage.
+
+API stores metadata only.
+
+Response example:
+
+```json
+{
+  "data": {
+    "file_id": "uuid",
+    "file_url": "storage-url",
+    "file_name": "worksheet.pdf",
+    "file_type": "application/pdf",
+    "file_size_bytes": 245000,
+    "lesson_id": "uuid",
+    "student_id": "uuid",
+    "uploaded_by_user_id": "uuid"
+  }
+}
+```
+
+Rules:
+- no raw file blobs in relational tables
+- file visibility follows lesson/student/message context
+- unauthorized file access is forbidden
+
+---
+
+# 20. Notifications Contract
+
+Notifications are email-first in MVP.
+
+Response example:
+
+```json
+{
+  "data": {
+    "notification_id": "uuid",
+    "type": "lesson_reminder",
+    "channel": "email",
+    "title": "Lesson reminder",
+    "body": "You have a lesson tomorrow.",
+    "related_entity_type": "lesson",
+    "related_entity_id": "uuid",
+    "status": "pending",
+    "sent_at": null
+  }
+}
+```
+
+Do not create WhatsApp flows.
+
+Do not add SMS unless explicitly approved.
+
+---
+
+# 21. Subscription Contract
+
+Subscriptions belong to teachers.
+
+Allowed plans:
+
+```text
+matchmaker
+professional
+business
+```
+
+Response example:
+
+```json
+{
+  "data": {
+    "teacher_id": "uuid",
+    "plan": "professional",
+    "status": "active",
+    "monthly_price": 119,
+    "commission_percentage": 0,
+    "student_limit": 12
+  }
+}
+```
+
+MVP does not include real payment processing.
+
+---
+
+# 22. Admin Contract
+
+Admin APIs must be explicit and protected.
+
+Admin actions should be logged when relevant.
+
+Response example:
+
+```json
+{
+  "data": {
+    "admin_action_id": "uuid",
+    "action_type": "verify_teacher",
+    "target_entity_type": "teacher",
+    "target_entity_id": "uuid",
+    "created_at": "2026-05-10T18:30:00Z"
+  }
+}
+```
+
+---
+
+# 23. Versioning Rule
+
+Breaking API changes require explicit approval.
+
+Breaking changes include:
+- renaming fields
+- changing enum values
+- changing response shape
+- changing nullable behavior
+- changing ownership visibility
+- removing fields used by frontend
+
+If breaking change is needed:
+
+```text
+[API BREAKING CHANGE: approval required]
+```
+
+---
+
+# 24. Frontend Integration Rules
+
+Frontend must not:
+- assume fields not in contract
+- invent statuses
+- depend on mock-only values
+- ignore null states
+- bypass backend permission rules
+
+Frontend must:
+- render loading states
+- render empty states
+- render error states
+- handle 401/403/404/409 safely
+
+---
+
+# 25. Backend Implementation Rules
+
+Backend must:
+- validate request body
+- validate UUIDs
+- validate roles
+- validate ownership
+- validate lifecycle state
+- return stable response contracts
+- avoid raw DB errors
+- use transactions for lifecycle-changing actions
+
+---
+
+# 26. QA Contract Checklist
+
+QA must validate:
+
+- response shape
+- enum values
+- null handling
+- role permissions
+- ownership
+- lifecycle state
+- error codes
+- frontend compatibility
+- DB alignment
+- edge cases
+
+---
+
+# 27. Hard Failure Conditions
+
+API contract is invalid if it:
+
+- returns inconsistent response format
+- exposes unauthorized data
+- exposes teacher private notes
+- leaks child data to wrong parent
+- invents enum values
+- breaks lifecycle rules
+- creates marketplace browsing
+- introduces payment logic into MVP
+- returns unbounded lists
+- changes fields without approval
+- returns raw DB errors
+- bypasses ownership rules
+
+---
+
+# 28. Final Rule
+
+StudyBuddy APIs are system contracts.
+
+They must protect:
+- lifecycle integrity
+- frontend/backend alignment
+- CRM continuity
+- role-based visibility
+- curated matching
+- MVP scope
+
+The API must never become:
+> random JSON between disconnected layers.

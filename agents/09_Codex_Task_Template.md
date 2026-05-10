@@ -294,6 +294,15 @@ Every task MUST include ALL sections below.
 
 ---
 
+## Required Sources of Truth
+
+Before implementation, read:
+- Sacred Names Convention
+- DB Schema
+- API Contracts
+
+---
+
 # Task Title
 
 Clear implementation-oriented title.

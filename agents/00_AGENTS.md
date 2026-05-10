@@ -215,6 +215,20 @@ Implementation convenience NEVER overrides product truth.
 
 ---
 
+# 5.1 Core Source Of Truth Documents
+
+All agents MUST follow:
+- Sacred Names Convention
+- DB Schema
+- API Contracts
+
+Core source of truth documents:
+- Sacred Names Convention
+- DB Schema v1
+- StudyBuddy.03 — API Contracts
+
+---
+
 # 6. Global System Principles
 
 Every system inside StudyBuddy must remain:
