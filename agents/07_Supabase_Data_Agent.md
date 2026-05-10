@@ -230,6 +230,16 @@ These names are locked.
 
 ---
 
+## Contract Alignment Rules
+
+Database enums MUST stay aligned with:
+- API contracts
+- Sacred Names Convention
+
+Changing enum values without API approval is forbidden.
+
+---
+
 # Existing Enums
 
 Use only approved enum values.

@@ -244,6 +244,19 @@ Do not return raw DB errors to the client.
 
 ---
 
+## API Contract Compliance
+
+Backend MUST:
+- follow API_Contracts.md strictly
+- return only approved response shapes
+- validate ownership and lifecycle states
+- never invent enums
+- never expose raw DB errors
+- preserve snake_case API contracts
+- use transactional safety for lifecycle actions
+
+---
+
 # Error Handling Standards
 
 Use clear status codes:

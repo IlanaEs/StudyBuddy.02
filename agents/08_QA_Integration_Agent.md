@@ -364,6 +364,21 @@ The frontend must NEVER depend on fake or unstable contracts.
 
 ---
 
+## API Validation Checklist
+
+Validate:
+- response shape
+- snake_case consistency
+- enum alignment
+- nullable handling
+- ownership rules
+- lifecycle rules
+- status codes
+- frontend compatibility
+- DB schema alignment
+
+---
+
 # Supabase & Data Integrity
 
 Validate:
