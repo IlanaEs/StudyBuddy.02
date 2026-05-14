@@ -1,399 +1,125 @@
 # StudyBuddy.02
-AI-powered tutor matchmaking and teacher CRM platform.
 
----
+StudyBuddy.02 is a CRM-driven matchmaking operating system for private education.
 
-# Overview
+This repository currently contains the technical foundation only. Product features are intentionally not implemented yet.
 
-StudyBuddy.02 is a SaaS-enabled marketplace for private education.
+## Monorepo Structure
 
-The platform combines:
+```text
+apps/
+  frontend/
+  backend/
 
-* smart tutor matchmaking
-* teacher CRM
-* lesson scheduling
-* booking workflows
-* real-time availability
-* communication tools
-
-Instead of forcing students to browse endless tutor lists, the system returns only 3 curated tutor matches based on onboarding data and teacher availability.
-
----
-
-# The Problem
-
-## Students
-
-* too many irrelevant tutor profiles
-* fake availability
-* slow communication
-* endless coordination
-
-## Teachers
-
-* schedule chaos
-* cancellations
-* manual coordination
-* fragmented communication
-* no operational tools
-
-Most tutors still manage their work through:
-
-* WhatsApp
-* spreadsheets
-* notebooks
-
----
-
-# The Solution
-
-StudyBuddy combines:
-
-* intelligent matching
-* real-time availability
-* teacher CRM infrastructure
-
-Teachers manage:
-
-* schedules
-* students
-* lessons
-* communication
-
-Students receive:
-
-* fast matching
-* accurate availability
-* simplified booking
-
----
-
-# Core Principles
-
-## Triple Match Rule
-
-The system returns:
-
-* only 3 relevant tutors
-
-No endless browsing.
-
----
-
-## CRM-Driven Marketplace
-
-Teacher CRM activity powers:
-
-* matching quality
-* availability accuracy
-* operational reliability
-
----
-
-## Anti-Friction UX
-
-Every flow must reduce:
-
-* operational chaos
-* coordination overhead
-* decision fatigue
-
----
-
-# MVP Scope
-
-## Student Side
-
-* onboarding wizard
-* triple-match engine
-* booking requests
-* lesson dashboard
-* lesson chat
-
-## Teacher Side
-
-* CRM dashboard
-* availability management
-* student management
-* lesson tracking
-* notifications
-
-## Shared Infrastructure
-
-* authentication
-* real-time messaging
-* file uploads
-* email notifications
-
----
-
-# Tech Stack
-
-| Layer            | Technology          |
-| ---------------- | ------------------- |
-| Frontend         | Next.js             |
-| UI               | React + TailwindCSS |
-| Backend          | Node.js + Express   |
-| Database         | PostgreSQL          |
-| Auth             | Supabase Auth       |
-| Storage          | Supabase Storage    |
-| Realtime         | Supabase Realtime   |
-| Hosting          | Vercel              |
-| State Management | Zustand             |
-
----
-
-# System Architecture
-
-```text id="7yn1mc"
-Client (Next.js)
-        ↓
-API Layer (Express)
-        ↓
-Business Logic
-        ↓
-Supabase PostgreSQL
+agents/
+docs/
+packages/
 ```
 
----
+## Apps
 
-# Repository Structure
+### Frontend
 
-```text id="a6r7xg"
-studybuddy.02/
-│
-├── apps/
-│   ├── frontend/
-│   └── backend/
-│
-├── database/
-│   ├── migrations/
-│   ├── seeds/
-│   └── policies/
-│
-├── docs/
-│
-├── shared/
-│
-├── agents/
-│
-├── .env.example
-├── README.md
-└── AGENTS.md
-```
+`apps/frontend` contains the React + Vite + TypeScript foundation:
 
----
+- Tailwind CSS
+- React Router
+- app shell placeholder
+- API client placeholder
+- Zustand store placeholder
+- design token placeholder
+- motion utility placeholder
 
-# Frontend Structure
+No product screens or product workflows are implemented yet.
 
-```text id="6p0b8x"
-frontend/
-│
-├── app/
-├── components/
-├── features/
-├── hooks/
-├── services/
-├── store/
-└── styles/
-```
+### Backend
 
----
+`apps/backend` contains the Node + Express + TypeScript foundation:
 
-# Backend Structure
+- route/controller/service/repository structure
+- `GET /health`
+- central error handler
+- request validation helper
+- env config
+- placeholder auth middleware
 
-```text id="6lcg8u"
-backend/
-│
-├── routes/
-├── controllers/
-├── services/
-├── repositories/
-├── middleware/
-├── validators/
-└── db/
-```
+No product logic, database schema, lifecycle logic, or payment logic is implemented yet.
 
----
+## Setup
 
-# Database Rules
-
-## Supabase is the single source of truth.
-
-All business data must exist inside Supabase PostgreSQL.
-
----
-
-## Naming Conventions
-
-### Tables
-
-```sql id="0eb2gr"
-snake_case
-plural_names
-```
-
-### Columns
-
-```sql id="y8j8m3"
-snake_case
-```
-
----
-
-## Required Fields
-
-Every table must include:
-
-```sql id="4kdf9u"
-id UUID PRIMARY KEY
-created_at TIMESTAMP
-updated_at TIMESTAMP
-```
-
----
-
-## Foreign Keys Are Mandatory
-
-Every relational field must use:
-
-```sql id="1j8k0q"
-REFERENCES
-```
-
----
-
-## Enums Over Free Text
-
-Statuses must use enums.
-
-Examples:
-
-```sql id="4q9l7m"
-lesson_status
-booking_status
-subscription_plan
-```
-
----
-
-## Migrations Only
-
-All schema changes must go through:
-
-```text id="i97k9l"
-database/migrations/
-```
-
-No manual production edits.
-
----
-
-# Core Database Entities
-
-```text id="rg1n3s"
-users
-teacher_profiles
-students
-availability_slots
-booking_requests
-lessons
-lesson_notes
-conversations
-messages
-reviews
-teacher_subscriptions
-notifications
-```
-
----
-
-# API Standards
-
-## Success Response
-
-```json id="w0tyn2"
-{
-  "data": {}
-}
-```
-
-## Error Response
-
-```json id="w3e2do"
-{
-  "error": {
-    "message": ""
-  }
-}
-```
-
----
-
-# Development Rules
-
-Before building any feature, the following must exist:
-
-* flow definition
-* screen definition
-* DB schema
-* API contract
-* business rules
-
-If product logic is unclear:
-
-* stop development
-* do not invent behavior
-
----
-
-# Environment Variables
-
-```env id="r6tfy8"
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-
-SUPABASE_SERVICE_ROLE_KEY=
-
-DATABASE_URL=
-```
-
----
-
-# Run Frontend
-
-```bash id="g40dr6"
-cd apps/frontend
+```bash
 npm install
+```
+
+## Development
+
+Run both apps:
+
+```bash
 npm run dev
 ```
 
----
+Run only the frontend:
 
-# Run Backend
-
-```bash id="h6m5pi"
-cd apps/backend
-npm install
-npm run dev
+```bash
+npm run dev:frontend
 ```
 
----
+Run only the backend:
 
-# Run Migrations
-
-```bash id="jkqvlu"
-npm run db:migrate
+```bash
+npm run dev:backend
 ```
 
----
+Default local ports:
 
-# Current Status
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:4000`
+- Health: `http://localhost:4000/health`
 
-Current phase:
+## Validation
 
-* architecture stabilization
-* database infrastructure
-* onboarding flows
-* CRM foundation
-* matchmaking MVP
+```bash
+npm run build
+npm run lint
+npm run typecheck
+npm run test
+```
+
+## Environment
+
+Copy env examples before running locally:
+
+```bash
+cp .env.example .env
+cp apps/frontend/.env.example apps/frontend/.env
+cp apps/backend/.env.example apps/backend/.env
+```
+
+## Governance
+
+Agent and architecture source-of-truth documents live in `agents/`.
+
+Implementation must stay aligned with:
+
+- `agents/00_AGENTS.md`
+- `agents/09_Codex_Task_Template.md`
+- `agents/02_System_Architect_Agent.md`
+- `agents/05_Frontend_Agent.md`
+- `agents/06_Backend_Agent.md`
+- `agents/07_Supabase_Data_Agent.md`
+- `agents/API_Contracts.md`
+
+## Current Boundary
+
+This foundation deliberately does not include:
+
+- matching
+- booking
+- lessons
+- CRM
+- payments
+- database schema
+- Supabase migrations
+- product dashboards
+- mock product logic
