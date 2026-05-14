@@ -25,7 +25,9 @@ packages/
 - Tailwind CSS
 - React Router
 - app shell placeholder
-- API client placeholder
+- API client with authenticated request support
+- Supabase Auth provider foundation
+- protected route foundation
 - Zustand store placeholder
 - design token placeholder
 - motion utility placeholder
@@ -38,12 +40,13 @@ No product screens or product workflows are implemented yet.
 
 - route/controller/service/repository structure
 - `GET /health`
+- Supabase Auth endpoints under `/auth`
 - central error handler
 - request validation helper
 - env config
-- placeholder auth middleware
+- JWT auth middleware backed by Supabase Auth
 
-No product logic, database schema, lifecycle logic, or payment logic is implemented yet.
+No product workflow logic, lifecycle automation, or payment logic is implemented yet.
 
 ## Setup
 
@@ -84,6 +87,7 @@ npm run build
 npm run lint
 npm run typecheck
 npm run test
+npm run db:validate
 ```
 
 ## Environment
@@ -110,6 +114,37 @@ Implementation must stay aligned with:
 - `agents/07_Supabase_Data_Agent.md`
 - `agents/API_Contracts.md`
 
+## Supabase
+
+Supabase foundation migrations live in `supabase/migrations/`.
+
+The current migration set creates the approved MVP schema only:
+
+- enums and common helpers
+- core users/students/teachers tables
+- matching, booking, and lesson tables
+- CRM, chat metadata, notifications, and admin metadata
+- RLS starter policies
+- Supabase Auth link from `public.users.supabase_auth_user_id` to `auth.users.id`
+
+No production secrets are committed. Use the placeholders in `.env.example` and
+`apps/backend/.env.example`.
+
+## Auth Foundation
+
+Supabase Auth is the only authentication source of truth.
+
+Foundation endpoints:
+
+- `POST /auth/signup`
+- `POST /auth/login`
+- `POST /auth/logout`
+- `GET /auth/me`
+
+The backend verifies Supabase access tokens, resolves the synchronized local
+`users` row, and exposes a safe authenticated request context. The frontend
+waits for session verification before rendering protected routes.
+
 ## Current Boundary
 
 This foundation deliberately does not include:
@@ -119,7 +154,6 @@ This foundation deliberately does not include:
 - lessons
 - CRM
 - payments
-- database schema
-- Supabase migrations
+- additional database schema beyond the approved MVP foundation
 - product dashboards
 - mock product logic

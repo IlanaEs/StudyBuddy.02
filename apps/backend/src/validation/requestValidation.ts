@@ -1,8 +1,10 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { ZodSchema } from 'zod';
 
+import { AppError } from '../errors/AppError.js';
+
 export function validateRequest(schema: ZodSchema) {
-  return (request: Request, response: Response, next: NextFunction) => {
+  return (request: Request, _response: Response, next: NextFunction) => {
     const result = schema.safeParse({
       body: request.body,
       params: request.params,
@@ -10,10 +12,14 @@ export function validateRequest(schema: ZodSchema) {
     });
 
     if (!result.success) {
-      response.status(422).json({ error: 'Request validation failed' });
-      return;
+      next(new AppError('Request validation failed', 422));
+      return undefined;
     }
 
-    next();
+    request.body = result.data.body ?? request.body;
+    request.params = result.data.params ?? request.params;
+    request.query = result.data.query ?? request.query;
+
+    return next();
   };
 }
