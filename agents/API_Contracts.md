@@ -1,6 +1,6 @@
 # API_Contracts.md
 
-# StudyBuddy.03 — API Contracts
+# StudyBuddy.02 — API Contracts
 
 This document defines the official API contract rules for StudyBuddy.02.
 
@@ -45,7 +45,7 @@ Every API must be:
 
 # 2. Global Response Format
 
-All successful responses MUST use:
+All successful responses MUST use a single top-level `data` key:
 
 ```json
 {
@@ -53,7 +53,7 @@ All successful responses MUST use:
 }
 ```
 
-All error responses MUST use:
+All error responses MUST use a single top-level `error` key:
 
 ```json
 {
@@ -63,11 +63,12 @@ All error responses MUST use:
 
 Never mix formats.
 
+The API MUST NOT return a top-level success boolean. Response success is communicated by HTTP status code plus the presence of `data`.
+
 Wrong:
 
 ```json
 {
-  "success": true,
   "result": {}
 }
 ```
@@ -149,7 +150,7 @@ Example:
 
 ```json
 {
-  "lesson_id": "b8f7f9f1-1e2a-4f2b-bf53-03a45e82f3b1"
+  "id": "b8f7f9f1-1e2a-4f2b-bf53-03a45e82f3b1"
 }
 ```
 
@@ -352,7 +353,227 @@ Avoid generic routes like:
 
 ---
 
-# 13. Matching API Rules
+# 13. Canonical API Contract Examples
+
+These examples define the approved response envelope and naming style for the core API domains. They are governance examples only; they do not require product endpoints to exist before the product scope asks for them.
+
+## 13.1 auth
+
+Auth responses MUST wrap session and local user data in `data`.
+
+Signup/login response example:
+
+```json
+{
+  "data": {
+    "user": {
+      "id": "b8f7f9f1-1e2a-4f2b-bf53-03a45e82f3b1",
+      "email": "teacher@example.com",
+      "role": "teacher",
+      "full_name": "Teacher Name",
+      "phone": null,
+      "profile_image_url": null,
+      "status": "active",
+      "created_at": "2026-05-10T18:30:00Z",
+      "updated_at": "2026-05-10T18:30:00Z"
+    },
+    "session": {
+      "access_token": "supabase-access-token",
+      "refresh_token": "supabase-refresh-token",
+      "expires_at": "2026-05-10T19:30:00Z"
+    }
+  }
+}
+```
+
+Auth error response example:
+
+```json
+{
+  "error": "Invalid email or password"
+}
+```
+
+## 13.2 users
+
+User responses MUST use the sacred `users` fields and approved `user_role` / `user_status` enum values.
+
+```json
+{
+  "data": {
+    "user": {
+      "id": "b8f7f9f1-1e2a-4f2b-bf53-03a45e82f3b1",
+      "email": "parent@example.com",
+      "role": "parent",
+      "full_name": "Parent Name",
+      "phone": "+972501234567",
+      "profile_image_url": null,
+      "status": "active",
+      "created_at": "2026-05-10T18:30:00Z",
+      "updated_at": "2026-05-10T18:30:00Z"
+    }
+  }
+}
+```
+
+## 13.3 teacher_profiles
+
+Teacher profile responses MUST keep the resource name and foreign keys aligned with `teacher_profiles`.
+
+```json
+{
+  "data": {
+    "teacher_profile": {
+      "id": "8a68dd3f-a7e8-4f25-98ef-6eacfc9f74f1",
+      "user_id": "b8f7f9f1-1e2a-4f2b-bf53-03a45e82f3b1",
+      "bio": "Experienced math teacher.",
+      "hourly_rate": 150,
+      "location_type": "online",
+      "city": null,
+      "rating_avg": 0,
+      "rating_count": 0,
+      "is_verified": false,
+      "is_active": true,
+      "last_active_at": null,
+      "created_at": "2026-05-10T18:30:00Z",
+      "updated_at": "2026-05-10T18:30:00Z"
+    }
+  }
+}
+```
+
+## 13.4 students
+
+Student responses MUST expose only students visible to the authenticated user.
+
+```json
+{
+  "data": {
+    "student": {
+      "id": "d5b6f8f4-1b85-4c0f-8b9b-2439585db492",
+      "user_id": null,
+      "parent_user_id": "b8f7f9f1-1e2a-4f2b-bf53-03a45e82f3b1",
+      "full_name": "Student Name",
+      "grade_level": "10",
+      "age_group": "15-16",
+      "learning_goals": "Improve algebra confidence.",
+      "notes": null,
+      "created_at": "2026-05-10T18:30:00Z",
+      "updated_at": "2026-05-10T18:30:00Z"
+    }
+  }
+}
+```
+
+## 13.5 student_intakes
+
+Student intake responses MUST use approved `intake_status` values only: `open`, `matched`, `closed`.
+
+```json
+{
+  "data": {
+    "student_intake": {
+      "id": "03c0f842-7c52-4300-9882-2cd247cda5d2",
+      "student_id": "d5b6f8f4-1b85-4c0f-8b9b-2439585db492",
+      "created_by_user_id": "b8f7f9f1-1e2a-4f2b-bf53-03a45e82f3b1",
+      "subject_id": "1dd859f1-a6bb-45bf-9d20-7cd30d390d2f",
+      "level": "High school",
+      "goal": "Prepare for final exam.",
+      "location_preference": "online",
+      "city": null,
+      "budget_min": 100,
+      "budget_max": 180,
+      "preferred_days": ["sunday", "tuesday"],
+      "preferred_time_ranges": ["16:00-19:00"],
+      "learning_style": "structured",
+      "urgency": "high",
+      "status": "open",
+      "created_at": "2026-05-10T18:30:00Z",
+      "updated_at": "2026-05-10T18:30:00Z"
+    }
+  }
+}
+```
+
+## 13.6 match_results
+
+Match result responses MUST preserve ranked matching and link back to `student_intakes`.
+
+```json
+{
+  "data": {
+    "match_results": [
+      {
+        "id": "9f3be0e1-71de-47ef-b86f-18e330f133d7",
+        "intake_id": "03c0f842-7c52-4300-9882-2cd247cda5d2",
+        "teacher_id": "8a68dd3f-a7e8-4f25-98ef-6eacfc9f74f1",
+        "rank": 1,
+        "match_score": 94.5,
+        "reason": "Strong subject fit and matching availability.",
+        "was_selected": false,
+        "created_at": "2026-05-10T18:30:00Z",
+        "updated_at": "2026-05-10T18:30:00Z"
+      }
+    ]
+  }
+}
+```
+
+## 13.7 booking_requests
+
+Booking request responses MUST use approved `booking_status` values only: `pending`, `approved`, `rejected`, `expired`, `cancelled`.
+
+```json
+{
+  "data": {
+    "booking_request": {
+      "id": "44c5e36d-8d93-433b-a99f-bec31aa6e743",
+      "student_id": "d5b6f8f4-1b85-4c0f-8b9b-2439585db492",
+      "teacher_id": "8a68dd3f-a7e8-4f25-98ef-6eacfc9f74f1",
+      "match_result_id": "9f3be0e1-71de-47ef-b86f-18e330f133d7",
+      "requested_start_at": "2026-05-10T16:00:00Z",
+      "requested_end_at": "2026-05-10T17:00:00Z",
+      "status": "pending",
+      "student_message": "Can we focus on algebra?",
+      "teacher_response_message": null,
+      "created_at": "2026-05-10T18:30:00Z",
+      "updated_at": "2026-05-10T18:30:00Z"
+    }
+  }
+}
+```
+
+## 13.8 lessons
+
+Lesson responses MUST use approved `lesson_status` values only: `scheduled`, `completed`, `cancelled`, `no_show`.
+
+```json
+{
+  "data": {
+    "lesson": {
+      "id": "ad0f4b0c-5509-4870-bf1d-5ee5f2f06858",
+      "booking_request_id": "44c5e36d-8d93-433b-a99f-bec31aa6e743",
+      "teacher_id": "8a68dd3f-a7e8-4f25-98ef-6eacfc9f74f1",
+      "student_id": "d5b6f8f4-1b85-4c0f-8b9b-2439585db492",
+      "subject_id": "1dd859f1-a6bb-45bf-9d20-7cd30d390d2f",
+      "status": "scheduled",
+      "scheduled_start_at": "2026-05-10T16:00:00Z",
+      "scheduled_end_at": "2026-05-10T17:00:00Z",
+      "duration_minutes": 60,
+      "location_type": "online",
+      "meeting_link": null,
+      "cancellation_reason": null,
+      "completed_at": null,
+      "created_at": "2026-05-10T18:30:00Z",
+      "updated_at": "2026-05-10T18:30:00Z"
+    }
+  }
+}
+```
+
+---
+
+# 14. Matching API Rules
 
 Matching must preserve:
 
@@ -375,7 +596,7 @@ Example response:
     "intake_id": "uuid",
     "matches": [
       {
-        "match_result_id": "uuid",
+        "id": "uuid",
         "teacher_id": "uuid",
         "rank": 1,
         "match_score": 94.5,
@@ -393,7 +614,7 @@ Forbidden:
 
 ---
 
-# 14. Booking API Rules
+# 15. Booking API Rules
 
 Booking APIs must protect the locked booking model.
 
@@ -411,10 +632,12 @@ Approval response example:
 ```json
 {
   "data": {
-    "booking_request_id": "uuid",
-    "booking_status": "approved",
+    "booking_request": {
+      "id": "uuid",
+      "status": "approved"
+    },
     "lesson": {
-      "lesson_id": "uuid",
+      "id": "uuid",
       "status": "scheduled",
       "scheduled_start_at": "2026-05-10T16:00:00Z",
       "scheduled_end_at": "2026-05-10T17:00:00Z"
@@ -425,7 +648,7 @@ Approval response example:
 
 ---
 
-# 15. Lesson API Rules
+# 16. Lesson API Rules
 
 Lesson APIs must preserve lifecycle integrity.
 
@@ -443,7 +666,7 @@ Lesson response example:
 ```json
 {
   "data": {
-    "lesson_id": "uuid",
+    "id": "uuid",
     "teacher_id": "uuid",
     "student_id": "uuid",
     "subject_id": "uuid",
@@ -460,7 +683,7 @@ Do not add payment-based lesson statuses.
 
 ---
 
-# 16. CRM API Rules
+# 17. CRM API Rules
 
 CRM APIs must be relationship-scoped.
 
@@ -486,7 +709,7 @@ Rules:
 
 ---
 
-# 17. Parent Dashboard Contract
+# 18. Parent Dashboard Contract
 
 Parent dashboard must be scoped to linked children only.
 
@@ -518,7 +741,7 @@ Rules:
 
 ---
 
-# 18. Chat Contract
+# 19. Chat Contract
 
 Chat must be relationship-scoped.
 
@@ -545,7 +768,7 @@ Rules:
 
 ---
 
-# 19. Files Contract
+# 20. Files Contract
 
 Files are stored in Supabase Storage.
 
@@ -575,7 +798,7 @@ Rules:
 
 ---
 
-# 20. Notifications Contract
+# 21. Notifications Contract
 
 Notifications are email-first in MVP.
 
@@ -603,7 +826,7 @@ Do not add SMS unless explicitly approved.
 
 ---
 
-# 21. Subscription Contract
+# 22. Subscription Contract
 
 Subscriptions belong to teachers.
 
@@ -634,7 +857,7 @@ MVP does not include real payment processing.
 
 ---
 
-# 22. Admin Contract
+# 23. Admin Contract
 
 Admin APIs must be explicit and protected.
 
@@ -656,7 +879,7 @@ Response example:
 
 ---
 
-# 23. Versioning Rule
+# 24. Versioning Rule
 
 Breaking API changes require explicit approval.
 
@@ -676,7 +899,7 @@ If breaking change is needed:
 
 ---
 
-# 24. Frontend Integration Rules
+# 25. Frontend Integration Rules
 
 Frontend must not:
 - assume fields not in contract
@@ -693,7 +916,7 @@ Frontend must:
 
 ---
 
-# 25. Backend Implementation Rules
+# 26. Backend Implementation Rules
 
 Backend must:
 - validate request body
@@ -707,7 +930,7 @@ Backend must:
 
 ---
 
-# 26. QA Contract Checklist
+# 27. QA Contract Checklist
 
 QA must validate:
 
@@ -724,7 +947,7 @@ QA must validate:
 
 ---
 
-# 27. Hard Failure Conditions
+# 28. Hard Failure Conditions
 
 API contract is invalid if it:
 
@@ -743,7 +966,7 @@ API contract is invalid if it:
 
 ---
 
-# 28. Final Rule
+# 29. Final Rule
 
 StudyBuddy APIs are system contracts.
 

@@ -249,6 +249,7 @@ Do not return raw DB errors to the client.
 Backend MUST:
 - follow API_Contracts.md strictly
 - return only approved response shapes
+- never return a top-level success boolean
 - validate ownership and lifecycle states
 - never invent enums
 - never expose raw DB errors
