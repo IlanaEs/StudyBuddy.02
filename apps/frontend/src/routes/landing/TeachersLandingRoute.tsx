@@ -1,0 +1,138 @@
+import { Link } from 'react-router-dom';
+
+import {
+  BentoAudienceGrid,
+  BrutalComparisonTable,
+  FAQAccordion,
+  LandingCTA,
+  LegalFooter,
+  LandingScreenNav,
+  ProcessStepper,
+  TeacherPricingPlans,
+  ValueSection,
+} from '../../components/landing/LandingComponents';
+import { teachersLandingContent } from '../../content/landing/teachersLandingContent';
+
+export function TeachersLandingRoute() {
+  const content = teachersLandingContent;
+
+  return (
+    <div className="landing-page teacher-page" dir="rtl" lang="he">
+      <section className="landing-section teacher-hero teacher-hero-complete" dir="rtl" aria-labelledby="teacher-landing-title">
+        <div className="memphis-layer" aria-hidden="true">
+          <span className="shape shape-one" />
+          <span className="shape shape-two" />
+          <span className="shape shape-three" />
+        </div>
+        <nav className="landing-nav" aria-label="ניווט עמוד מורים">
+          <Link className="brand-lockup" to="/">
+            <img alt="StudyBuddy" src="/assets/logo_s.png" />
+            <span>{content.brand}</span>
+          </Link>
+          <Link className="role-switcher" to={content.hero.secondaryCta.to}>
+            {content.hero.secondaryCta.label}
+          </Link>
+        </nav>
+        <div className="teacher-hero-layout">
+          <div className="teacher-hero-body">
+            <h1 id="teacher-landing-title">{content.hero.title}</h1>
+            <p>{content.hero.body}</p>
+            <div className="teacher-actions">
+              <Link className="tactile-button tactile-button-large" to={content.hero.primaryCta.to}>
+                {content.hero.primaryCta.label}
+              </Link>
+              <Link className="secondary-link" to={content.hero.secondaryCta.to}>
+                {content.hero.secondaryCta.label}
+              </Link>
+            </div>
+            <p className="teacher-note">{content.hero.primaryCta.note}</p>
+          </div>
+          <aside className="teacher-os-preview" aria-label="StudyBuddy OS">
+            {content.tools.items.map((tool) => (
+              <article key={tool.title}>
+                <strong>{tool.title}</strong>
+                <span>{tool.body}</span>
+              </article>
+            ))}
+          </aside>
+        </div>
+      </section>
+      <LandingScreenNav
+        items={[
+          { label: 'איך זה עובד', href: '#teacher-process' },
+          { label: content.tools.title, href: '#teacher-tools' },
+          { label: content.plans.title, href: '#teacher-plans' },
+          { label: content.faq.title, href: '#teacher-faq' },
+          { label: content.hero.secondaryCta.label, href: content.hero.secondaryCta.to, tone: 'primary' },
+        ]}
+      />
+
+      <ProcessStepper
+        id="teacher-process"
+        title={content.process.title}
+        summary="איך זה עובד?"
+        steps={content.process.steps}
+        closing={content.onboarding.body}
+      />
+
+      <ValueSection id="teacher-value" title={content.value.title} hook="הערך למורה" items={content.value.items} />
+
+      <section className="landing-section comparison-shell" dir="rtl" aria-labelledby="teacher-comparison-label">
+        <p id="teacher-comparison-label" className="section-label">
+          {content.comparison.label}
+        </p>
+        <BrutalComparisonTable
+          title={content.comparison.title}
+          columns={content.comparison.columns}
+          rows={content.comparison.rows}
+        />
+      </section>
+
+      <BentoAudienceGrid id="teacher-tools" title={content.tools.title} subtitle="The OS Features" items={content.tools.items} />
+
+      <section className="landing-section stop-section" dir="rtl" aria-labelledby="stop-title">
+        <h2 id="stop-title" className="section-title solo-title">
+          {content.stopDoing.title}
+        </h2>
+        <div className="stop-grid">
+          {content.stopDoing.items.map((item) => (
+            <p key={item}>{item}</p>
+          ))}
+        </div>
+      </section>
+
+      <BentoAudienceGrid id="teacher-audience" title={content.audience.title} subtitle="Teacher Types" items={content.audience.items} />
+
+      <section className="landing-section onboarding-section" dir="rtl" aria-labelledby="onboarding-title">
+        <p className="section-label">{content.onboarding.label}</p>
+        <h2 id="onboarding-title">{content.onboarding.title}</h2>
+        <p>{content.onboarding.body}</p>
+      </section>
+
+      <TeacherPricingPlans id="teacher-plans" title={content.plans.title} plans={content.plans.items} />
+
+      <section className="landing-section plan-fit-section" dir="rtl" aria-labelledby="plan-fit-title">
+        <BrutalComparisonTable
+          title={content.planFit.title}
+          columns={content.planFit.columns}
+          rows={content.planFit.rows}
+        />
+        <div className="plan-notes">
+          {content.planFit.notes.map((note) => (
+            <p key={note}>{note}</p>
+          ))}
+        </div>
+      </section>
+
+      <FAQAccordion id="teacher-faq" title={content.faq.title} sections={content.faq.sections} />
+
+      <LandingCTA
+        title={content.finalCta.title}
+        label={content.finalCta.label}
+        to={content.finalCta.to}
+      />
+
+      <LegalFooter title={content.legal.title} items={content.legal.items} support="" supportLinks="" />
+    </div>
+  );
+}
