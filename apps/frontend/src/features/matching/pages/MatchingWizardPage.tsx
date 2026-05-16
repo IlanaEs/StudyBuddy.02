@@ -53,8 +53,13 @@ export function MatchingWizardPage() {
   useEffect(() => {
     const role = searchParams.get('role');
     if (role === 'student' || role === 'parent') {
+      // Coming from landing page — reset any previous session and jump to name step
+      useMatchingStore.getState().reset();
       updateIntake({ userContext: role });
-      if (step === 0) setStep(2); // skip entry + user-context screens
+      setStep(2);
+    } else if (step > 10) {
+      // Stale state from completed session — reset
+      useMatchingStore.getState().reset();
     }
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -169,7 +174,7 @@ export function MatchingWizardPage() {
         />
         {errors.fullName && <div style={{ color: 'var(--coral)', fontSize: 13, marginBottom: 8 }}>{errors.fullName}</div>}
         <div className="flex gap-3 mt-4">
-          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>← חזור</button>
+          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור →</button>
           <button onClick={() => void handleNext()} className="flex-1 py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>המשך ←</button>
         </div>
       </WizardShell>
@@ -196,7 +201,7 @@ export function MatchingWizardPage() {
         {goals.map((g) => (
           <WizardOptionCard key={g.value} emoji={g.emoji} label={g.label} description={g.desc} selected={intake.learningGoal === g.value} onClick={() => { updateIntake({ learningGoal: g.value as LearningGoal }); nextStep(); }} />
         ))}
-        <button onClick={prevStep} className="mt-2 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>← חזור</button>
+        <button onClick={prevStep} className="mt-2 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזור →</button>
       </WizardShell>
     );
   }
@@ -223,7 +228,7 @@ export function MatchingWizardPage() {
           <WizardOptionCard key={l.value} label={l.label} selected={intake.gradeLevel === l.value} onClick={() => { updateIntake({ gradeLevel: l.value as EducationLevel }); nextStep(); }} />
         ))}
         {isParent && <div className="mt-3 p-3 rounded-lg text-sm" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>🛡️ המערכת תסנן באופן אוטומטי אך ורק מורים מנוסים ומוסמכים לשכבת הגיל הזו.</div>}
-        <button onClick={prevStep} className="mt-2 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>← חזור</button>
+        <button onClick={prevStep} className="mt-2 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזור →</button>
       </WizardShell>
     );
   }
@@ -253,7 +258,7 @@ export function MatchingWizardPage() {
             </button>
           ))}
         </div>
-        <button onClick={prevStep} className="mt-4 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>← חזור</button>
+        <button onClick={prevStep} className="mt-4 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזור →</button>
       </WizardShell>
     );
   }
@@ -304,12 +309,12 @@ export function MatchingWizardPage() {
               style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 14, outline: 'none' }}
               autoFocus
             />
-            <button onClick={() => setFreeTextSubject(false)} className="text-sm mb-3" style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer' }}>← חזור לרשימה</button>
+            <button onClick={() => setFreeTextSubject(false)} className="text-sm mb-3" style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer' }}>חזור → לרשימה</button>
           </>
         )}
         {errors.subjectName && <div style={{ color: 'var(--coral)', fontSize: 13, marginBottom: 8 }}>{errors.subjectName}</div>}
         <div className="flex gap-3 mt-2">
-          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>← חזור</button>
+          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור →</button>
           <button onClick={() => void handleNext()} className="flex-1 py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>המשך ←</button>
         </div>
       </WizardShell>
@@ -331,7 +336,7 @@ export function MatchingWizardPage() {
           <WizardOptionCard key={b.label} label={b.label} selected={intake.budgetMax === b.max} onClick={() => { updateIntake({ budgetMin: b.min, budgetMax: b.max }); nextStep(); }} />
         ))}
         {errors.budget && <div style={{ color: 'var(--coral)', fontSize: 13 }}>{errors.budget}</div>}
-        <button onClick={prevStep} className="mt-2 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>← חזור</button>
+        <button onClick={prevStep} className="mt-2 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזור →</button>
       </WizardShell>
     );
   }
@@ -397,7 +402,7 @@ export function MatchingWizardPage() {
         {isParent && <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>🕒 אנו נציג אך ורק מורים שפנויים באופן ודאי בחלונות הזמן שתגדירו. אין צורך בטלפונים, בירורים או תיאומים מורכבים.</div>}
 
         <div className="flex gap-3 mt-2">
-          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>← חזור</button>
+          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור →</button>
           <button onClick={() => void handleNext()} className="flex-1 py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>המשך ←</button>
         </div>
       </WizardShell>
@@ -444,7 +449,7 @@ export function MatchingWizardPage() {
         </div>
 
         <div className="flex gap-3 mt-2">
-          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>← חזור</button>
+          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור →</button>
           <button onClick={() => void handleNext()} className="flex-1 py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>המשך ←</button>
         </div>
       </WizardShell>
@@ -478,7 +483,7 @@ export function MatchingWizardPage() {
       ]} onEdit={() => setStep(2)} />
 
       <div className="flex gap-3 mt-4">
-        <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>← חזור</button>
+        <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור →</button>
         <button onClick={() => void handleNext()} className="flex-1 py-4 font-bold rounded-xl text-lg" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>
           מצאו לי מורים ←
         </button>

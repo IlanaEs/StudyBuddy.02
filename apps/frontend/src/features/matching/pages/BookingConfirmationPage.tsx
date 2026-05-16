@@ -33,12 +33,12 @@ export function BookingConfirmationPage() {
           ⏳ סטטוס: ממתין לאישור המורה
         </div>
 
-        <div className="flex gap-3">
-          <button onClick={() => navigate('/dashboard')} className="flex-1 py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>
+        <div className="flex flex-col gap-3">
+          <button onClick={() => navigate('/dashboard')} className="w-full py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>
             לדשבורד שלי ←
           </button>
-          <button onClick={() => navigate('/onboarding/results')} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>
-            צפייה בבקשה
+          <button onClick={() => navigate('/onboarding/matching')} className="w-full py-3 rounded-xl font-medium text-sm" style={{ background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--text-3)', cursor: 'pointer' }}>
+            חיפוש מורה נוסף
           </button>
         </div>
       </div>

@@ -21,13 +21,13 @@ export function TeacherMatchCard({ match, userContext, onSelect }: TeacherMatchC
     >
       {rank === 1 && (
         <div
-          className="absolute top-3 left-3 text-xs font-bold px-2 py-1 rounded-full"
+          className="absolute top-3 right-3 text-xs font-bold px-2 py-1 rounded-full"
           style={{ background: 'var(--cyan)', color: '#0f4544' }}
         >
           #1 המלצה שלנו
         </div>
       )}
-      <div className="flex items-start gap-4 mb-3">
+      <div className={`flex items-start gap-4 mb-3 ${rank === 1 ? 'pt-6' : ''}`}>
         <div
           className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold"
           style={{ background: 'var(--surface-2)', color: 'var(--cyan)' }}
@@ -46,7 +46,7 @@ export function TeacherMatchCard({ match, userContext, onSelect }: TeacherMatchC
             <div style={{ color: 'var(--text-3)', fontSize: 13 }}>🕒 {teacher.availabilityPreview}</div>
           )}
         </div>
-        <div className="text-left flex-shrink-0">
+        <div className="flex-shrink-0 text-start">
           <div className="font-bold text-lg" style={{ color: 'var(--gold)' }}>₪{teacher.hourlyRate}</div>
           <div style={{ color: 'var(--text-3)', fontSize: 12 }}>לשעה</div>
         </div>
