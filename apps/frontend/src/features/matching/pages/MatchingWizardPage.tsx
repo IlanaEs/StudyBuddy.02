@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMatchingStore } from '../store/matchingStore';
 import { WizardShell } from '../components/WizardShell';
 import { WizardProgress } from '../components/WizardProgress';
@@ -44,10 +44,19 @@ const SOFT_PREFS_PARENT = [
 
 export function MatchingWizardPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { step, intake, updateIntake, nextStep, prevStep, setStep, setMatchResults, setLoading, isLoading } = useMatchingStore();
   const [subjectSearch, setSubjectSearch] = useState('');
   const [freeTextSubject, setFreeTextSubject] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const role = searchParams.get('role');
+    if (role === 'student' || role === 'parent') {
+      updateIntake({ userContext: role });
+      if (step === 0) setStep(2); // skip entry + user-context screens
+    }
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const isParent = intake.userContext === 'parent';
   const subjects = subjectsByLevel[intake.gradeLevel ?? 'elementary'] ?? [];

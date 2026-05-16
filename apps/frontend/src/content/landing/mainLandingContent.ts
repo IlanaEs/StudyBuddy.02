@@ -22,14 +22,14 @@ export const mainLandingContent = {
         title: 'אני מחפש/ת עבור עצמי',
         note: 'מפעיל מסלול תלמיד',
         cta: 'מתחילים כאן',
-        to: '/intake?role=student',
+        to: '/onboarding/matching?role=student',
       },
       {
         icon: '🏡',
         title: 'אני הורה שמחפש עבור הילד/ה',
         note: 'מפעיל מסלול הורה',
         cta: 'מתחילים כאן',
-        to: '/intake?role=parent',
+        to: '/onboarding/matching?role=parent',
       },
     ],
     teacherCta: {
@@ -260,7 +260,7 @@ export const mainLandingContent = {
   finalCta: {
     title: 'מרגישים מוכנים למצוא את המורה שמתאים לכם באמת?',
     label: 'אני רוצה להתחיל',
-    to: '/intake?role=student',
+    to: '/onboarding/matching?role=student',
   },
   legal: {
     title: '🛡️ מידע משפטי ופרטיות (Footer)',
