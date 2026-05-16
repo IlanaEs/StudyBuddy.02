@@ -9,6 +9,10 @@ import { SignupRoute } from '../routes/SignupRoute';
 import { MainLandingRoute } from '../routes/landing/MainLandingRoute';
 import { SafePlaceholderRoute } from '../routes/landing/SafePlaceholderRoute';
 import { TeachersLandingRoute } from '../routes/landing/TeachersLandingRoute';
+import { MatchingWizardPage } from '../features/matching/pages/MatchingWizardPage';
+import { MatchResultsPage } from '../features/matching/pages/MatchResultsPage';
+import { BookingRequestPage } from '../features/matching/pages/BookingRequestPage';
+import { BookingConfirmationPage } from '../features/matching/pages/BookingConfirmationPage';
 
 export function App() {
   return (
@@ -21,6 +25,10 @@ export function App() {
           path="/teacher-onboarding"
           element={<SafePlaceholderRoute title="Teacher onboarding placeholder" />}
         />
+        <Route path="/onboarding/matching" element={<MatchingWizardPage />} />
+        <Route path="/onboarding/results" element={<MatchResultsPage />} />
+        <Route path="/onboarding/booking" element={<BookingRequestPage />} />
+        <Route path="/onboarding/confirmation" element={<BookingConfirmationPage />} />
         <Route path="/login" element={<LoginRoute />} />
         <Route path="/signup" element={<SignupRoute />} />
         <Route
