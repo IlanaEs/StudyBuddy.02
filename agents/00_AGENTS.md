@@ -225,7 +225,7 @@ All agents MUST follow:
 Core source of truth documents:
 - Sacred Names Convention
 - DB Schema v1
-- StudyBuddy.03 — API Contracts
+- StudyBuddy.02 — API Contracts
 
 ---
 

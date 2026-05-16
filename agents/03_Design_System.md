@@ -1,739 +1,563 @@
-# Design_System.md
+# StudyBuddy.02 Design System
 
-## StudyBuddy.02 Design System
+Source of Truth
 
-### Cyber Memphis Brutalism
+## 1. Design Philosophy
 
-StudyBuddy uses a hybrid design language combining:
-
-* Modern Memphis energy
-* Neo-Brutalist structure
-* Cyber-professional operational UX
-* Bento-based system architecture
-
-The system should feel:
-
-```text id="7f5m5e"
-Fast, intelligent, tactile, operational, playful, structured, and confidently non-corporate.
-```
-
-This is NOT:
-
-* generic SaaS UI
-* educational pastel UI
-* enterprise dashboard UI
-* minimal Apple-style UI
-
-This is:
-
-```text id="5l7r8u"
-An operational workspace for private education.
-```
-
-Based on the official design principles defined in the StudyBuddy design language 
-
----
-
-# 1. Core Design Philosophy
-
-## Product Identity
-
-StudyBuddy is:
-
-* not a tutor directory
-* not a school ERP
-* not a cold CRM
+StudyBuddy is not a "school platform".
 
 It is:
 
-```text id="t6dy63"
-An Operating System for private education.
-```
-
-The interface must reflect:
-
-* operational flow
-* fast actions
-* low friction
-* intelligent structure
-* emotional energy
-
----
-
-# 2. Experience Principles
-
-| Principle            | Meaning                                              |
-| -------------------- | ---------------------------------------------------- |
-| Structured Chaos     | Organized layouts with controlled playful disruption |
-| Friendly Efficiency  | Fast UX without emotional coldness                   |
-| Brutal Clarity       | Obvious hierarchy and obvious actions                |
-| Playful Intelligence | Smart but human                                      |
-| Tactile Interfaces   | Interfaces should feel physical                      |
-| Anti-Corporate       | Personality over sterile perfection                  |
-| Operational Focus    | Productivity over decoration                         |
-
----
-
-# 3. Global UX Philosophy
-
-## Primary UX Rule
-
-```text id="w8h0e5"
-Never make the user search.
-```
-
-The system should:
-
-* surface actions immediately
-* reduce cognitive load
-* minimize clicks
-* eliminate dead screens
-* prioritize operational continuity
-
----
-
-## Anti-Hunting Principle
-
-The user should never:
-
-* browse endlessly
-* search for hidden actions
-* navigate deep trees
-* decode unclear states
-
-The system should proactively:
-
-* suggest
-* highlight
-* surface
-* prioritize
-
----
-
-# 4. Layout Architecture
-
-## Core Structure
-
-The system uses:
-
-* Bento architecture
-* modular cards
-* operational widgets
-* layered dashboards
-* asymmetric balance
-
----
-
-## Layout Principles
-
-Layouts must feel:
-
-* alive
-* modular
-* fast
-* operational
-* intentional
-
-Never:
-
-* empty enterprise whitespace
-* giant unused gaps
-* spreadsheet UI
-* sterile admin panels
-
----
-
-## Grid System
-
-### Desktop
-
-* 12-column grid
-
-### Tablet
-
-* 8-column grid
-
-### Mobile
-
-* 4-column grid
-
----
-
-# 5. Visual Language
-
-## Structural Layer
-
-Always maintain:
-
-* clear hierarchy
-* predictable spacing
-* stable alignment
-* readable density
-
----
-
-## Decorative Layer
-
-Allowed:
-
-* circles
-* triangles
-* arrows
-* stars
-* stickers
-* Memphis squiggles
-* abstract geometry
-* rotated shapes
-
-Purpose:
-
-* create rhythm
-* guide the eye
-* soften brutalism
-* inject energy
-
----
-
-## Decorative Rules
-
-Decorations must NEVER:
-
-* block readability
-* compete with CTAs
-* reduce accessibility
-* create visual noise
-
----
-
-# 6. Style Fusion
-
-## Memphis Influence
-
-Characteristics:
-
-* optimistic
-* colorful
-* geometric
-* layered
-* youthful
-
----
-
-## Neo-Brutalist Influence
-
-Characteristics:
-
-* thick borders
-* hard shadows
-* heavy typography
-* tactile interactions
-* raw UI surfaces
-* asymmetrical balance
-
----
-
-## Cyber-Professional Influence
-
-Characteristics:
-
-* operational dashboards
-* command-center feeling
-* high information clarity
-* structured workflows
-* modular systems
-
----
-
-# 7. Color System
-
-## Primary Brand Colors
-
-| Token         | Value     |
-| ------------- | --------- |
-| SB Orange     | `#F26610` |
-| SB Blue       | `#577DFF` |
-| SB Light Blue | `#8BB7F4` |
-
----
-
-## Accent Colors
-
-| Token         | Value     |
-| ------------- | --------- |
-| Hot Red       | `#FF4D4D` |
-| Vivid Yellow  | `#FFD93D` |
-| Mint          | `#63E6BE` |
-| Electric Cyan | `#3BC9DB` |
-| Soft Violet   | `#B197FC` |
-
----
-
-## Neutral Palette
-
-| Token            | Value     |
-| ---------------- | --------- |
-| Background Cream | `#F8F5EF` |
-| Pure Black       | `#111111` |
-| Soft Black       | `#222222` |
-| Border Gray      | `#D9D9D9` |
-| White Surface    | `#FFFFFF` |
-
----
-
-## Dark Mode
-
-| Token            | Value     |
-| ---------------- | --------- |
-| Background       | `#111111` |
-| Surface          | `#1A1A1A` |
-| Elevated Surface | `#242424` |
-| Primary Text     | `#FFFFFF` |
-| Secondary Text   | `#B5B5B5` |
-
----
-
-# 8. Typography System
-
-## Primary Typeface
-
-### Space Grotesk
-
-Used for:
-
-* headings
-* buttons
-* cards
-* navigation
-* dashboards
-* labels
-
----
-
-# Typography Rules
-
-| Element        | Weight  |
-| -------------- | ------- |
-| Hero Titles    | 700-800 |
-| Section Titles | 700     |
-| Card Titles    | 600     |
-| Body Text      | 400-500 |
-| Labels         | 500-600 |
-
----
-
-## Typography Philosophy
-
-Typography must prioritize:
-
-* readability
-* hierarchy
-* operational clarity
-* density efficiency
-
-Avoid:
-
-* ultra-thin fonts
-* luxury typography
-* elegant editorial layouts
-* oversized empty spacing
-
----
-
-# 9. Borders & Shadows
-
-## Border Rules
-
-### Standard Border
-
-```css id="9jndx6"
-border: 4px solid #111111;
-```
-
-### Exceptions
-
-| Component  | Border |
-| ---------- | ------ |
-| Inputs     | 3px    |
-| Pills      | 2px    |
-| Micro Tags | 2px    |
-
----
-
-## Shadow Rules
-
-### Standard Shadow
-
-```css id="qztdhm"
-box-shadow: 6px 6px 0px #111111;
-```
-
-Rules:
-
-* no blur
-* no opacity
-* no soft glow
-* hard offsets only
-
----
-
-# 10. Radius System
-
-| Token | Value |
-| ----- | ----- |
-| sm    | 12px  |
-| md    | 20px  |
-| lg    | 28px  |
-| xl    | 36px  |
-
----
-
-# 11. Spacing System
-
-| Token | Value |
-| ----- | ----- |
-| xs    | 4px   |
-| sm    | 8px   |
-| md    | 16px  |
-| lg    | 24px  |
-| xl    | 32px  |
-| 2xl   | 48px  |
-
----
-
-# 12. Component Language
-
-## Cards
-
-Cards are the primary organizational structure.
-
-Cards should feel:
-
-* tactile
-* layered
-* operational
-* modular
-
----
-
-## Standard Card
-
-```css id="3x9vte"
-background: white;
-border: 4px solid black;
-border-radius: 24px;
-box-shadow: 6px 6px 0 black;
-```
-
----
-
-# Buttons
-
-## Primary Buttons
-
-Characteristics:
-
-* vibrant fill
-* strong contrast
-* thick borders
-* heavy typography
-* tactile feedback
-
----
-
-## Hover State
-
-```css id="nwd8ta"
-transform: translate(-2px,-2px);
-```
-
----
-
-## Active State
-
-```css id="boq3hp"
-transform: translate(4px,4px);
-box-shadow: 0px 0px 0px black;
-```
-
----
-
-# Inputs
-
-Inputs must:
-
-* feel large
-* feel touch-friendly
-* remain highly readable
-* have clear active states
-
-Avoid:
-
-* tiny fields
-* ghost inputs
-* low-contrast placeholders
-
----
-
-# Pills & Tags
-
-Used for:
-
-* lesson status
-* availability
-* urgency
-* subjects
-* online/offline
-* payment states
-
-Characteristics:
-
-* compact
-* bold
-* high contrast
-* readable at small scale
-
----
-
-# 13. Motion System
-
-## Motion Philosophy
-
-Motion should feel:
-
-* reactive
-* physical
-* fast
-* tactile
-* operational
-
-Avoid:
-
-* luxury transitions
-* floating motion
-* slow animations
-* cinematic UI
-
----
-
-# Motion Rules
-
-## Hover
-
-* slight translate
-* subtle rotation
-* tiny scale increase
-
----
-
-## Card Entry
-
-* spring motion
-* slight bounce
-
----
-
-## Notifications
-
-* slide + pop
-
----
-
-# 14. Dashboard Language
-
-## Teacher Dashboard
-
-Must feel:
-
-* operational
-* productive
-* high-control
-* financially aware
-* system-oriented
-
-Inspired by:
-
-* command centers
-* modular workstations
-* productivity tools
-
----
-
-## Parent Dashboard
-
-Must feel:
-
-* safe
-* trustworthy
-* organized
-* transparent
-
----
-
-## Student Dashboard
-
-Must feel:
-
-* lighter
-* motivating
-* optimistic
-* focused
-
----
-
-# 15. Interaction Design
-
-## System Feedback Rules
-
-Every action must feel:
-
-* immediate
-* visible
-* responsive
-* deterministic
-
----
-
-# Examples
-
-## Booking Flow
-
-* instant feedback
-* visible confirmation
-* no ambiguous loading states
-
----
-
-## Match Results
-
-* energetic reveal
-* strong visual hierarchy
-
----
-
-## File Upload
-
-* tactile drag/drop behavior
-* immediate success state
-
----
-
-# 16. Iconography
-
-Icons should:
-
-* use thick strokes
-* have rounded geometry
-* remain readable at small sizes
-* feel modern and operational
-
-Avoid:
-
-* thin icons
-* luxury icon packs
-* over-detailed illustrations
-
----
-
-# 17. Dashboard Architecture
-
-Dashboards are composed of:
-
-* hero cards
-* operational blocks
-* financial widgets
-* quick actions
-* alerts
-* micro-panels
-
----
-
-# Hero Card Rules
-
-The primary operational card must:
-
-* dominate hierarchy
-* appear above the fold
-* communicate immediate action state
-
----
-
-# 18. Design Anti-Patterns
-
-## Forbidden UI Patterns
-
-Do NOT use:
-
-* generic SaaS UI
-* excessive glassmorphism
-* blurry shadows
-* ultra-minimal layouts
-* tiny typography
-* sterile whitespace
-* corporate enterprise aesthetics
-* over-soft interfaces
-
----
-
-# 19. Frontend Implementation Rules
-
-Recommended stack:
-
-* Next.js
-* React
-* TailwindCSS
-* Framer Motion
-* Zustand
-* CSS Variables
-
-Aligned with StudyBuddy architecture and system requirements. 
-
----
-
-# 20. Operational UI Rules
-
-Operational information always overrides decoration.
-
-If decoration conflicts with:
-
-* clarity
-* readability
-* hierarchy
-* speed
-
-the decoration is removed.
-
----
-
-# 21. Accessibility Rules
-
-The system must maintain:
-
-* high contrast
-* readable font sizes
-* keyboard navigation support
-* touch-friendly targets
-* visible focus states
-
-Playfulness must NEVER reduce usability.
-
----
-
-# 22. Final Design Principle
-
-```text id="qfjgyd"
-Organized Energy.
-```
-
-StudyBuddy should feel like:
-
-* a smart operational workspace
-* a modern educational OS
-* structured chaos with purpose
-* a system that moves fast without losing clarity
+- intelligent
+- operational
+- fast
+- organized
+- clean
+- professional
+
+The product should feel like:
+
+a smart workspace that removes chaos for the user.
 
 Not:
 
-* a school management portal
-* a boring CRM
-* a cold enterprise dashboard
-* a tutor listing website
+- a heavy educational system
+- a gaming interface
+- a childish EdTech app
+- a noisy marketplace
+
+## 2. Core UX Principles
+
+### 2.1 Zero Friction
+
+The system always aims for:
+
+- fewer steps
+- less noise
+- reduced decision fatigue
+- faster actions
+- clearer flows
+
+### 2.2 Structured Clarity
+
+Users should always understand:
+
+- where they are
+- what matters now
+- what the next action is
+
+### 2.3 Calm Cyber
+
+The visual language is:
+
+- cyber-inspired
+- modern
+- softly glowing
+- technological
+- calm and controlled
+
+Not:
+
+- aggressive neon
+- hacker aesthetics
+- flashy futuristic overload
+
+### 2.4 Modern Memphis Energy
+
+The visual system also includes a controlled layer of:
+
+- Modern Memphis energy
+- playful geometry
+- soft abstract shapes
+- asymmetrical balance
+- expressive composition
+
+This layer exists to make the product feel:
+
+- alive
+- memorable
+- dynamic
+- less corporate
+
+However, the Memphis influence must remain:
+
+- subtle
+- mature
+- controlled
+- integrated into the operational aesthetic
+
+Allowed Memphis Elements
+
+- soft blobs
+- floating pills
+- rounded abstract shapes
+- asymmetrical compositions
+- layered colorful accents
+- playful spacing
+- organic layout balance
+
+Forbidden Memphis Usage
+
+Do NOT use:
+
+- chaotic patterns
+- loud 80s aesthetics
+- random geometric explosions
+- excessive decorations
+- childish educational visuals
+- overly colorful layouts
+
+Important Principle
+
+StudyBuddy is:
+
+"Operational SaaS with controlled Memphis energy."
+
+Not:
+
+"Memphis artwork with dashboards on top."
+
+The Memphis layer should enhance:
+
+- warmth
+- personality
+- emotional connection
+
+Without hurting:
+
+- clarity
+- hierarchy
+- usability
+- operational focus
+
+## 3. Color System
+
+| Purpose | Color | HEX |
+| --- | --- | --- |
+| Primary Accent | Turquoise | #4ce7e3 |
+| Highlight / Recommended | Neon Yellow | #fccb01 |
+| Main Background | Dark Teal | #175655 |
+| Alerts / Errors | Pink Red | #e22b57 |
+| Secondary Accent | Lime Green | #bbe341 |
+
+## 4. Background System
+
+Core Principle
+
+Backgrounds should never feel completely flat.
+
+Every screen may include subtle depth layers such as:
+
+- gradients
+- glow
+- lighting
+- soft texture
+- atmospheric depth
+
+Goal:
+
+create a clean cyber workspace atmosphere.
+
+### 4.1 Dot Grid System
+
+Purpose
+
+A subtle dot-grid texture may be used to create:
+
+- data/workspace feeling
+- structure
+- depth
+- futuristic operational atmosphere
+
+Important Rules
+
+The dots must be:
+
+- extremely subtle
+- very small
+- low opacity
+- visually integrated into the background
+
+The grid is never the main visual element.
+
+Critical Rule
+
+Not every screen requires a grid.
+
+The design system is NOT based on:
+
+- heavy square grids
+- technical wireframe aesthetics
+- rigid layout lines everywhere
+
+Some screens may use:
+
+- smooth gradients only
+- glow only
+- clean flat surfaces
+- soft textures only
+
+Recommended Usage
+
+Use dot-grid mostly in:
+
+- dashboards
+- CRM screens
+- analytics
+- loading states
+- onboarding
+- empty states
+
+Use lightly or avoid in:
+
+- modals
+- dense forms
+- focus-heavy flows
+- booking screens
+- compact layouts
+
+Recommended Values
+
+| Property | Value |
+| --- | --- |
+| Dot Size | 1px-2px |
+| Spacing | 18px-28px |
+| Opacity | 0.06-0.14 |
+
+## 5. Layout Philosophy
+
+Bento Influence
+
+The system uses:
+
+- modular cards
+- structured content blocks
+- asymmetrical balance
+- clean spacing
+
+However:
+
+not every screen should become an aggressive Bento layout.
+
+Important Principle
+
+Sometimes:
+
+simpler screens are better screens.
+
+Avoid forcing every interface into:
+
+- too many boxes
+- excessive segmentation
+- unnecessary visual fragmentation
+
+## 6. Spacing System
+
+| Token | Size |
+| --- | --- |
+| XS | 4px |
+| S | 8px |
+| M | 16px |
+| L | 24px |
+| XL | 32px |
+| XXL | 48px |
+
+## 7. Typography
+
+Typography Feel
+
+Typography should feel:
+
+- sharp
+- clean
+- modern
+- readable
+- premium
+
+Recommended Fonts
+
+| Language | Fonts |
+| --- | --- |
+| Hebrew | Heebo, Rubik |
+| English | Inter, Space Grotesk |
+
+Hierarchy
+
+| Usage | Size |
+| --- | --- |
+| Hero | 48-64 |
+| H1 | 36-48 |
+| H2 | 28-36 |
+| H3 | 22-28 |
+| Body | 16-18 |
+| Small | 12-14 |
+
+## 8. Card System
+
+Core Philosophy
+
+Cards are information containers.
+
+They should feel:
+
+- soft
+- floating
+- organized
+- breathable
+
+Style Rules
+
+- rounded corners
+- soft shadows
+- subtle glow
+- layered gradients
+- minimal borders
+
+Avoid:
+
+- hard outlines
+- heavy borders
+- rigid containers
+
+## 9. Button System
+
+Primary Buttons
+
+- turquoise
+- soft glow
+- visually important
+- clear CTA hierarchy
+
+Secondary Buttons
+
+- transparent
+- subtle outline
+- calm hover states
+
+Danger Buttons
+
+- pink/red
+- reserved only for destructive actions
+
+## 10. Inputs & Forms
+
+Input Feel
+
+Inputs should feel:
+
+- lightweight
+- modern
+- operational
+- fast
+
+Focus States
+
+Use subtle turquoise glow.
+
+Avoid:
+
+- aggressive outlines
+- excessive neon effects
+
+## 11. Motion System
+
+Motion Philosophy
+
+Motion adds:
+
+- life
+- clarity
+- responsiveness
+
+Never noise.
+
+Allowed Motion
+
+- fade
+- soft slide
+- hover lift
+- glow transitions
+- smooth loading
+
+Forbidden Motion
+
+- bouncing
+- flashing
+- chaotic movement
+- aggressive scaling
+- distracting animation
+
+## 12. Glow System
+
+Core Rule
+
+If everything glows,
+nothing feels important.
+
+Glow Should Be Used Mainly For
+
+- primary CTA
+- focus states
+- active navigation
+- important alerts
+- match highlights
+
+Avoid Glow On
+
+- every card
+- every icon
+- every title
+- large content areas
+
+## 13. Dashboard Philosophy
+
+Dashboards should feel like:
+
+- calm command centers
+- organized workspaces
+- operational systems
+
+UX Goal
+
+Not:
+
+"this UI looks impressive."
+
+But:
+
+"everything feels clear immediately."
+
+## 14. Matching Experience
+
+Matching Should Feel
+
+- fast
+- intelligent
+- reliable
+- precise
+
+Important Rule
+
+Do not overload users with endless choices.
+
+The system should help users decide quickly.
+
+## 15. CRM Experience
+
+The CRM should feel:
+
+- lightweight
+- approachable
+- organized
+- fast
+
+Not:
+
+- enterprise-heavy
+- spreadsheet-like
+- corporate ERP software
+
+## 16. Parent Experience
+
+Parents need:
+
+- calmness
+- trust
+- transparency
+- structure
+
+Use:
+
+- clearer layouts
+- lower visual intensity
+- less glow
+
+## 17. Student Experience
+
+Students need:
+
+- speed
+- clarity
+- low friction
+- reduced admin feeling
+
+## 18. Teacher Experience
+
+Teachers need:
+
+- control
+- organization
+- time-saving tools
+- operational calmness
+
+The system should feel like:
+
+a smart digital assistant.
+
+## 19. Admin Experience
+
+Admin interfaces should feel:
+
+- analytical
+- operational
+- system-level
+- monitoring-oriented
+
+Use:
+
+- denser layouts
+- analytics blocks
+- operational hierarchy
+
+## 20. Empty States
+
+Empty states should:
+
+- still feel alive
+- reduce anxiety
+- guide the next action
+
+## 21. Loading States
+
+Preferred:
+
+- skeleton loaders
+- shimmer
+- subtle pulse
+
+Avoid:
+
+- endless spinners
+- frozen screens
+
+## 22. Mobile Philosophy
+
+Mobile-first experience is mandatory.
+
+Interfaces must be:
+
+- thumb-friendly
+- clean
+- readable
+- fast
+- simplified
+
+## 23. Forbidden Design Patterns
+
+Never use:
+
+- generic Bootstrap feeling
+- excessive glow
+- heavy grid structures
+- overly segmented layouts
+- noisy backgrounds
+- dense data tables everywhere
+- childish education visuals
+- visual clutter
+
+## 24. Final Principle
+
+StudyBuddy should feel like:
+
+a calm, intelligent and structured system
+that removes operational chaos from private tutoring.

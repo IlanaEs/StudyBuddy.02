@@ -151,7 +151,7 @@ or:
 Frontend must not depend on:
 
 ```ts
-{ success: true }
+a top-level success boolean
 ```
 
 If backend returns an unexpected shape, the frontend should treat it as an error state.
