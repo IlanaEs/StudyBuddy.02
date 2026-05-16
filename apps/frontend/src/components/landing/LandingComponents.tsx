@@ -481,6 +481,19 @@ type TeacherPlan = {
   badge?: string;
 };
 
+export function TeacherStatsBar({ stats }: { stats: readonly { value: string; label: string }[] }) {
+  return (
+    <div className="teacher-stats-bar" dir="rtl">
+      {stats.map((s) => (
+        <div className="teacher-stat" key={s.label}>
+          <span className="teacher-stat-value">{s.value}</span>
+          <span className="teacher-stat-label">{s.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function TeacherPricingPlans({
   id,
   title,

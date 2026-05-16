@@ -1846,6 +1846,166 @@ a {
   }
 }
 
+/* ── Teacher Stats Bar ──────────────────────────── */
+.teacher-stats-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--line-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.teacher-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 12px;
+  background: var(--surface-2);
+  text-align: center;
+  transition: background 0.2s;
+}
+
+.teacher-stat:hover {
+  background: color-mix(in oklab, var(--cyan) 8%, var(--surface-2));
+}
+
+.teacher-stat-value {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--cyan);
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+.teacher-stat-label {
+  font-size: 12px;
+  color: var(--text-3);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+/* ── Teacher Trust Strip ────────────────────────── */
+.teacher-trust-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px var(--px, 6vw);
+}
+
+.trust-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border: 1px solid var(--line-2);
+  border-radius: 99px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.055) inset,
+    0 8px 24px -16px rgba(0,0,0,0.6);
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.trust-pill:hover {
+  border-color: color-mix(in oklab, var(--cyan) 40%, transparent);
+  transform: translateY(-2px);
+}
+
+/* ── Teacher Tools Grid ──────────────────────────── */
+.teacher-tools-section {
+  padding-block: 72px;
+}
+
+.teacher-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 40px;
+}
+
+.teacher-tool-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 28px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(120% 100% at 0% 100%, var(--blue-soft), transparent 58%),
+    linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01)),
+    var(--surface);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.06) inset,
+    0 20px 48px -36px rgba(0,0,0,0.88);
+  transition: transform 0.28s cubic-bezier(0.2,0.8,0.2,1), border-color 0.2s;
+}
+
+.teacher-tool-card:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in oklab, var(--blue) 40%, var(--line-2));
+}
+
+.tool-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.teacher-tool-card strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.teacher-tool-card p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 15px;
+  line-height: 1.58;
+}
+
+/* ── Stop section enhancements ───────────────────── */
+.stop-section {
+  padding-block: 72px;
+}
+
+/* ── Onboarding section polish ───────────────────── */
+.onboarding-section {
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-lg);
+  margin-inline: var(--px, 6vw);
+}
+
+/* ── Responsive overrides ────────────────────────── */
+@media (max-width: 640px) {
+  .teacher-stats-bar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .teacher-tools-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-trust-strip {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .trust-pill {
+    justify-content: center;
+  }
+}
+
 @media (max-width: 680px) {
   .landing-section {
     width: min(100% - 28px, 1280px);

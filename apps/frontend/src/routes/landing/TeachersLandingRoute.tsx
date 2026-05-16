@@ -9,6 +9,7 @@ import {
   LandingScreenNav,
   ProcessStepper,
   TeacherPricingPlans,
+  TeacherStatsBar,
   ValueSection,
 } from '../../components/landing/LandingComponents';
 import { teachersLandingContent } from '../../content/landing/teachersLandingContent';
@@ -23,6 +24,7 @@ export function TeachersLandingRoute() {
           <span className="shape shape-one" />
           <span className="shape shape-two" />
           <span className="shape shape-three" />
+          <span className="shape shape-four" />
         </div>
         <nav className="landing-nav" aria-label="ניווט עמוד מורים">
           <Link className="brand-lockup" to="/">
@@ -46,6 +48,7 @@ export function TeachersLandingRoute() {
               </Link>
             </div>
             <p className="teacher-note">{content.hero.primaryCta.note}</p>
+            <TeacherStatsBar stats={content.stats} />
           </div>
           <aside className="teacher-os-preview" aria-label="StudyBuddy OS">
             {content.tools.items.map((tool) => (
@@ -88,7 +91,39 @@ export function TeachersLandingRoute() {
         />
       </section>
 
-      <BentoAudienceGrid id="teacher-tools" title={content.tools.title} subtitle="The OS Features" items={content.tools.items} />
+      <section className="teacher-trust-strip" dir="rtl" aria-label="אמינות המערכת">
+        {[
+          { icon: '🛡️', text: 'כל מורה עובר אימות ואישור' },
+          { icon: '🔒', text: 'ללא חשיפת מספר טלפון' },
+          { icon: '⭐', text: 'דירוגים שקופים מתלמידים אמיתיים' },
+        ].map((item) => (
+          <div className="trust-pill" key={item.text}>
+            <span>{item.icon}</span>
+            <span>{item.text}</span>
+          </div>
+        ))}
+      </section>
+
+      <section className="landing-section teacher-tools-section" id="teacher-tools" dir="rtl" aria-labelledby="tools-title">
+        <header className="section-header">
+          <h2 className="section-title" id="tools-title">{content.tools.title}</h2>
+          <p>The OS Features</p>
+        </header>
+        <div className="teacher-tools-grid">
+          {[
+            { ...content.tools.items[0], icon: '📅' },
+            { ...content.tools.items[1], icon: '💰' },
+            { ...content.tools.items[2], icon: '🏆' },
+            { ...content.tools.items[3], icon: '🎯' },
+          ].map((tool) => (
+            <article className="teacher-tool-card" key={tool.title}>
+              <span className="tool-icon">{tool.icon}</span>
+              <strong>{tool.title}</strong>
+              <p>{tool.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <section className="landing-section stop-section" dir="rtl" aria-labelledby="stop-title">
         <h2 id="stop-title" className="section-title solo-title">

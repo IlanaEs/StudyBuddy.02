@@ -2,6 +2,12 @@ import type { LandingFaqSection } from './mainLandingContent';
 
 export const teachersLandingContent = {
   brand: 'StudyBuddy – המערכת לניהול הוראה פרטית.',
+  stats: [
+    { value: '200+', label: 'מורים פעילים במערכת' },
+    { value: '95%', label: 'שביעות רצון מתלמידים' },
+    { value: '3 דק׳', label: 'זמן הגדרה ממוצע' },
+    { value: '0₪', label: 'עלות הצטרפות ראשונית' },
+  ],
   hero: {
     title: 'המערכת שמנהלת את ההוראה הפרטית בשבילכם.\nתנו למערכת לנהל את הבלגן.',
     body: 'המערכת שמנהלת עבורכם את "מאחורי הקלעים" של ההוראה הפרטית. מהתיאום ועד התשלום – הכל במקום אחד, כדי שתוכלו להתמקד במה שאתם באמת אוהבים: ללמד.',
