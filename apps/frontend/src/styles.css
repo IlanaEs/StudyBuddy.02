@@ -1898,6 +1898,13 @@ a {
   padding: 32px var(--px, 6vw);
 }
 
+.trust-pill-icon {
+  display: flex;
+  align-items: center;
+  color: var(--cyan);
+  flex-shrink: 0;
+}
+
 .trust-pill {
   display: inline-flex;
   align-items: center;
@@ -1955,8 +1962,15 @@ a {
 }
 
 .tool-icon {
-  font-size: 32px;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--cyan) 12%, transparent);
+  color: var(--cyan);
+  flex-shrink: 0;
 }
 
 .teacher-tool-card strong {
