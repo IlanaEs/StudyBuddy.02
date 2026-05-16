@@ -13,9 +13,9 @@ export const mockMatches: MatchResult[] = [
     reason: 'התאמה גבוהה: מקצוע, לו״ז, ותקציב',
     teacher: teacher1,
     matchBadges: [
-      { icon: '🎯', label: 'התאמת תוכן', detail: 'מלמדת בדיוק את המקצוע שבחרת.' },
-      { icon: '🕒', label: 'התאמת לו״ז', detail: 'פנויה בשעות הערב בדיוק כפי שביקשת.' },
-      { icon: '💰', label: 'התאמת כיס', detail: 'תואמת את טווח המחיר המבוקש.' },
+      { label: 'התאמת תוכן', detail: 'מלמדת בדיוק את המקצוע שבחרת.' },
+      { label: 'התאמת לו״ז', detail: 'פנויה בשעות הערב בדיוק כפי שביקשת.' },
+      { label: 'התאמת כיס', detail: 'תואמת את טווח המחיר המבוקש.' },
     ],
   },
   {
@@ -23,8 +23,8 @@ export const mockMatches: MatchResult[] = [
     reason: 'התאמה טובה מאוד: מקצוע וגישה',
     teacher: teacher2,
     matchBadges: [
-      { icon: '🎯', label: 'התאמת תוכן', detail: 'מתמחה בדיוק בתחום שנבחר.' },
-      { icon: '🧠', label: 'התאמת גישה', detail: 'פדגוגיה פרקטית ומוכחת.' },
+      { label: 'התאמת תוכן', detail: 'מתמחה בדיוק בתחום שנבחר.' },
+      { label: 'התאמת גישה', detail: 'פדגוגיה פרקטית ומוכחת.' },
     ],
   },
   {
@@ -32,8 +32,8 @@ export const mockMatches: MatchResult[] = [
     reason: 'התאמה טובה: זמינות גבוהה',
     teacher: teacher3,
     matchBadges: [
-      { icon: '🕒', label: 'זמינות גבוהה', detail: 'פנויה כמעט בכל שעה.' },
-      { icon: '🧠', label: 'גישה תומכת', detail: 'ניסיון מוכח עם תלמידים מגוונים.' },
+      { label: 'זמינות גבוהה', detail: 'פנויה כמעט בכל שעה.' },
+      { label: 'גישה תומכת', detail: 'ניסיון מוכח עם תלמידים מגוונים.' },
     ],
   },
 ];

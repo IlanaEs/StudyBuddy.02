@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChevronRight, Info } from 'lucide-react';
 import { useMatchingStore } from '../store/matchingStore';
 import { BookingSlotPicker } from '../components/BookingSlotPicker';
 
@@ -32,7 +33,6 @@ export function BookingRequestPage() {
     setError('');
     setIsSubmitting(true);
 
-    // Build booking request (mock — no real API yet)
     const _bookingRequest = {
       teacher_id: match!.teacher.id,
       match_result_id: match!.id,
@@ -50,7 +50,14 @@ export function BookingRequestPage() {
   return (
     <div dir="rtl" lang="he" className="min-h-screen px-4 py-10" style={{ background: 'var(--bg)' }}>
       <div className="w-full max-w-lg mx-auto">
-        <button onClick={() => navigate('/onboarding/results')} className="mb-4 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>← חזור לתוצאות</button>
+        <button
+          onClick={() => navigate('/onboarding/results')}
+          className="mb-4 flex items-center gap-1 text-sm"
+          style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}
+        >
+          <ChevronRight size={16} />
+          חזור לתוצאות
+        </button>
 
         <div className="rounded-2xl p-5 mb-5" style={{ background: 'var(--surface)', border: '1px solid var(--line-2)' }}>
           <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)' }}>קביעת שיעור עם {match.teacher.fullName}</h1>
@@ -75,12 +82,18 @@ export function BookingRequestPage() {
           />
         </div>
 
-        <div className="mb-4 p-3 rounded-lg text-center text-sm" style={{ background: 'var(--surface)', border: '1px solid var(--line-2)', color: 'var(--text-3)' }}>
-          ⚠️ אין תשלום בשלב זה — רק בקשת שיעור. הסכמה על תשלום תגיע ישירות מהמורה.
+        <div className="mb-4 p-3 rounded-lg flex items-start gap-2 text-sm" style={{ background: 'var(--surface)', border: '1px solid var(--line-2)', color: 'var(--text-3)' }}>
+          <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>אין תשלום בשלב זה — רק בקשת שיעור. הסכמה על תשלום תגיע ישירות מהמורה.</span>
         </div>
 
-        <button onClick={() => void handleSubmit()} disabled={isSubmitting} className="w-full py-4 font-bold rounded-xl text-lg" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>
-          {isSubmitting ? 'שולח בקשה...' : 'שלח בקשת שיעור ←'}
+        <button
+          onClick={() => void handleSubmit()}
+          disabled={isSubmitting}
+          className="w-full py-4 font-bold rounded-xl text-lg"
+          style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}
+        >
+          {isSubmitting ? 'שולח בקשה...' : 'שלח בקשת שיעור'}
         </button>
       </div>
     </div>

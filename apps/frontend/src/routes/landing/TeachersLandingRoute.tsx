@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Shield, Lock, Star, Calendar, DollarSign, Award, Target, X } from 'lucide-react';
 
 import {
   BentoAudienceGrid,
@@ -93,31 +94,9 @@ export function TeachersLandingRoute() {
 
       <section className="teacher-trust-strip" dir="rtl" aria-label="אמינות המערכת">
         {[
-          {
-            icon: (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-            ),
-            text: 'כל מורה עובר אימות ואישור',
-          },
-          {
-            icon: (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
-            ),
-            text: 'ללא חשיפת מספר טלפון',
-          },
-          {
-            icon: (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-              </svg>
-            ),
-            text: 'דירוגים שקופים מתלמידים אמיתיים',
-          },
+          { icon: <Shield size={18} />, text: 'כל מורה עובר אימות ואישור' },
+          { icon: <Lock size={18} />, text: 'ללא חשיפת מספר טלפון' },
+          { icon: <Star size={18} />, text: 'דירוגים שקופים מתלמידים אמיתיים' },
         ].map((item) => (
           <div className="trust-pill" key={item.text}>
             <span className="trust-pill-icon">{item.icon}</span>
@@ -133,45 +112,10 @@ export function TeachersLandingRoute() {
         </header>
         <div className="teacher-tools-grid">
           {[
-            {
-              ...content.tools.items[0],
-              icon: (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                  <line x1="16" y1="2" x2="16" y2="6" />
-                  <line x1="8" y1="2" x2="8" y2="6" />
-                  <line x1="3" y1="10" x2="21" y2="10" />
-                </svg>
-              ),
-            },
-            {
-              ...content.tools.items[1],
-              icon: (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <line x1="12" y1="1" x2="12" y2="23" />
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                </svg>
-              ),
-            },
-            {
-              ...content.tools.items[2],
-              icon: (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="8" r="6" />
-                  <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
-                </svg>
-              ),
-            },
-            {
-              ...content.tools.items[3],
-              icon: (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" />
-                  <circle cx="12" cy="12" r="6" />
-                  <circle cx="12" cy="12" r="2" />
-                </svg>
-              ),
-            },
+            { ...content.tools.items[0], icon: <Calendar size={24} /> },
+            { ...content.tools.items[1], icon: <DollarSign size={24} /> },
+            { ...content.tools.items[2], icon: <Award size={24} /> },
+            { ...content.tools.items[3], icon: <Target size={24} /> },
           ].map((tool) => (
             <article className="teacher-tool-card" key={tool.title}>
               <span className="tool-icon">{tool.icon}</span>
@@ -188,7 +132,10 @@ export function TeachersLandingRoute() {
         </h2>
         <div className="stop-grid">
           {content.stopDoing.items.map((item) => (
-            <p key={item}>{item}</p>
+            <p key={item} className="flex items-start gap-2">
+              <X size={16} style={{ color: 'var(--coral)', flexShrink: 0, marginTop: 3 }} />
+              <span>{item}</span>
+            </p>
           ))}
         </div>
       </section>

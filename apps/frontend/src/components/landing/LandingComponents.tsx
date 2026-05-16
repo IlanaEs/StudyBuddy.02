@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { GraduationCap, Users, Zap, Briefcase, Building2 } from 'lucide-react';
 
 import type {
   LandingFaqItem,
@@ -85,13 +86,24 @@ function FloatingHeroLogo() {
   );
 }
 
+const roleIconMap: Record<string, ReactNode> = {
+  student: <GraduationCap size={28} />,
+  parent: <Users size={28} />,
+};
+
+const planIconMap: Record<string, ReactNode> = {
+  free: <Zap size={22} />,
+  pro: <Briefcase size={22} />,
+  business: <Building2 size={22} />,
+};
+
 export function ForkRoleCards({ roles }: { roles: readonly RoleCard[] }) {
   return (
     <div className="role-card-grid" aria-label="בחירת מסלול">
       {roles.map((role) => (
         <Link className="identity-card" key={role.title} to={role.to}>
           <span className="identity-icon" aria-hidden="true">
-            {role.icon}
+            {roleIconMap[role.icon] ?? null}
           </span>
           <span className="identity-title">{role.title}</span>
           <span className="identity-note">({role.note})</span>
@@ -513,7 +525,7 @@ export function TeacherPricingPlans({
           <article className="pricing-card" key={plan.name}>
             {plan.badge ? <span className="plan-badge">{plan.badge}</span> : null}
             <span className="plan-icon" aria-hidden="true">
-              {plan.icon}
+              {planIconMap[plan.icon] ?? null}
             </span>
             <h3>{plan.name}</h3>
             <p className="plan-headline">{plan.headline}</p>

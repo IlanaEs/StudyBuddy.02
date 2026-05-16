@@ -94,11 +94,11 @@ export const teachersLandingContent = {
   stopDoing: {
     title: 'מהיום, אפשר להפסיק:',
     items: [
-      '❌ לנהל יומן ידני ולפחד מהתנגשויות.',
-      '❌ לזכור בעל פה מי חייב לכם כסף.',
-      '❌ לענות ל-20 הודעות תיאום ביום.',
-      '❌ לרדוף אחרי תלמידים ש"נעלמו".',
-      '❌ לפרסם את המספר האישי שלכם בכל מקום.',
+      'לנהל יומן ידני ולפחד מהתנגשויות.',
+      'לזכור בעל פה מי חייב לכם כסף.',
+      'לענות ל-20 הודעות תיאום ביום.',
+      'לרדוף אחרי תלמידים ש"נעלמו".',
+      'לפרסם את המספר האישי שלכם בכל מקום.',
     ],
   },
   audience: {
@@ -132,7 +132,7 @@ export const teachersLandingContent = {
     items: [
       {
         name: 'The Matchmaker',
-        icon: '🟢',
+        icon: 'free',
         headline: 'להתחיל בלי התחייבות',
         audience: 'למורים שרוצים להתחיל גמיש',
         price: '0₪ דמי מנוי',
@@ -152,7 +152,7 @@ export const teachersLandingContent = {
       },
       {
         name: 'The Professional',
-        icon: '🔵',
+        icon: 'pro',
         headline: 'לעבוד מסודר',
         audience: 'למורים שרוצים להפוך את ההוראה לעסק יציב ומנוהל',
         price: '119₪ / חודש',
@@ -174,7 +174,7 @@ export const teachersLandingContent = {
       },
       {
         name: 'The Business',
-        icon: '🟣',
+        icon: 'business',
         headline: 'למורים שעובדים כמו מקצוענים',
         audience: 'למורים שעובדים כמו מקצוענים',
         price: '199₪ / חודש',
@@ -195,7 +195,7 @@ export const teachersLandingContent = {
     ],
   },
   planFit: {
-    title: '💡 איזה מסלול מתאים לי?',
+    title: 'איזה מסלול מתאים לי?',
     columns: ['סוג מורה', 'מסלול מומלץ'],
     rows: [
       ['סטודנטים שמלמדים מהצד', 'Matchmaker'],
@@ -213,7 +213,7 @@ export const teachersLandingContent = {
     title: 'FAQ למורים — עושים סדר גם מאחורי הקלעים',
     sections: [
       {
-        title: '💰 מודל עסקי ותשלומים',
+        title: 'מודל עסקי ותשלומים',
         items: [
           {
             question: 'כמה זה עולה לי?',
@@ -226,7 +226,7 @@ export const teachersLandingContent = {
         ],
       },
       {
-        title: '📅 ניהול היומן והשיעורים',
+        title: 'ניהול היומן והשיעורים',
         items: [
           {
             question: 'למה להשתמש בזה במקום לסגור בוואטסאפ?',
@@ -243,7 +243,7 @@ export const teachersLandingContent = {
         ],
       },
       {
-        title: '🎯 התאמות וחשיפה במערכת',
+        title: 'התאמות וחשיפה במערכת',
         items: [
           {
             question: 'אני חייב/ת לקבל כל תלמיד שהמערכת מציעה?',
@@ -256,7 +256,7 @@ export const teachersLandingContent = {
         ],
       },
       {
-        title: '💻 טכנולוגיה וקלות שימוש',
+        title: 'טכנולוגיה וקלות שימוש',
         items: [
           {
             question: 'זה נראה לי מסובך טכנולוגית...',
@@ -325,7 +325,7 @@ export const teachersLandingContent = {
     to: '/teacher-onboarding',
   },
   legal: {
-    title: '🛡️ מידע חשוב למורים במערכת:',
+    title: 'מידע חשוב למורים במערכת',
     items: [
       {
         title: 'מעמד המורים',

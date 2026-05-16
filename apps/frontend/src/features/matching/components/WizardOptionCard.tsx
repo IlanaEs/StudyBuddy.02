@@ -1,12 +1,15 @@
+import type { ReactNode } from 'react';
+import { Check } from 'lucide-react';
+
 interface WizardOptionCardProps {
   label: string;
   description?: string;
-  emoji?: string;
+  icon?: ReactNode;
   selected?: boolean;
   onClick: () => void;
 }
 
-export function WizardOptionCard({ label, description, emoji, selected, onClick }: WizardOptionCardProps) {
+export function WizardOptionCard({ label, description, icon, selected, onClick }: WizardOptionCardProps) {
   return (
     <button
       onClick={onClick}
@@ -19,12 +22,20 @@ export function WizardOptionCard({ label, description, emoji, selected, onClick 
         color: 'var(--text)',
       }}
     >
-      {emoji && <span className="text-2xl flex-shrink-0">{emoji}</span>}
-      <div>
+      {icon && (
+        <span className="flex-shrink-0 mt-0.5" style={{ color: selected ? 'var(--cyan)' : 'var(--text-3)' }}>
+          {icon}
+        </span>
+      )}
+      <div className="flex-1">
         <div className="font-semibold" style={{ fontSize: 16, color: 'var(--text)' }}>{label}</div>
         {description && <div style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 2 }}>{description}</div>}
       </div>
-      {selected && <span className="mr-auto flex-shrink-0" style={{ color: 'var(--cyan)', fontSize: 20 }}>✓</span>}
+      {selected && (
+        <span className="flex-shrink-0 mt-0.5" style={{ color: 'var(--cyan)' }}>
+          <Check size={18} />
+        </span>
+      )}
     </button>
   );
 }

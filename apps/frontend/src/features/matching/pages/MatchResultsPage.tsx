@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Award, SearchX, RotateCcw } from 'lucide-react';
 import { useMatchingStore } from '../store/matchingStore';
 import { TeacherMatchCard } from '../components/TeacherMatchCard';
 import { TeacherPreviewModal } from '../components/TeacherPreviewModal';
@@ -40,7 +41,9 @@ export function MatchResultsPage() {
     return (
       <div dir="rtl" lang="he" className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg)' }}>
         <div className="text-center">
-          <div className="text-4xl mb-4">😔</div>
+          <div className="flex justify-center mb-4" style={{ color: 'var(--text-3)' }}>
+            <SearchX size={48} />
+          </div>
           <p style={{ color: 'var(--text-2)' }}>לא נמצאו תוצאות. נסו לשנות את הקריטריונים.</p>
           <button onClick={() => navigate('/onboarding/matching')} className="mt-4 py-2 px-5 rounded-xl font-medium" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>חזרה לחיפוש</button>
         </div>
@@ -54,7 +57,9 @@ export function MatchResultsPage() {
     <div dir="rtl" lang="he" className="min-h-screen px-4 py-10" style={{ background: 'var(--bg)' }}>
       <div className="w-full max-w-lg mx-auto">
         <div className="mb-6">
-          <div className="text-3xl mb-2">🏆</div>
+          <div className="flex mb-3" style={{ color: 'var(--gold)' }}>
+            <Award size={32} />
+          </div>
           <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)' }}>
             {isPartialMatch ? noMatchTitle : title}
           </h1>
@@ -69,8 +74,13 @@ export function MatchResultsPage() {
           <TeacherMatchCard key={m.id} match={m} userContext={userContext} onSelect={handleSelect} />
         ))}
 
-        <button onClick={() => navigate('/onboarding/matching')} className="w-full mt-4 py-3 rounded-xl font-medium text-sm" style={{ background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--text-3)', cursor: 'pointer' }}>
-          🔄 חיפוש מחדש עם קריטריונים שונים
+        <button
+          onClick={() => navigate('/onboarding/matching')}
+          className="w-full mt-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2"
+          style={{ background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--text-3)', cursor: 'pointer' }}
+        >
+          <RotateCcw size={14} />
+          חיפוש מחדש עם קריטריונים שונים
         </button>
       </div>
 

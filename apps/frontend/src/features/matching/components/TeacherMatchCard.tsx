@@ -1,3 +1,4 @@
+import { BadgeCheck, Star, Clock, Target } from 'lucide-react';
 import type { MatchResult } from '../types/matching.types';
 
 interface TeacherMatchCardProps {
@@ -8,7 +9,7 @@ interface TeacherMatchCardProps {
 
 export function TeacherMatchCard({ match, userContext, onSelect }: TeacherMatchCardProps) {
   const { teacher, matchScore, matchBadges, rank } = match;
-  const ctaText = userContext === 'parent' ? 'לתיאום וקביעת שיעור ←' : 'סגירת שיעור מהירה ←';
+  const ctaText = userContext === 'parent' ? 'לתיאום וקביעת שיעור' : 'סגירת שיעור מהירה';
 
   return (
     <div
@@ -37,13 +38,21 @@ export function TeacherMatchCard({ match, userContext, onSelect }: TeacherMatchC
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <h3 className="font-bold text-lg" style={{ color: 'var(--text)' }}>{teacher.fullName}</h3>
-            {teacher.isVerified && <span style={{ color: 'var(--lime)', fontSize: 14 }}>✓ מאומת</span>}
+            {teacher.isVerified && (
+              <span className="flex items-center gap-1" style={{ color: 'var(--lime)', fontSize: 13 }}>
+                <BadgeCheck size={14} /> מאומת
+              </span>
+            )}
           </div>
-          <div style={{ color: 'var(--text-2)', fontSize: 13 }}>
-            ⭐ {teacher.ratingAvg.toFixed(1)} ({teacher.ratingCount} ביקורות)
+          <div className="flex items-center gap-1" style={{ color: 'var(--text-2)', fontSize: 13 }}>
+            <Star size={13} />
+            <span>{teacher.ratingAvg.toFixed(1)} ({teacher.ratingCount} ביקורות)</span>
           </div>
           {teacher.availabilityPreview && (
-            <div style={{ color: 'var(--text-3)', fontSize: 13 }}>🕒 {teacher.availabilityPreview}</div>
+            <div className="flex items-center gap-1" style={{ color: 'var(--text-3)', fontSize: 13 }}>
+              <Clock size={13} />
+              <span>{teacher.availabilityPreview}</span>
+            </div>
           )}
         </div>
         <div className="flex-shrink-0 text-start">
@@ -60,7 +69,7 @@ export function TeacherMatchCard({ match, userContext, onSelect }: TeacherMatchC
         className="flex items-center gap-2 mb-4 p-2 rounded-lg"
         style={{ background: 'var(--surface-2)', fontSize: 13 }}
       >
-        <span style={{ color: 'var(--cyan)' }}>🎯</span>
+        <Target size={14} style={{ color: 'var(--cyan)', flexShrink: 0 }} />
         <span style={{ color: 'var(--text-2)' }}>ציון התאמה: <strong style={{ color: 'var(--cyan)' }}>{matchScore}%</strong></span>
       </div>
 
@@ -73,7 +82,7 @@ export function TeacherMatchCard({ match, userContext, onSelect }: TeacherMatchC
               style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)' }}
               title={badge.detail}
             >
-              {badge.icon} {badge.label}
+              {badge.label}
             </span>
           ))}
         </div>
@@ -81,7 +90,7 @@ export function TeacherMatchCard({ match, userContext, onSelect }: TeacherMatchC
 
       <button
         onClick={() => onSelect(match.id)}
-        className="w-full py-3 font-bold rounded-xl transition-all"
+        className="w-full py-3 font-bold rounded-xl transition-all flex items-center justify-center gap-2"
         style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer', fontSize: 15 }}
       >
         {ctaText}

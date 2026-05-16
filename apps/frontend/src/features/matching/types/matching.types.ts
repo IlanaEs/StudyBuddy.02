@@ -46,7 +46,6 @@ export interface MatchResult {
 }
 
 export interface MatchBadge {
-  icon: string;
   label: string;
   detail: string;
 }

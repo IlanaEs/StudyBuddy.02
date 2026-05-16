@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  GraduationCap, Users, Target, Calendar, Zap, Repeat, BookOpen,
+  ShieldCheck, Search, Monitor, Home, ArrowLeftRight, Clock,
+  Loader2, Check, Circle,
+} from 'lucide-react';
 import { useMatchingStore } from '../store/matchingStore';
 import { WizardShell } from '../components/WizardShell';
 import { WizardProgress } from '../components/WizardProgress';
@@ -20,26 +25,26 @@ const TIME_SLOTS: { value: TimeSlot; label: string }[] = [
 ];
 
 const LEARNING_STYLES = [
-  { value: 'structured', label: '📚 הסבר מסודר ויסודי' },
-  { value: 'fast', label: '⚡ קצב מהיר ותכלס' },
-  { value: 'practice', label: '🧠 הרבה תרגול מעשי' },
-  { value: 'fun', label: '💬 ללמוד בכיף ובגובה העיניים' },
-  { value: 'exam', label: '🎯 רק לעבור את המבחן בשלום!' },
+  { value: 'structured', label: 'הסבר מסודר ויסודי' },
+  { value: 'fast', label: 'קצב מהיר ותכלס' },
+  { value: 'practice', label: 'הרבה תרגול מעשי' },
+  { value: 'fun', label: 'ללמוד בכיף ובגובה העיניים' },
+  { value: 'exam', label: 'רק לעבור את המבחן בשלום' },
 ];
 
 const SOFT_PREFS_STUDENT = [
-  { value: 'female_teacher', label: '👩‍🏫 מורה אישה' },
-  { value: 'male_teacher', label: '👨‍🏫 מורה גבר' },
-  { value: 'patient', label: '☕ מורה סבלני/ת ומכיל/ה' },
-  { value: 'certified', label: '📜 מורה מוסמך/ת (בעל/ת תעודה)' },
+  { value: 'female_teacher', label: 'מורה אישה' },
+  { value: 'male_teacher', label: 'מורה גבר' },
+  { value: 'patient', label: 'מורה סבלני/ת ומכיל/ה' },
+  { value: 'certified', label: 'מורה מוסמך/ת (בעל/ת תעודה)' },
 ];
 
 const SOFT_PREFS_PARENT = [
-  { value: 'adhd', label: '🧠 ניסיון מוכח עם קשב וריכוז (ADHD / לקויות למידה)' },
-  { value: 'patient', label: '☕ גישה מכילה, סבלנית ותומכת במיוחד' },
-  { value: 'certified', label: '📜 העדפה למורה בעל/ת תעודת הוראה רשמית' },
-  { value: 'female_teacher', label: '👩‍🏫 העדפה למורה אישה' },
-  { value: 'male_teacher', label: '👨‍🏫 העדפה למורה גבר' },
+  { value: 'adhd', label: 'ניסיון מוכח עם קשב וריכוז (ADHD / לקויות למידה)' },
+  { value: 'patient', label: 'גישה מכילה, סבלנית ותומכת במיוחד' },
+  { value: 'certified', label: 'העדפה למורה בעל/ת תעודת הוראה רשמית' },
+  { value: 'female_teacher', label: 'העדפה למורה אישה' },
+  { value: 'male_teacher', label: 'העדפה למורה גבר' },
 ];
 
 export function MatchingWizardPage() {
@@ -53,12 +58,10 @@ export function MatchingWizardPage() {
   useEffect(() => {
     const role = searchParams.get('role');
     if (role === 'student' || role === 'parent') {
-      // Coming from landing page — reset any previous session and jump to name step
       useMatchingStore.getState().reset();
       updateIntake({ userContext: role });
       setStep(2);
     } else if (step > 10) {
-      // Stale state from completed session — reset
       useMatchingStore.getState().reset();
     }
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
@@ -85,7 +88,6 @@ export function MatchingWizardPage() {
   async function handleNext() {
     if (!validate(step)) return;
     if (step === TOTAL_STEPS) {
-      // Review → trigger match
       setLoading(true);
       await new Promise((r) => setTimeout(r, 2200));
       setMatchResults(mockMatches);
@@ -105,7 +107,9 @@ export function MatchingWizardPage() {
     return (
       <div dir="rtl" lang="he" className="min-h-screen flex flex-col items-center justify-center px-4 py-10" style={{ background: 'var(--bg)' }}>
         <div className="w-full max-w-lg text-center">
-          <div className="text-5xl mb-4">🎓</div>
+          <div className="flex items-center justify-center w-20 h-20 rounded-2xl mx-auto mb-6" style={{ background: 'color-mix(in oklab, var(--cyan) 15%, var(--surface))', color: 'var(--cyan)' }}>
+            <GraduationCap size={40} />
+          </div>
           <h1 className="text-3xl font-bold mb-3" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)' }}>
             מצא את המורה המושלם/ת עבורך
           </h1>
@@ -114,12 +118,12 @@ export function MatchingWizardPage() {
           </p>
           <div className="flex justify-center gap-6 mb-8 mt-6">
             {[
-              { icon: '🎯', text: '3 מורים מותאמים אישית' },
-              { icon: '📅', text: 'זמינות אמיתית בלבד' },
-              { icon: '⚡', text: 'בלי חיפוש אינסופי' },
+              { icon: <Target size={22} />, text: '3 מורים מותאמים אישית' },
+              { icon: <Calendar size={22} />, text: 'זמינות אמיתית בלבד' },
+              { icon: <Zap size={22} />, text: 'בלי חיפוש אינסופי' },
             ].map((t) => (
-              <div key={t.text} className="flex flex-col items-center gap-1">
-                <span className="text-2xl">{t.icon}</span>
+              <div key={t.text} className="flex flex-col items-center gap-2">
+                <span style={{ color: 'var(--cyan)' }}>{t.icon}</span>
                 <span className="text-xs text-center" style={{ color: 'var(--text-2)', maxWidth: 80 }}>{t.text}</span>
               </div>
             ))}
@@ -129,7 +133,7 @@ export function MatchingWizardPage() {
             className="w-full max-w-xs py-4 font-bold rounded-2xl text-lg"
             style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}
           >
-            בואו נתחיל ←
+            בואו נתחיל
           </button>
         </div>
       </div>
@@ -142,8 +146,20 @@ export function MatchingWizardPage() {
       <WizardShell>
         <WizardProgress current={1} total={TOTAL_STEPS} />
         <WizardStepHeader title="מי מחפש מורה?" />
-        <WizardOptionCard emoji="🎒" label="אני התלמיד/ה" description="אני מחפש/ת מורה לעצמי" selected={intake.userContext === 'student'} onClick={() => { updateIntake({ userContext: 'student' }); nextStep(); }} />
-        <WizardOptionCard emoji="👨‍👩‍👧" label="אני הורה" description="אני מחפש/ת מורה לילד/ה שלי" selected={intake.userContext === 'parent'} onClick={() => { updateIntake({ userContext: 'parent' }); nextStep(); }} />
+        <WizardOptionCard
+          icon={<GraduationCap size={20} />}
+          label="אני התלמיד/ה"
+          description="אני מחפש/ת מורה לעצמי"
+          selected={intake.userContext === 'student'}
+          onClick={() => { updateIntake({ userContext: 'student' }); nextStep(); }}
+        />
+        <WizardOptionCard
+          icon={<Users size={20} />}
+          label="אני הורה"
+          description="אני מחפש/ת מורה לילד/ה שלי"
+          selected={intake.userContext === 'parent'}
+          onClick={() => { updateIntake({ userContext: 'parent' }); nextStep(); }}
+        />
       </WizardShell>
     );
   }
@@ -174,8 +190,8 @@ export function MatchingWizardPage() {
         />
         {errors.fullName && <div style={{ color: 'var(--coral)', fontSize: 13, marginBottom: 8 }}>{errors.fullName}</div>}
         <div className="flex gap-3 mt-4">
-          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור →</button>
-          <button onClick={() => void handleNext()} className="flex-1 py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>המשך ←</button>
+          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור</button>
+          <button onClick={() => void handleNext()} className="flex-1 py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>המשך</button>
         </div>
       </WizardShell>
     );
@@ -184,14 +200,14 @@ export function MatchingWizardPage() {
   // ── STEP 3: Goal ──────────────────────────────────────────────────
   if (step === 3) {
     const studentGoals = [
-      { value: 'single_session', emoji: '⚡', label: 'שיעור חד-פעמי', desc: 'לסגור פינה או להבין נושא ספציפי' },
-      { value: 'ongoing', emoji: '🗓️', label: 'מורה קבוע/ה', desc: 'ליווי שבועי קבוע להעלאת הציונים' },
-      { value: 'exam_prep', emoji: '🔥', label: 'מרתון לפני מבחן', desc: 'אינטנסיבי, כדי לעבור את המבחן הקרוב' },
+      { value: 'single_session', icon: <Zap size={18} />, label: 'שיעור חד-פעמי', desc: 'לסגור פינה או להבין נושא ספציפי' },
+      { value: 'ongoing', icon: <Repeat size={18} />, label: 'מורה קבוע/ה', desc: 'ליווי שבועי קבוע להעלאת הציונים' },
+      { value: 'exam_prep', icon: <BookOpen size={18} />, label: 'מרתון לפני מבחן', desc: 'אינטנסיבי, כדי לעבור את המבחן הקרוב' },
     ];
     const parentGoals = [
-      { value: 'ongoing', emoji: '📅', label: 'ליווי קבוע ומתמשך', desc: 'חיזוק הביטחון העצמי והעלאת הציונים לאורך השנה' },
-      { value: 'single_session', emoji: '🎯', label: 'שיעור ממוקד/חד-פעמי', desc: 'להבנת נושא ספציפי או עזרה במטלה מסוימת' },
-      { value: 'exam_prep', emoji: '🔥', label: 'הכנה מרוכזת למבחן', desc: 'תוכנית אינטנסיבית לקראת בחינה קרובה' },
+      { value: 'ongoing', icon: <Repeat size={18} />, label: 'ליווי קבוע ומתמשך', desc: 'חיזוק הביטחון העצמי והעלאת הציונים לאורך השנה' },
+      { value: 'single_session', icon: <Target size={18} />, label: 'שיעור ממוקד/חד-פעמי', desc: 'להבנת נושא ספציפי או עזרה במטלה מסוימת' },
+      { value: 'exam_prep', icon: <BookOpen size={18} />, label: 'הכנה מרוכזת למבחן', desc: 'תוכנית אינטנסיבית לקראת בחינה קרובה' },
     ];
     const goals = isParent ? parentGoals : studentGoals;
     return (
@@ -199,9 +215,9 @@ export function MatchingWizardPage() {
         <WizardProgress current={3} total={TOTAL_STEPS} />
         <WizardStepHeader title={intake.fullName ? `${intake.fullName}, ${isParent ? 'מהו סוג הליווי הדרוש לילד/ה?' : 'מה היעד שלנו הפעם?'}` : (isParent ? 'מהו סוג הליווי הדרוש לילד/ה?' : 'מה היעד שלנו הפעם?')} />
         {goals.map((g) => (
-          <WizardOptionCard key={g.value} emoji={g.emoji} label={g.label} description={g.desc} selected={intake.learningGoal === g.value} onClick={() => { updateIntake({ learningGoal: g.value as LearningGoal }); nextStep(); }} />
+          <WizardOptionCard key={g.value} icon={g.icon} label={g.label} description={g.desc} selected={intake.learningGoal === g.value} onClick={() => { updateIntake({ learningGoal: g.value as LearningGoal }); nextStep(); }} />
         ))}
-        <button onClick={prevStep} className="mt-2 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזור →</button>
+        <button onClick={prevStep} className="mt-2 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזור</button>
       </WizardShell>
     );
   }
@@ -227,8 +243,13 @@ export function MatchingWizardPage() {
         {levels.map((l) => (
           <WizardOptionCard key={l.value} label={l.label} selected={intake.gradeLevel === l.value} onClick={() => { updateIntake({ gradeLevel: l.value as EducationLevel }); nextStep(); }} />
         ))}
-        {isParent && <div className="mt-3 p-3 rounded-lg text-sm" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>🛡️ המערכת תסנן באופן אוטומטי אך ורק מורים מנוסים ומוסמכים לשכבת הגיל הזו.</div>}
-        <button onClick={prevStep} className="mt-2 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזור →</button>
+        {isParent && (
+          <div className="mt-3 p-3 rounded-lg flex items-start gap-2 text-sm" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>
+            <ShieldCheck size={14} style={{ flexShrink: 0, marginTop: 1, color: 'var(--lime)' }} />
+            <span>המערכת תסנן באופן אוטומטי אך ורק מורים מנוסים ומוסמכים לשכבת הגיל הזו.</span>
+          </div>
+        )}
+        <button onClick={prevStep} className="mt-2 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזור</button>
       </WizardShell>
     );
   }
@@ -258,7 +279,7 @@ export function MatchingWizardPage() {
             </button>
           ))}
         </div>
-        <button onClick={prevStep} className="mt-4 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזור →</button>
+        <button onClick={prevStep} className="mt-4 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזור</button>
       </WizardShell>
     );
   }
@@ -296,7 +317,10 @@ export function MatchingWizardPage() {
                 </button>
               ))}
             </div>
-            <div className="text-sm mb-3" style={{ color: 'var(--text-3)' }}>🔍 לא מצאת את הקורס הספציפי שלך?{' '}<button onClick={() => setFreeTextSubject(true)} style={{ color: 'var(--cyan)', background: 'none', border: 'none', cursor: 'pointer' }}>לחץ/י כאן להקלדה חופשית</button></div>
+            <div className="flex items-center gap-2 text-sm mb-3" style={{ color: 'var(--text-3)' }}>
+              <Search size={14} />
+              <span>לא מצאת את הקורס הספציפי שלך?{' '}<button onClick={() => setFreeTextSubject(true)} style={{ color: 'var(--cyan)', background: 'none', border: 'none', cursor: 'pointer' }}>לחץ/י כאן להקלדה חופשית</button></span>
+            </div>
           </>
         ) : (
           <>
@@ -309,13 +333,13 @@ export function MatchingWizardPage() {
               style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 14, outline: 'none' }}
               autoFocus
             />
-            <button onClick={() => setFreeTextSubject(false)} className="text-sm mb-3" style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer' }}>חזור → לרשימה</button>
+            <button onClick={() => setFreeTextSubject(false)} className="text-sm mb-3" style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer' }}>חזור לרשימה</button>
           </>
         )}
         {errors.subjectName && <div style={{ color: 'var(--coral)', fontSize: 13, marginBottom: 8 }}>{errors.subjectName}</div>}
         <div className="flex gap-3 mt-2">
-          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור →</button>
-          <button onClick={() => void handleNext()} className="flex-1 py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>המשך ←</button>
+          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור</button>
+          <button onClick={() => void handleNext()} className="flex-1 py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>המשך</button>
         </div>
       </WizardShell>
     );
@@ -324,9 +348,9 @@ export function MatchingWizardPage() {
   // ── STEP 7: Budget ────────────────────────────────────────────────
   if (step === 7) {
     const budgets = [
-      { label: isParent ? '💵 עד ₪100 לשעה' : 'עד ₪100 / שעה', min: 0, max: 100 },
-      { label: isParent ? '💳 ₪100 - ₪150 לשעה' : '₪100 - ₪150 / שעה', min: 100, max: 150 },
-      { label: isParent ? '💎 ₪150+ לשעה' : '₪150+ / שעה', min: 150, max: 999 },
+      { label: 'עד ₪100 לשעה', min: 0, max: 100 },
+      { label: '₪100 - ₪150 לשעה', min: 100, max: 150 },
+      { label: '₪150+ לשעה', min: 150, max: 999 },
     ];
     return (
       <WizardShell>
@@ -336,13 +360,19 @@ export function MatchingWizardPage() {
           <WizardOptionCard key={b.label} label={b.label} selected={intake.budgetMax === b.max} onClick={() => { updateIntake({ budgetMin: b.min, budgetMax: b.max }); nextStep(); }} />
         ))}
         {errors.budget && <div style={{ color: 'var(--coral)', fontSize: 13 }}>{errors.budget}</div>}
-        <button onClick={prevStep} className="mt-2 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזור →</button>
+        <button onClick={prevStep} className="mt-2 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזור</button>
       </WizardShell>
     );
   }
 
   // ── STEP 8: Availability + Location ──────────────────────────────
   if (step === 8) {
+    const locationOptions: { value: LocationPreference; label: string; icon: React.ReactNode }[] = [
+      { value: 'online', label: 'אונליין', icon: <Monitor size={15} /> },
+      { value: 'frontal', label: 'פרונטלי (פנים אל פנים)', icon: <Home size={15} /> },
+      { value: 'both', label: 'שניהם', icon: <ArrowLeftRight size={15} /> },
+    ];
+
     return (
       <WizardShell>
         <WizardProgress current={8} total={TOTAL_STEPS} />
@@ -378,10 +408,11 @@ export function MatchingWizardPage() {
         <div className="mb-4">
           <div className="font-semibold mb-2" style={{ color: 'var(--text-2)', fontSize: 14 }}>סוג שיעור:</div>
           <div className="flex flex-col gap-2">
-            {[{ value: 'online', label: '💻 אונליין' }, { value: 'frontal', label: '🏠 פרונטלי (פנים אל פנים)' }, { value: 'both', label: '↔️ שניהם' }].map((loc) => (
-              <button key={loc.value} onClick={() => updateIntake({ locationPreference: loc.value as LocationPreference })}
-                className="text-right px-3 py-2 rounded-lg text-sm"
+            {locationOptions.map((loc) => (
+              <button key={loc.value} onClick={() => updateIntake({ locationPreference: loc.value })}
+                className="text-right px-3 py-2 rounded-lg text-sm flex items-center gap-2"
                 style={{ background: intake.locationPreference === loc.value ? 'color-mix(in oklab, var(--cyan) 15%, var(--surface-2))' : 'var(--surface-2)', border: `1px solid ${intake.locationPreference === loc.value ? 'var(--cyan)' : 'var(--line-2)'}`, color: 'var(--text)', cursor: 'pointer' }}>
+                <span style={{ color: intake.locationPreference === loc.value ? 'var(--cyan)' : 'var(--text-3)', flexShrink: 0 }}>{loc.icon}</span>
                 {loc.label}
               </button>
             ))}
@@ -399,11 +430,16 @@ export function MatchingWizardPage() {
           </div>
         )}
 
-        {isParent && <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>🕒 אנו נציג אך ורק מורים שפנויים באופן ודאי בחלונות הזמן שתגדירו. אין צורך בטלפונים, בירורים או תיאומים מורכבים.</div>}
+        {isParent && (
+          <div className="mb-4 p-3 rounded-lg flex items-start gap-2 text-sm" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>
+            <Clock size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>אנו נציג אך ורק מורים שפנויים באופן ודאי בחלונות הזמן שתגדירו. אין צורך בטלפונים, בירורים או תיאומים מורכבים.</span>
+          </div>
+        )}
 
         <div className="flex gap-3 mt-2">
-          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור →</button>
-          <button onClick={() => void handleNext()} className="flex-1 py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>המשך ←</button>
+          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור</button>
+          <button onClick={() => void handleNext()} className="flex-1 py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>המשך</button>
         </div>
       </WizardShell>
     );
@@ -449,8 +485,8 @@ export function MatchingWizardPage() {
         </div>
 
         <div className="flex gap-3 mt-2">
-          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור →</button>
-          <button onClick={() => void handleNext()} className="flex-1 py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>המשך ←</button>
+          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור</button>
+          <button onClick={() => void handleNext()} className="flex-1 py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>המשך</button>
         </div>
       </WizardShell>
     );
@@ -483,16 +519,15 @@ export function MatchingWizardPage() {
       ]} onEdit={() => setStep(2)} />
 
       <div className="flex gap-3 mt-4">
-        <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור →</button>
+        <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור</button>
         <button onClick={() => void handleNext()} className="flex-1 py-4 font-bold rounded-xl text-lg" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>
-          מצאו לי מורים ←
+          מצאו לי מורים
         </button>
       </div>
     </WizardShell>
   );
 }
 
-// Loading screen component used during matching
 function MatchingLoadingScreen({ name }: { name: string }) {
   const [msgIdx, setMsgIdx] = useState(0);
   const messages = [
@@ -505,19 +540,22 @@ function MatchingLoadingScreen({ name }: { name: string }) {
   useEffect(() => {
     const interval = setInterval(() => setMsgIdx((i) => (i + 1) % messages.length), 550);
     return () => clearInterval(interval);
-  // messages.length is stable (constant array), safe to omit
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <div dir="rtl" lang="he" className="min-h-screen flex flex-col items-center justify-center px-4" style={{ background: 'var(--bg)' }}>
-      <div className="text-5xl mb-6 animate-spin" style={{ animationDuration: '2s' }}>🔍</div>
+      <div className="mb-6" style={{ color: 'var(--cyan)' }}>
+        <Loader2 size={48} className="animate-spin" />
+      </div>
       <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)', textAlign: 'center' }}>מוצאים את ה-Top 3 שלך...</h2>
       <p className="text-center mb-8 max-w-xs" style={{ color: 'var(--text-2)', minHeight: 44 }}>{messages[msgIdx]}</p>
       <div className="flex flex-col gap-3 w-full max-w-xs">
         {['בודקים התאמת מקצוע', 'בודקים זמינות', 'בודקים טווח מחיר', 'מייצרים Top 3 מורים'].map((loadingStep, i) => (
           <div key={loadingStep} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'var(--surface)', border: '1px solid var(--line-2)' }}>
-            <span style={{ color: i <= msgIdx ? 'var(--lime)' : 'var(--text-3)', fontSize: 18 }}>{i <= msgIdx ? '✓' : '○'}</span>
+            <span style={{ color: i <= msgIdx ? 'var(--lime)' : 'var(--text-3)', flexShrink: 0 }}>
+              {i <= msgIdx ? <Check size={16} /> : <Circle size={16} />}
+            </span>
             <span style={{ color: i <= msgIdx ? 'var(--text)' : 'var(--text-3)', fontSize: 14 }}>{loadingStep}</span>
           </div>
         ))}

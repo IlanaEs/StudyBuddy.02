@@ -1,3 +1,5 @@
+import { Pencil } from 'lucide-react';
+
 interface WizardSummaryCardProps {
   items: { label: string; value: string }[];
   onEdit?: () => void;
@@ -18,10 +20,11 @@ export function WizardSummaryCard({ items, onEdit }: WizardSummaryCardProps) {
       {onEdit && (
         <button
           onClick={onEdit}
-          className="mt-3 text-sm"
+          className="mt-3 text-sm flex items-center gap-1"
           style={{ color: 'var(--cyan)', background: 'none', border: 'none', cursor: 'pointer' }}
         >
-          ✏️ ערוך
+          <Pencil size={13} />
+          ערוך
         </button>
       )}
     </div>

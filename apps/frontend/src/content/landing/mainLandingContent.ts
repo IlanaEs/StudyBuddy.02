@@ -18,14 +18,14 @@ export const mainLandingContent = {
       'מהורים לתלמידי יסודי ועד סטודנטים בתואר –> כולם מוצאים כאן את המורה המדויק.',
     roles: [
       {
-        icon: '🎯',
+        icon: 'student',
         title: 'אני מחפש/ת עבור עצמי',
         note: 'מפעיל מסלול תלמיד',
         cta: 'מתחילים כאן',
         to: '/onboarding/matching?role=student',
       },
       {
-        icon: '🏡',
+        icon: 'parent',
         title: 'אני הורה שמחפש עבור הילד/ה',
         note: 'מפעיל מסלול הורה',
         cta: 'מתחילים כאן',
@@ -166,7 +166,7 @@ export const mainLandingContent = {
     title: 'FAQ – עושים סדר בשאלות',
     sections: [
       {
-        title: '🎯 התאמה ואיכות המורים',
+        title: 'התאמה ואיכות המורים',
         items: [
           {
             question: 'איך המערכת בעצם מתאימה לי מורה?',
@@ -191,7 +191,7 @@ export const mainLandingContent = {
         ],
       },
       {
-        title: '📅 תיאום ולמידה בפועל',
+        title: 'תיאום ולמידה בפועל',
         items: [
           {
             question: 'איפה מתקיים השיעור?',
@@ -216,7 +216,7 @@ export const mainLandingContent = {
         ],
       },
       {
-        title: '💳 כסף, הרשמה והתחייבות',
+        title: 'כסף, הרשמה והתחייבות',
         items: [
           {
             question: 'האם צריך לשלם דמי מנוי כדי להזמין שיעור?',
@@ -236,7 +236,7 @@ export const mainLandingContent = {
         ],
       },
       {
-        title: '🛡️ שירות ושביעות רצון',
+        title: 'שירות ושביעות רצון',
         items: [
           {
             question: 'מה קורה אם לא הייתי מרוצה מהשיעור?',
@@ -263,7 +263,7 @@ export const mainLandingContent = {
     to: '/onboarding/matching?role=student',
   },
   legal: {
-    title: '🛡️ מידע משפטי ופרטיות (Footer)',
+    title: 'מידע משפטי ופרטיות',
     items: [
       {
         title: 'תנאי שימוש ופרטיות',
