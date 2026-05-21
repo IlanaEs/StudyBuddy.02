@@ -7,7 +7,7 @@ import type {
   CreateBookingRequestBody,
   RespondToBookingRequestBody,
 } from './bookingRequests.validation.js';
-import type { BookingRequestRow } from './bookingRequests.types.js';
+import type { BookingRequestRow, LessonRow, RespondResult } from './bookingRequests.types.js';
 import {
   getMatchResultById,
   getStudentIntakeById,
@@ -16,9 +16,12 @@ import {
   getTeacherProfileByUserId,
   getActiveBookingRequestForIntake,
   getBookingRequestById,
+  getLessonByBookingRequestId,
   insertBookingRequest,
   markMatchResultSelected,
   updateBookingRequestStatus,
+  updateBookingRequestStatusTx,
+  insertLesson,
 } from './bookingRequests.repository.js';
 
 export async function createBookingRequest(
@@ -97,7 +100,7 @@ export async function respondToBookingRequest(
   bookingRequestId: string,
   body: RespondToBookingRequestBody,
   currentUser: LocalUser,
-): Promise<BookingRequestRow> {
+): Promise<RespondResult> {
   // ── Load booking request ──────────────────────────────────────────────────
   const bookingRequest = await getBookingRequestById(bookingRequestId);
   if (!bookingRequest) {
@@ -121,12 +124,63 @@ export async function respondToBookingRequest(
   }
   // admin: always allowed
 
-  // ── Map response value to booking_status ──────────────────────────────────
-  const newStatus = body.response === 'approve' ? 'approved' : 'rejected';
+  const teacherMsg = body.teacher_response_message ?? null;
 
-  // ── Persist status transition ─────────────────────────────────────────────
-  return updateBookingRequestStatus(bookingRequestId, {
-    status: newStatus,
-    teacherResponseMessage: body.teacher_response_message ?? null,
+  // ── Reject path: simple update, no lesson created ─────────────────────────
+  if (body.response === 'reject') {
+    const updatedBookingRequest = await updateBookingRequestStatus(bookingRequestId, {
+      status: 'rejected',
+      teacherResponseMessage: teacherMsg,
+    });
+    return { bookingRequest: updatedBookingRequest, lesson: null };
+  }
+
+  // ── Approve path: load intake chain for lesson creation ───────────────────
+
+  const matchResult = await getMatchResultById(bookingRequest.matchResultId);
+  if (!matchResult) {
+    throw new AppError('Match result not found', 404);
+  }
+
+  const intake = await getStudentIntakeById(matchResult.intakeId);
+  if (!intake) {
+    throw new AppError('Student intake not found', 404);
+  }
+
+  // ── Duplicate lesson guard (pre-check; DB unique constraint is the backstop)
+  const existingLesson = await getLessonByBookingRequestId(bookingRequestId);
+  if (existingLesson) {
+    throw new AppError('Lesson already exists for this booking request', 409);
+  }
+
+  // ── Calculate lesson duration ─────────────────────────────────────────────
+  const durationMinutes = Math.round(
+    (new Date(bookingRequest.requestedEndAt).getTime() -
+      new Date(bookingRequest.requestedStartAt).getTime()) /
+      60_000,
+  );
+
+  // ── Atomic transaction: update booking_request + insert lesson ────────────
+  let updatedBookingRequest: BookingRequestRow | null = null;
+  let createdLesson: LessonRow | null = null;
+
+  await withTransaction(async (sql) => {
+    updatedBookingRequest = await updateBookingRequestStatusTx(sql, bookingRequestId, {
+      status: 'approved',
+      teacherResponseMessage: teacherMsg,
+    });
+
+    createdLesson = await insertLesson(sql, {
+      bookingRequestId,
+      teacherId: bookingRequest.teacherId,
+      studentId: bookingRequest.studentId,
+      subjectId: intake.subjectId,
+      scheduledStartAt: bookingRequest.requestedStartAt,
+      scheduledEndAt: bookingRequest.requestedEndAt,
+      durationMinutes,
+      locationType: intake.locationPreference,
+    });
   });
+
+  return { bookingRequest: updatedBookingRequest!, lesson: createdLesson! };
 }

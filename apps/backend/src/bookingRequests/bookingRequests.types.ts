@@ -29,3 +29,42 @@ export type RespondToBookingRequestInput = {
   status: 'approved' | 'rejected';
   teacherResponseMessage: string | null;
 };
+
+// ── Lesson ────────────────────────────────────────────────────────────────────
+
+export type LessonStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
+
+export type LessonRow = {
+  id: string;
+  bookingRequestId: string;
+  teacherId: string;
+  studentId: string;
+  subjectId: string | null;
+  scheduledStartAt: string;
+  scheduledEndAt: string;
+  durationMinutes: number;
+  status: LessonStatus;
+  locationType: 'online' | 'frontal' | 'both';
+  meetingLink: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateLessonInput = {
+  bookingRequestId: string;
+  teacherId: string;
+  studentId: string;
+  subjectId: string;
+  scheduledStartAt: string;
+  scheduledEndAt: string;
+  durationMinutes: number;
+  locationType: 'online' | 'frontal' | 'both';
+};
+
+// ── Respond result ────────────────────────────────────────────────────────────
+
+// Returned by respondToBookingRequest: lesson is null when response = reject.
+export type RespondResult = {
+  bookingRequest: BookingRequestRow;
+  lesson: LessonRow | null;
+};

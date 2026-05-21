@@ -20,7 +20,7 @@ export async function respondToBookingRequestController(request: Request, respon
   const body = request.body as RespondToBookingRequestBody;
   const currentUser = request.auth!.user;
 
-  const bookingRequest = await respondToBookingRequest(id, body, currentUser);
+  const { bookingRequest, lesson } = await respondToBookingRequest(id, body, currentUser);
 
-  response.status(200).json({ data: { booking_request: bookingRequest } });
+  response.status(200).json({ data: { booking_request: bookingRequest, lesson } });
 }

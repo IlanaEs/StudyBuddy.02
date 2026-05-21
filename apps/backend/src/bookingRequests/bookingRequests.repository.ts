@@ -6,6 +6,8 @@ import type { TransactionSql } from '../db/transaction.js';
 import type {
   BookingRequestRow,
   CreateBookingRequestInput,
+  CreateLessonInput,
+  LessonRow,
   RespondToBookingRequestInput,
 } from './bookingRequests.types.js';
 
@@ -50,6 +52,8 @@ export async function getMatchResultById(
 export type IntakeRow = {
   id: string;
   studentId: string;
+  subjectId: string;
+  locationPreference: 'online' | 'frontal' | 'both';
   status: 'open' | 'matched' | 'closed';
 };
 
@@ -58,7 +62,7 @@ export async function getStudentIntakeById(
 ): Promise<IntakeRow | null> {
   const { data, error } = await adminClient()
     .from('student_intakes')
-    .select('id,student_id,status')
+    .select('id,student_id,subject_id,location_preference,status')
     .eq('id', intakeId)
     .maybeSingle();
 
@@ -70,6 +74,8 @@ export async function getStudentIntakeById(
   return {
     id: row.id as string,
     studentId: row.student_id as string,
+    subjectId: row.subject_id as string,
+    locationPreference: row.location_preference as 'online' | 'frontal' | 'both',
     status: row.status as 'open' | 'matched' | 'closed',
   };
 }
@@ -260,6 +266,115 @@ export async function markMatchResultSelected(
 }
 
 // ── Teacher Response Write ────────────────────────────────────────────────────
+
+// ── Lesson Lookup ─────────────────────────────────────────────────────────────
+
+// Returns the lesson id if one already exists for this booking_request.
+// The DB enforces uniqueness via lessons_booking_request_id_unique; this
+// pre-check gives a clean 409 before the transaction even opens.
+export async function getLessonByBookingRequestId(
+  bookingRequestId: string,
+): Promise<{ id: string } | null> {
+  const { data, error } = await adminClient()
+    .from('lessons')
+    .select('id')
+    .eq('booking_request_id', bookingRequestId)
+    .maybeSingle();
+
+  if (error) throw new AppError('Failed to check existing lesson', 500);
+  if (!data) return null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return { id: (data as any).id as string };
+}
+
+// ── Approval Transaction Write Functions ──────────────────────────────────────
+
+// Transaction-scoped booking_request status update (postgres.js).
+// Used inside the approval transaction alongside insertLesson.
+export async function updateBookingRequestStatusTx(
+  sql: TransactionSql,
+  bookingRequestId: string,
+  input: RespondToBookingRequestInput,
+): Promise<BookingRequestRow> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows = (await sql`
+    UPDATE booking_requests
+    SET status = ${input.status},
+        teacher_response_message = ${input.teacherResponseMessage}
+    WHERE id = ${bookingRequestId}
+    RETURNING
+      id, student_id, teacher_id, match_result_id,
+      requested_start_at, requested_end_at, status, student_message,
+      teacher_response_message, created_at, updated_at
+  `) as any[];
+
+  const row = rows[0];
+  return {
+    id: row.id as string,
+    studentId: row.student_id as string,
+    teacherId: row.teacher_id as string,
+    matchResultId: row.match_result_id as string,
+    requestedStartAt: toISOString(row.requested_start_at),
+    requestedEndAt: toISOString(row.requested_end_at),
+    status: row.status as BookingRequestRow['status'],
+    studentMessage: row.student_message as string | null,
+    teacherResponseMessage: row.teacher_response_message as string | null,
+    createdAt: toISOString(row.created_at),
+    updatedAt: toISOString(row.updated_at),
+  };
+}
+
+// Insert a new lesson row inside an open transaction.
+// Handles unique constraint violation (23505) as a 409 so callers get the
+// right status code even if a concurrent request slips past the pre-check.
+export async function insertLesson(
+  sql: TransactionSql,
+  input: CreateLessonInput,
+): Promise<LessonRow> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = (await sql`
+      INSERT INTO lessons (
+        booking_request_id, teacher_id, student_id, subject_id,
+        scheduled_start_at, scheduled_end_at, duration_minutes,
+        status, location_type, meeting_link
+      )
+      VALUES (
+        ${input.bookingRequestId}, ${input.teacherId}, ${input.studentId}, ${input.subjectId},
+        ${input.scheduledStartAt}, ${input.scheduledEndAt}, ${input.durationMinutes},
+        'scheduled', ${input.locationType}, null
+      )
+      RETURNING
+        id, booking_request_id, teacher_id, student_id, subject_id,
+        scheduled_start_at, scheduled_end_at, duration_minutes,
+        status, location_type, meeting_link, created_at, updated_at
+    `) as any[];
+
+    const row = rows[0];
+    return {
+      id: row.id as string,
+      bookingRequestId: row.booking_request_id as string,
+      teacherId: row.teacher_id as string,
+      studentId: row.student_id as string,
+      subjectId: row.subject_id as string | null,
+      scheduledStartAt: toISOString(row.scheduled_start_at),
+      scheduledEndAt: toISOString(row.scheduled_end_at),
+      durationMinutes: row.duration_minutes as number,
+      status: row.status as LessonRow['status'],
+      locationType: row.location_type as LessonRow['locationType'],
+      meetingLink: row.meeting_link as string | null,
+      createdAt: toISOString(row.created_at),
+      updatedAt: toISOString(row.updated_at),
+    };
+  } catch (err: unknown) {
+    // Unique constraint violation: lesson already exists for this booking_request.
+    if (err && typeof err === 'object' && 'code' in err && err.code === '23505') {
+      throw new AppError('Lesson already exists for this booking request', 409);
+    }
+    throw new AppError('Failed to create lesson', 500);
+  }
+}
 
 // Updates booking_request status to approved or rejected, persists the
 // optional teacher response message. updated_at is handled by DB trigger.
