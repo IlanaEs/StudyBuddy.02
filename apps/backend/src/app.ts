@@ -7,6 +7,7 @@ import { authRouter } from './auth/authRoutes.js';
 import { healthRouter } from './routes/healthRoutes.js';
 import { teacherAvailabilityRouter } from './teacherAvailability/teacherAvailability.routes.js';
 import { teacherSchedulingPreferencesRouter } from './teacherSchedulingPreferences/teacherSchedulingPreferences.routes.js';
+import { teacherAvailabilityExceptionsRouter } from './teacherAvailabilityExceptions/teacherAvailabilityExceptions.routes.js';
 
 export function createApp() {
   const app = express();
@@ -18,6 +19,7 @@ export function createApp() {
   app.use('/health', healthRouter);
   app.use('/api/teacher-availability', teacherAvailabilityRouter);
   app.use('/api/teacher-scheduling-preferences', teacherSchedulingPreferencesRouter);
+  app.use('/api/teacher-availability-exceptions', teacherAvailabilityExceptionsRouter);
 
   app.use(errorHandler);
 
