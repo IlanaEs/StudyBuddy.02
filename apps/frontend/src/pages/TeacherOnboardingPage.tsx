@@ -759,24 +759,37 @@ export function TeacherOnboardingPage() {
 
     fetchOnboardingDraft(token)
       .then((response) => {
-        if ('error' in response || !response.data.onboarding) {
-          // Allow retry — token may have just rotated after OAuth redirect
+        if ('error' in response) {
+          // Network or auth error — allow retry when token rotates.
+          // This is the only case that resets the flag; a null draft is a
+          // legitimate "no record yet" response and must NOT loop forever.
           hasFetchedDraftRef.current = false;
           return;
         }
+
+        // Consume the OAuth return step key regardless of whether a draft
+        // exists. This prevents it from being re-read on later re-renders.
+        const returnStepRaw = sessionStorage.getItem('sb_gcal_return_step');
+        const returnStep = returnStepRaw ? parseInt(returnStepRaw, 10) : 1;
+        if (returnStepRaw) sessionStorage.removeItem('sb_gcal_return_step');
+
+        if (!response.data.onboarding) {
+          // No draft saved yet — still honour the OAuth return step so the
+          // user lands back on the calendar screen after approving GCal.
+          if (returnStep > 1 && returnStep <= 6) setStep(returnStep);
+          return;
+        }
+
         // Don't overwrite changes the user made while the fetch was in-flight
         if (hasUserEditedRef.current) return;
         const hydrated = hydrateFromRemote(response.data.onboarding, INITIAL_DATA);
         setData((prev) => ({ ...prev, ...hydrated }));
         const savedStep = response.data.onboarding.onboardingStep;
-        const returnStepRaw = sessionStorage.getItem('sb_gcal_return_step');
-        const returnStep = returnStepRaw ? parseInt(returnStepRaw, 10) : 1;
-        sessionStorage.removeItem('sb_gcal_return_step');
         const targetStep = Math.max(savedStep, returnStep);
         if (targetStep > 1 && targetStep <= 6) setStep(targetStep);
       })
       .catch(() => {
-        // Allow retry — non-fatal, user may get a fresh token shortly
+        // Network-level failure — allow retry when token rotates
         hasFetchedDraftRef.current = false;
       });
   }, [session?.access_token]);
@@ -901,14 +914,22 @@ export function TeacherOnboardingPage() {
   }
 
   async function handleGCalConnect() {
+    const token = session?.access_token;
     setGcalStatus('connecting');
     try {
+      // Flush current form state to the DB before the OAuth redirect so it
+      // can be restored when the browser returns to this page. We await here
+      // so the write completes before navigation leaves the page.
+      if (token) {
+        await saveOnboardingDraft(data, step, token);
+      }
       sessionStorage.setItem('sb_gcal_connecting', '1');
       sessionStorage.setItem('sb_gcal_return_step', String(step));
       await initiateCalendarConnect();
-      // initiateCalendarConnect() causes a redirect — code below won't run
+      // initiateCalendarConnect() causes a full-page redirect — nothing below runs.
     } catch {
       sessionStorage.removeItem('sb_gcal_connecting');
+      sessionStorage.removeItem('sb_gcal_return_step');
       setGcalStatus('sync_failed');
     }
   }
