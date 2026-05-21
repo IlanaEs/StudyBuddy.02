@@ -223,4 +223,4 @@ for each row execute function public.set_updated_at();
 
 create trigger set_admin_actions_updated_at
 before update on public.admin_actions
-for each row execute function public.set_updated_at();
+for each row execute function public.set_updated_at();;

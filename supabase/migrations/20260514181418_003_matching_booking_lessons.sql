@@ -128,4 +128,4 @@ for each row execute function public.set_updated_at();
 
 create trigger set_lessons_updated_at
 before update on public.lessons
-for each row execute function public.set_updated_at();
+for each row execute function public.set_updated_at();;

@@ -414,4 +414,4 @@ with check (
     where users.id = auth.uid()
       and users.role = 'admin'
   )
-);
+);;

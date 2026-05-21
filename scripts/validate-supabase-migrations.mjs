@@ -4,14 +4,25 @@ import { join } from 'node:path';
 const migrationsDir = new URL('../supabase/migrations/', import.meta.url);
 
 const expectedFiles = [
-  '001_enums_and_common.sql',
-  '002_core_users_students_teachers.sql',
-  '003_matching_booking_lessons.sql',
-  '004_crm_chat_notifications.sql',
-  '005_rls_policies.sql',
-  '006_auth_user_link.sql',
-  '007_security_hardening.sql',
+  '20260514181242_001_enums_and_common.sql',
+  '20260514181326_002_core_users_students_teachers.sql',
+  '20260514181418_003_matching_booking_lessons.sql',
+  '20260514181520_004_crm_chat_notifications.sql',
+  '20260514181622_005_rls_policies.sql',
+  '20260514182555_006_auth_user_link.sql',
+  '20260514183726_007_security_hardening.sql',
+  '20260522000100_008_teacher_scheduling_preferences.sql',
+  '20260522000200_009_availability_exceptions.sql',
 ];
+
+const migrationFiles = {
+  enums: '20260514181242_001_enums_and_common.sql',
+  rls: '20260514181622_005_rls_policies.sql',
+  authLink: '20260514182555_006_auth_user_link.sql',
+  securityHardening: '20260514183726_007_security_hardening.sql',
+  schedulingPreferences: '20260522000100_008_teacher_scheduling_preferences.sql',
+  availabilityExceptions: '20260522000200_009_availability_exceptions.sql',
+};
 
 const expectedTables = [
   'users',
@@ -76,14 +87,14 @@ for (const table of expectedTables) {
     fail(`missing table ${table}`);
   }
 
-  if (!sqlByFile['005_rls_policies.sql'].includes(`alter table public.${table} enable row level security;`)) {
+  if (!sqlByFile[migrationFiles.rls].includes(`alter table public.${table} enable row level security;`)) {
     fail(`missing RLS enablement for ${table}`);
   }
 }
 
 for (const [enumName, values] of Object.entries(expectedEnums)) {
   const enumPattern = new RegExp(`create type public\\.${enumName} as enum \\(([\\s\\S]*?)\\);`);
-  const match = sqlByFile['001_enums_and_common.sql'].match(enumPattern);
+  const match = sqlByFile[migrationFiles.enums].match(enumPattern);
 
   if (!match) {
     fail(`missing enum ${enumName}`);
@@ -102,19 +113,54 @@ for (const table of ['teacher_students', 'teacher_subjects', 'match_results', 'b
   }
 }
 
-if (!sqlByFile['006_auth_user_link.sql'].includes('supabase_auth_user_id uuid not null')) {
+if (!sqlByFile[migrationFiles.authLink].includes('supabase_auth_user_id uuid not null')) {
   fail('missing required Supabase Auth user link column');
 }
 
-if (!sqlByFile['006_auth_user_link.sql'].includes('references auth.users(id) on delete cascade')) {
+if (!sqlByFile[migrationFiles.authLink].includes('references auth.users(id) on delete cascade')) {
   fail('missing required Supabase Auth FK reference');
 }
 
-if (!sqlByFile['007_security_hardening.sql'].includes('set search_path = public')) {
+if (!sqlByFile[migrationFiles.securityHardening].includes('set search_path = public')) {
   fail('missing required function search_path hardening');
 }
 
-const rlsWithoutSubjectLookup = sqlByFile['005_rls_policies.sql'].replace(
+if (!sqlByFile[migrationFiles.availabilityExceptions].includes('create table public.availability_exceptions')) {
+  fail('missing table availability_exceptions');
+}
+
+for (const column of [
+  'default_lesson_duration_minutes',
+  'default_break_duration_minutes',
+  'slot_alignment',
+]) {
+  if (!sqlByFile[migrationFiles.schedulingPreferences].includes(`add column ${column}`)) {
+    fail(`missing teacher_profiles scheduling column ${column}`);
+  }
+}
+
+for (const constraint of [
+  'teacher_profiles_lesson_duration_check',
+  'teacher_profiles_break_duration_check',
+  'teacher_profiles_slot_alignment_check',
+]) {
+  if (!sqlByFile[migrationFiles.schedulingPreferences].includes(`constraint ${constraint}`)) {
+    fail(`missing teacher scheduling constraint ${constraint}`);
+  }
+}
+
+for (const index of [
+  'availability_exceptions_teacher_id_idx',
+  'availability_exceptions_starts_at_idx',
+  'availability_exceptions_ends_at_idx',
+  'availability_exceptions_teacher_range_idx',
+]) {
+  if (!sqlByFile[migrationFiles.availabilityExceptions].includes(`create index ${index}`)) {
+    fail(`missing availability exception index ${index}`);
+  }
+}
+
+const rlsWithoutSubjectLookup = sqlByFile[migrationFiles.rls].replace(
   /create policy subjects_select_authenticated[\s\S]*?using \(true\);/,
   '',
 );
@@ -123,7 +169,7 @@ if (/using\s*\(\s*true\s*\)/i.test(rlsWithoutSubjectLookup)) {
   fail('unexpected unrestricted RLS policy detected outside authenticated subject lookup');
 }
 
-if (/to\s+anon/i.test(sqlByFile['005_rls_policies.sql'])) {
+if (/to\s+anon/i.test(sqlByFile[migrationFiles.rls])) {
   fail('anon RLS policy detected');
 }
 
