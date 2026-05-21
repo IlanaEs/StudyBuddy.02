@@ -4,6 +4,7 @@ import express from 'express';
 import { env } from './config/env.js';
 import { errorHandler } from './errors/errorHandler.js';
 import { authRouter } from './auth/authRoutes.js';
+import { bookingRequestsRouter } from './bookingRequests/bookingRequests.routes.js';
 import { healthRouter } from './routes/healthRoutes.js';
 import { matchingRouter } from './matching/matching.routes.js';
 import { studentIntakesRouter } from './studentIntakes/studentIntakes.routes.js';
@@ -20,6 +21,7 @@ export function createApp() {
 
   app.use('/auth', authRouter);
   app.use('/health', healthRouter);
+  app.use('/api/booking-requests', bookingRequestsRouter);
   app.use('/api/matching', matchingRouter);
   app.use('/api/student-intakes', studentIntakesRouter);
   app.use('/api/teachers', teacherRouter);
