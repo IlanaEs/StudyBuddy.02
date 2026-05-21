@@ -3,4 +3,4 @@
 -- Keeps shared database helpers deterministic without adding product logic.
 
 alter function public.set_updated_at()
-set search_path = public;
+set search_path = public;;

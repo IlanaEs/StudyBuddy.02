@@ -106,4 +106,4 @@ create type public.notification_status as enum (
   'pending',
   'sent',
   'failed'
-);
+);;

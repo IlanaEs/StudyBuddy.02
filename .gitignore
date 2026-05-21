@@ -5,6 +5,8 @@ coverage/
 .env
 .env.*
 !.env.example
+.claude/
+supabase/.temp/
 *.log
 *.tsbuildinfo
 .DS_Store
