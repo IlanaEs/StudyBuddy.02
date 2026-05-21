@@ -5,6 +5,7 @@ import { env } from './config/env.js';
 import { errorHandler } from './errors/errorHandler.js';
 import { authRouter } from './auth/authRoutes.js';
 import { healthRouter } from './routes/healthRoutes.js';
+import { teacherAvailabilityRouter } from './teacherAvailability/teacherAvailability.routes.js';
 
 export function createApp() {
   const app = express();
@@ -14,6 +15,7 @@ export function createApp() {
 
   app.use('/auth', authRouter);
   app.use('/health', healthRouter);
+  app.use('/api/teacher-availability', teacherAvailabilityRouter);
 
   app.use(errorHandler);
 
