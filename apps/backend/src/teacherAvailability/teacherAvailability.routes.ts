@@ -6,12 +6,14 @@ import { validateRequest } from '../validation/requestValidation.js';
 import {
   createAvailabilitySlotController,
   deactivateAvailabilitySlotController,
+  getAvailableSlotsController,
   getMyAvailabilityController,
   updateAvailabilitySlotController,
 } from './teacherAvailability.controller.js';
 import {
   createAvailabilitySlotSchema,
   deleteAvailabilitySlotSchema,
+  getAvailableSlotsSchema,
   updateAvailabilitySlotSchema,
 } from './teacherAvailability.validation.js';
 
@@ -25,6 +27,15 @@ teacherAvailabilityRouter.get(
   '/me',
   requireAnyRole(['teacher', 'admin']),
   asyncHandler(getMyAvailabilityController),
+);
+
+// GET /api/teacher-availability/:teacherId/available-slots
+// Any authenticated user: student/parent need this before booking; teacher/admin for inspection.
+teacherAvailabilityRouter.get(
+  '/:teacherId/available-slots',
+  requireAnyRole(['teacher', 'student', 'parent', 'admin']),
+  validateRequest(getAvailableSlotsSchema),
+  asyncHandler(getAvailableSlotsController),
 );
 
 // POST /api/teacher-availability

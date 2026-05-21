@@ -5,8 +5,14 @@ import { createSupabaseAdminClient } from '../supabase/supabaseClients.js';
 import type {
   AvailabilitySlotRow,
   CreateAvailabilitySlotInput,
+  SlotAlignment,
+  TeacherSchedulingPrefs,
   UpdateAvailabilitySlotInput,
 } from './teacherAvailability.types.js';
+
+function toISOString(val: unknown): string {
+  return val instanceof Date ? val.toISOString() : (val as string);
+}
 
 const adminClient = createSupabaseAdminClient;
 
@@ -121,6 +127,75 @@ export async function getOverlappingSlots(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return ((data as any[]) ?? []).map((r) => ({ id: r.id as string }));
+}
+
+// ── Slot Generation Reads ─────────────────────────────────────────────────────
+
+// Loads the three scheduling-preference columns from teacher_profiles by PK.
+// Returns null when the teacher profile does not exist.
+export async function getTeacherSchedulingPrefs(
+  teacherId: string,
+): Promise<TeacherSchedulingPrefs | null> {
+  const { data, error } = await adminClient()
+    .from('teacher_profiles')
+    .select('id,default_lesson_duration_minutes,default_break_duration_minutes,slot_alignment')
+    .eq('id', teacherId)
+    .maybeSingle();
+
+  if (error) throw new AppError('Failed to load teacher profile', 500);
+  if (!data) return null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const row = data as any;
+  return {
+    teacherId: row.id as string,
+    defaultLessonDurationMinutes: row.default_lesson_duration_minutes as number,
+    defaultBreakDurationMinutes: row.default_break_duration_minutes as number,
+    slotAlignment: row.slot_alignment as SlotAlignment,
+  };
+}
+
+// Returns only active availability_slots for a specific teacher/day combination.
+export async function getActiveSlotsByTeacherAndDay(
+  teacherId: string,
+  dayOfWeek: number,
+): Promise<AvailabilitySlotRow[]> {
+  const { data, error } = await adminClient()
+    .from('availability_slots')
+    .select(SLOT_COLUMNS)
+    .eq('teacher_id', teacherId)
+    .eq('day_of_week', dayOfWeek)
+    .eq('is_active', true)
+    .order('start_time', { ascending: true });
+
+  if (error) throw new AppError('Failed to load availability slots', 500);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((data as any[]) ?? []).map(toSlotRow);
+}
+
+// Returns scheduled lessons for a teacher whose window overlaps [dateStart, dateEnd).
+// Uses the standard overlap formula so cross-midnight lessons are also caught.
+export async function getScheduledLessonsOnDate(
+  teacherId: string,
+  dateStart: string,
+  dateEnd: string,
+): Promise<Array<{ scheduledStartAt: string; scheduledEndAt: string }>> {
+  const { data, error } = await adminClient()
+    .from('lessons')
+    .select('scheduled_start_at,scheduled_end_at')
+    .eq('teacher_id', teacherId)
+    .eq('status', 'scheduled')
+    .lt('scheduled_start_at', dateEnd)
+    .gt('scheduled_end_at', dateStart);
+
+  if (error) throw new AppError('Failed to load scheduled lessons', 500);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((data as any[]) ?? []).map((r) => ({
+    scheduledStartAt: toISOString(r.scheduled_start_at),
+    scheduledEndAt: toISOString(r.scheduled_end_at),
+  }));
 }
 
 // ── Slot Writes ───────────────────────────────────────────────────────────────

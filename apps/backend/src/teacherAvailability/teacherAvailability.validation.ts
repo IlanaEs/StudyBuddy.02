@@ -54,3 +54,25 @@ export type UpdateAvailabilitySlotBody = z.infer<typeof updateBodySchema>;
 // ── DELETE /api/teacher-availability/:id ──────────────────────────────────────
 
 export const deleteAvailabilitySlotSchema = z.object({ params: idParamSchema });
+
+// ── GET /api/teacher-availability/:teacherId/available-slots ──────────────────
+
+const availableSlotsParamsSchema = z.object({
+  teacherId: z.string().uuid(),
+});
+
+const availableSlotsQuerySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be a valid YYYY-MM-DD date'),
+  // Query params arrive as strings; preprocess coerces before range validation.
+  duration_minutes: z.preprocess(
+    (v) => (v === undefined || v === '' ? undefined : Number(v)),
+    z.number().int().min(15).max(180).optional(),
+  ),
+});
+
+export const getAvailableSlotsSchema = z.object({
+  params: availableSlotsParamsSchema,
+  query: availableSlotsQuerySchema,
+});
+
+export type GetAvailableSlotsQuery = z.infer<typeof availableSlotsQuerySchema>;
