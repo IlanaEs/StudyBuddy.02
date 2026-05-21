@@ -17,6 +17,7 @@ import {
   getActiveBookingRequestForIntake,
   getBookingRequestById,
   getLessonByBookingRequestId,
+  checkOverlappingScheduledLessonTx,
   insertBookingRequest,
   markMatchResultSelected,
   updateBookingRequestStatus,
@@ -160,11 +161,21 @@ export async function respondToBookingRequest(
       60_000,
   );
 
-  // ── Atomic transaction: update booking_request + insert lesson ────────────
+  // ── Atomic transaction: conflict check + update booking_request + insert lesson
   let updatedBookingRequest: BookingRequestRow | null = null;
   let createdLesson: LessonRow | null = null;
 
   await withTransaction(async (sql) => {
+    // Availability conflict guard runs first so the check and the subsequent
+    // INSERT share the same transaction boundary. Throws 409 if overlap found;
+    // the whole transaction rolls back and booking_request stays pending.
+    await checkOverlappingScheduledLessonTx(
+      sql,
+      bookingRequest.teacherId,
+      bookingRequest.requestedStartAt,
+      bookingRequest.requestedEndAt,
+    );
+
     updatedBookingRequest = await updateBookingRequestStatusTx(sql, bookingRequestId, {
       status: 'approved',
       teacherResponseMessage: teacherMsg,

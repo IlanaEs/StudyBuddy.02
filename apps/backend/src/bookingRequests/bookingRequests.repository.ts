@@ -288,6 +288,45 @@ export async function getLessonByBookingRequestId(
   return { id: (data as any).id as string };
 }
 
+// ── Availability Conflict Check ───────────────────────────────────────────────
+
+// Runs inside an open transaction (READ COMMITTED).
+//
+// Checks whether the teacher already has a scheduled lesson whose time window
+// overlaps the requested slot using the standard half-open interval formula:
+//   existing.start < requested_end  AND  existing.end > requested_start
+//
+// Must be the first operation inside withTransaction on the approval path so
+// the check and the lesson INSERT share the same atomic boundary. This guards
+// against sequential concurrent approvals. For simultaneous concurrent
+// approvals hitting the DB at the exact same instant, SERIALIZABLE isolation
+// or a pg_advisory_xact_lock would be required; that is a known limitation of
+// the current READ COMMITTED default and is documented in the task report.
+export async function checkOverlappingScheduledLessonTx(
+  sql: TransactionSql,
+  teacherId: string,
+  startsAt: string,
+  endsAt: string,
+): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows = (await sql`
+    SELECT id
+    FROM lessons
+    WHERE teacher_id = ${teacherId}
+      AND status = 'scheduled'
+      AND scheduled_start_at < ${endsAt}
+      AND scheduled_end_at   > ${startsAt}
+    LIMIT 1
+  `) as any[];
+
+  if (rows.length > 0) {
+    throw new AppError(
+      'Teacher already has a scheduled lesson in this time range',
+      409,
+    );
+  }
+}
+
 // ── Approval Transaction Write Functions ──────────────────────────────────────
 
 // Transaction-scoped booking_request status update (postgres.js).
