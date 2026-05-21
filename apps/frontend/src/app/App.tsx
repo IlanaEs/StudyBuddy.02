@@ -13,6 +13,7 @@ import { MatchingWizardPage } from '../features/matching/pages/MatchingWizardPag
 import { MatchResultsPage } from '../features/matching/pages/MatchResultsPage';
 import { BookingRequestPage } from '../features/matching/pages/BookingRequestPage';
 import { BookingConfirmationPage } from '../features/matching/pages/BookingConfirmationPage';
+import { TeacherOnboardingPage } from '../pages/TeacherOnboardingPage';
 
 export function App() {
   return (
@@ -21,10 +22,7 @@ export function App() {
         <Route path="/" element={<MainLandingRoute />} />
         <Route path="/teachers" element={<TeachersLandingRoute />} />
         <Route path="/intake" element={<SafePlaceholderRoute title="Intake placeholder" />} />
-        <Route
-          path="/teacher-onboarding"
-          element={<SafePlaceholderRoute title="Teacher onboarding placeholder" />}
-        />
+        <Route path="/teacher-onboarding" element={<TeacherOnboardingPage />} />
         <Route path="/onboarding/matching" element={<MatchingWizardPage />} />
         <Route path="/onboarding/results" element={<MatchResultsPage />} />
         <Route path="/onboarding/booking" element={<BookingRequestPage />} />

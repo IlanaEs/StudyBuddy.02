@@ -2168,3 +2168,305 @@ a {
     opacity: 0.12;
   }
 }
+
+/* ── Teacher Onboarding utilities ─────────────────── */
+
+/* Keyframes */
+@keyframes ob-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ob-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ob-check-pop {
+  0%   { transform: scale(0.7); opacity: 0; }
+  65%  { transform: scale(1.18); }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+@keyframes ob-progress-glow {
+  0%, 100% { box-shadow: 0 0 6px rgba(249,115,22,0.5); }
+  50%       { box-shadow: 0 0 18px rgba(249,115,22,0.85); }
+}
+
+@keyframes ob-bar-slide {
+  from { background-position: 200% center; }
+  to   { background-position: -200% center; }
+}
+
+/* Shell step entry animation */
+.ob-step-enter {
+  animation: ob-fade-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.ob-step-body {
+  padding: 28px 28px 0;
+}
+
+@media (max-width: 480px) {
+  .ob-step-body {
+    padding: 20px 16px 0;
+  }
+}
+
+/* Loading spinner (fallback for no-Tailwind contexts) */
+.ob-spin {
+  animation: ob-spin 1s linear infinite;
+}
+
+/* Check pop (applied when checkbox becomes checked) */
+.ob-check-pop {
+  animation: ob-check-pop 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* Inputs — focus ring */
+.ob-input {
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.ob-input:focus {
+  border-color: #f97316 !important;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2) !important;
+  outline: none;
+}
+
+/* Selectable chip */
+.ob-chip {
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.ob-chip:hover {
+  transform: translateY(-1px) scale(1.02);
+}
+.ob-chip:active {
+  transform: scale(0.97);
+}
+
+/* Selectable card */
+.ob-card {
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
+              box-shadow 0.2s ease,
+              border-color 0.18s ease,
+              background 0.18s ease;
+}
+.ob-card:hover {
+  transform: translateY(-2px);
+}
+.ob-card:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Nav CTA button */
+.ob-btn-next {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+.ob-btn-next:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+}
+.ob-btn-next:active:not(:disabled) {
+  transform: scale(0.98) translateY(0);
+}
+
+/* Back button */
+.ob-btn-back {
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.ob-btn-back:hover {
+  background: var(--surface) !important;
+  border-color: var(--line-2) !important;
+  color: var(--text) !important;
+}
+
+/* Progress bar active glow */
+.ob-progress-bar {
+  animation: ob-progress-glow 2s ease-in-out infinite;
+}
+
+/* Upload zone hover */
+.ob-upload:hover {
+  border-color: #f97316 !important;
+  background: rgba(249,115,22,0.06) !important;
+}
+.ob-upload {
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+/* Ops section toggle */
+.ob-toggle {
+  transition: color 0.15s ease;
+}
+.ob-toggle:hover {
+  color: var(--text) !important;
+}
+
+/* Number chip */
+.ob-num-chip {
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.ob-num-chip:hover {
+  border-color: #f97316 !important;
+  color: #f97316 !important;
+}
+
+/* OPS section card subtle hover */
+.ob-ops-section {
+  transition: border-color 0.2s ease;
+}
+.ob-ops-section:hover {
+  border-color: rgba(249,115,22,0.25) !important;
+}
+
+/* Legal checkbox label */
+.ob-legal-row {
+  transition: background 0.15s ease;
+  border-radius: 8px;
+  padding: 4px 6px;
+  margin: -4px -6px;
+}
+.ob-legal-row:hover {
+  background: rgba(255,255,255,0.035);
+}
+
+/* Responsive: level cards → 2 columns on small viewports */
+.ob-level-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 560px) {
+  .ob-level-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Wide ops shell — single column on mobile */
+@media (max-width: 680px) {
+  .ob-ops-grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Success icon pulse ring */
+@keyframes ob-ring-pulse {
+  0%   { transform: scale(1);    opacity: 0.6; }
+  80%  { transform: scale(1.55); opacity: 0; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+.ob-success-ring::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: inherit;
+  border: 2px solid rgba(249,115,22,0.5);
+  animation: ob-ring-pulse 2s ease-out infinite;
+  pointer-events: none;
+}
+
+/* ── Availability Calendar ─────────────────────────────── */
+.ob-avail-grid {
+  display: grid;
+  grid-template-columns: 72px repeat(3, 1fr);
+  gap: 5px;
+  align-items: center;
+}
+.ob-avail-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 10px;
+  gap: 2px;
+  text-align: center;
+}
+.ob-avail-header-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+  font-family: var(--font-display);
+}
+.ob-avail-header-range {
+  font-size: 10px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+.ob-avail-day {
+  height: 52px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: rgba(255,255,255,0.03);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.25;
+  padding: 0 4px;
+}
+.ob-avail-day:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+.ob-avail-day--active {
+  color: var(--blue);
+  border-color: color-mix(in oklab, var(--blue) 45%, transparent);
+  background: color-mix(in oklab, var(--blue) 10%, transparent);
+}
+.ob-avail-cell {
+  height: 52px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line-2);
+  background: rgba(255,255,255,0.04);
+  cursor: pointer;
+  transition: all 0.16s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  color: var(--blue);
+}
+.ob-avail-cell:hover:not(.ob-avail-cell--busy):not(.ob-avail-cell--selected) {
+  background: rgba(255,255,255,0.09);
+  border-color: color-mix(in oklab, var(--blue) 30%, transparent);
+}
+.ob-avail-cell--selected {
+  background: color-mix(in oklab, var(--blue) 22%, transparent);
+  border-color: color-mix(in oklab, var(--blue) 55%, transparent);
+  box-shadow: 0 0 12px -4px color-mix(in oklab, var(--blue) 40%, transparent);
+}
+.ob-avail-cell--selected::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 2px 2px, color-mix(in oklab, var(--blue) 28%, transparent) 1px, transparent 0);
+  background-size: 8px 8px;
+  pointer-events: none;
+}
+.ob-avail-cell--busy {
+  background: repeating-linear-gradient(-45deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 4px, rgba(0,0,0,0.12) 4px, rgba(0,0,0,0.12) 8px);
+  border-color: transparent;
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.ob-avail-busy-label { font-size: 9px; font-family: var(--font-mono); color: var(--text-3); }
+
+@media (max-width: 560px) {
+  .ob-avail-grid { grid-template-columns: 56px repeat(3, 1fr); gap: 4px; }
+  .ob-avail-cell, .ob-avail-day { height: 44px; }
+  .ob-avail-day { font-size: 11px; }
+}
+
+/* ── ob-spin ───────────────────────────────────────────── */
+.ob-spin {
+  animation: ob-spin 0.9s linear infinite;
+}
+@keyframes ob-spin {
+  to { transform: rotate(360deg); }
+}

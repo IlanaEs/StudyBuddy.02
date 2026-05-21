@@ -58,7 +58,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setSession(nextSession);
+    setSession((prev) => {
+      // Supabase only includes provider_token in the initial SIGNED_IN event after
+      // OAuth. Subsequent TOKEN_REFRESHED / replayed events strip it. Preserve it
+      // as long as the session belongs to the same user.
+      const willPreserve = !nextSession.provider_token && !!prev?.provider_token && prev.user?.id === nextSession.user?.id;
+      if (import.meta.env.DEV) {
+        console.debug('[AuthProvider] setSession', {
+          incomingHasProviderToken: !!nextSession.provider_token,
+          prevHasProviderToken: !!prev?.provider_token,
+          sameUser: prev?.user?.id === nextSession.user?.id,
+          preservingPrevToken: willPreserve,
+        });
+      }
+      if (willPreserve) {
+        return { ...nextSession, provider_token: prev!.provider_token };
+      }
+      return nextSession;
+    });
     setUser(response.data.user);
     setStatus('authenticated');
     setError(null);
@@ -72,13 +89,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const supabase = getSupabaseBrowserClient();
         const { data } = await supabase.auth.getSession();
 
+        if (import.meta.env.DEV) {
+          console.debug('[AuthProvider] getSession result', {
+            hasSession: !!data.session,
+            hasProviderToken: !!data.session?.provider_token,
+            providerTokenLength: data.session?.provider_token?.length ?? 0,
+            userId: data.session?.user?.id ?? null,
+          });
+        }
+
         if (isMounted) {
           await resolveSession(data.session);
         }
 
         const {
           data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+        } = supabase.auth.onAuthStateChange((event, nextSession) => {
+          if (import.meta.env.DEV) {
+            console.debug('[AuthProvider] onAuthStateChange', {
+              event,
+              hasSession: !!nextSession,
+              hasProviderToken: !!nextSession?.provider_token,
+              providerTokenLength: nextSession?.provider_token?.length ?? 0,
+              userId: nextSession?.user?.id ?? null,
+            });
+          }
           if (isMounted) {
             void resolveSession(nextSession);
           }
