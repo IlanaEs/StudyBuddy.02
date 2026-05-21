@@ -10,6 +10,7 @@ import { lessonsRouter } from './lessons/lessons.routes.js';
 import { matchingRouter } from './matching/matching.routes.js';
 import { studentIntakesRouter } from './studentIntakes/studentIntakes.routes.js';
 import { teacherRouter } from './teachers/teacherRoutes.js';
+import { teacherAvailabilityRouter } from './teacherAvailability/teacherAvailability.routes.js';
 
 export function createApp() {
   const app = express();
@@ -27,6 +28,7 @@ export function createApp() {
   app.use('/api/matching', matchingRouter);
   app.use('/api/student-intakes', studentIntakesRouter);
   app.use('/api/teachers', teacherRouter);
+  app.use('/api/teacher-availability', teacherAvailabilityRouter);
 
   app.use(errorHandler);
 
