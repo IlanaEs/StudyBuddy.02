@@ -3,16 +3,22 @@
 import { AppError } from '../errors/AppError.js';
 import { withTransaction } from '../db/transaction.js';
 import type { LocalUser } from '../auth/authTypes.js';
-import type { CreateBookingRequestBody } from './bookingRequests.validation.js';
+import type {
+  CreateBookingRequestBody,
+  RespondToBookingRequestBody,
+} from './bookingRequests.validation.js';
 import type { BookingRequestRow } from './bookingRequests.types.js';
 import {
   getMatchResultById,
   getStudentIntakeById,
   getStudentById,
   getTeacherProfileById,
+  getTeacherProfileByUserId,
   getActiveBookingRequestForIntake,
+  getBookingRequestById,
   insertBookingRequest,
   markMatchResultSelected,
+  updateBookingRequestStatus,
 } from './bookingRequests.repository.js';
 
 export async function createBookingRequest(
@@ -83,4 +89,44 @@ export async function createBookingRequest(
   });
 
   return createdBooking!;
+}
+
+// ── Respond to Booking Request ────────────────────────────────────────────────
+
+export async function respondToBookingRequest(
+  bookingRequestId: string,
+  body: RespondToBookingRequestBody,
+  currentUser: LocalUser,
+): Promise<BookingRequestRow> {
+  // ── Load booking request ──────────────────────────────────────────────────
+  const bookingRequest = await getBookingRequestById(bookingRequestId);
+  if (!bookingRequest) {
+    throw new AppError('Booking request not found', 404);
+  }
+
+  // ── Status guard: must be pending ─────────────────────────────────────────
+  if (bookingRequest.status !== 'pending') {
+    throw new AppError(
+      `Booking request is not pending (current status: ${bookingRequest.status})`,
+      409,
+    );
+  }
+
+  // ── Ownership check ───────────────────────────────────────────────────────
+  if (currentUser.role === 'teacher') {
+    const teacherProfile = await getTeacherProfileByUserId(currentUser.id);
+    if (!teacherProfile || teacherProfile.id !== bookingRequest.teacherId) {
+      throw new AppError('Forbidden', 403);
+    }
+  }
+  // admin: always allowed
+
+  // ── Map response value to booking_status ──────────────────────────────────
+  const newStatus = body.response === 'approve' ? 'approved' : 'rejected';
+
+  // ── Persist status transition ─────────────────────────────────────────────
+  return updateBookingRequestStatus(bookingRequestId, {
+    status: newStatus,
+    teacherResponseMessage: body.teacher_response_message ?? null,
+  });
 }

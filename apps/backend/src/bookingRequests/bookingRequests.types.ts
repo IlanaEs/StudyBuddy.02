@@ -11,6 +11,7 @@ export type BookingRequestRow = {
   requestedEndAt: string;
   status: BookingStatus;
   studentMessage: string | null;
+  teacherResponseMessage: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -22,4 +23,9 @@ export type CreateBookingRequestInput = {
   requestedStartAt: string;
   requestedEndAt: string;
   studentMessage: string | null;
+};
+
+export type RespondToBookingRequestInput = {
+  status: 'approved' | 'rejected';
+  teacherResponseMessage: string | null;
 };

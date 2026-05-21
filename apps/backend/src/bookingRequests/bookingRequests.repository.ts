@@ -3,7 +3,11 @@
 import { AppError } from '../errors/AppError.js';
 import { createSupabaseAdminClient } from '../supabase/supabaseClients.js';
 import type { TransactionSql } from '../db/transaction.js';
-import type { BookingRequestRow, CreateBookingRequestInput } from './bookingRequests.types.js';
+import type {
+  BookingRequestRow,
+  CreateBookingRequestInput,
+  RespondToBookingRequestInput,
+} from './bookingRequests.types.js';
 
 const adminClient = createSupabaseAdminClient;
 
@@ -117,6 +121,24 @@ export async function getTeacherProfileById(
   return { id: (data as any).id as string };
 }
 
+// Looks up a teacher_profile by the linked auth user id.
+// Used to resolve teacher ownership on booking_requests.
+export async function getTeacherProfileByUserId(
+  userId: string,
+): Promise<{ id: string } | null> {
+  const { data, error } = await adminClient()
+    .from('teacher_profiles')
+    .select('id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) throw new AppError('Failed to load teacher profile', 500);
+  if (!data) return null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return { id: (data as any).id as string };
+}
+
 // ── Active Booking Check ──────────────────────────────────────────────────────
 
 // Returns a booking_request id if any pending/approved booking exists for the
@@ -150,6 +172,39 @@ export async function getActiveBookingRequestForIntake(
   return { id: (brData as any).id as string };
 }
 
+// ── Single Booking Request Lookup ─────────────────────────────────────────────
+
+export async function getBookingRequestById(
+  bookingRequestId: string,
+): Promise<BookingRequestRow | null> {
+  const { data, error } = await adminClient()
+    .from('booking_requests')
+    .select(
+      'id,student_id,teacher_id,match_result_id,requested_start_at,requested_end_at,status,student_message,teacher_response_message,created_at,updated_at',
+    )
+    .eq('id', bookingRequestId)
+    .maybeSingle();
+
+  if (error) throw new AppError('Failed to load booking request', 500);
+  if (!data) return null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const row = data as any;
+  return {
+    id: row.id as string,
+    studentId: row.student_id as string,
+    teacherId: row.teacher_id as string,
+    matchResultId: row.match_result_id as string,
+    requestedStartAt: row.requested_start_at as string,
+    requestedEndAt: row.requested_end_at as string,
+    status: row.status as BookingRequestRow['status'],
+    studentMessage: row.student_message as string | null,
+    teacherResponseMessage: row.teacher_response_message as string | null,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
 // ── Transaction Write Functions ───────────────────────────────────────────────
 
 export async function insertBookingRequest(
@@ -170,7 +225,7 @@ export async function insertBookingRequest(
     RETURNING
       id, student_id, teacher_id, match_result_id,
       requested_start_at, requested_end_at, status, student_message,
-      created_at, updated_at
+      teacher_response_message, created_at, updated_at
   `) as any[];
 
   const row = rows[0];
@@ -183,6 +238,7 @@ export async function insertBookingRequest(
     requestedEndAt: toISOString(row.requested_end_at),
     status: row.status as 'pending',
     studentMessage: row.student_message as string | null,
+    teacherResponseMessage: row.teacher_response_message as string | null,
     createdAt: toISOString(row.created_at),
     updatedAt: toISOString(row.updated_at),
   };
@@ -201,4 +257,43 @@ export async function markMatchResultSelected(
     UPDATE match_results SET was_selected = false
     WHERE intake_id = ${intakeId} AND id != ${selectedMatchResultId}
   `;
+}
+
+// ── Teacher Response Write ────────────────────────────────────────────────────
+
+// Updates booking_request status to approved or rejected, persists the
+// optional teacher response message. updated_at is handled by DB trigger.
+export async function updateBookingRequestStatus(
+  bookingRequestId: string,
+  input: RespondToBookingRequestInput,
+): Promise<BookingRequestRow> {
+  const { data, error } = await adminClient()
+    .from('booking_requests')
+    .update({
+      status: input.status,
+      teacher_response_message: input.teacherResponseMessage,
+    })
+    .eq('id', bookingRequestId)
+    .select(
+      'id,student_id,teacher_id,match_result_id,requested_start_at,requested_end_at,status,student_message,teacher_response_message,created_at,updated_at',
+    )
+    .single();
+
+  if (error) throw new AppError('Failed to update booking request', 500);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const row = data as any;
+  return {
+    id: row.id as string,
+    studentId: row.student_id as string,
+    teacherId: row.teacher_id as string,
+    matchResultId: row.match_result_id as string,
+    requestedStartAt: row.requested_start_at as string,
+    requestedEndAt: row.requested_end_at as string,
+    status: row.status as BookingRequestRow['status'],
+    studentMessage: row.student_message as string | null,
+    teacherResponseMessage: row.teacher_response_message as string | null,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
 }
