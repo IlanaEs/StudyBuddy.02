@@ -10,6 +10,7 @@ import type {
 import {
   deactivateSlot,
   getAllSlots,
+  getActiveExceptionsForDate,
   getActiveSlotsByTeacherAndDay,
   getOverlappingSlots,
   getScheduledLessonsOnDate,
@@ -191,14 +192,19 @@ export async function generateAvailableSlots(
   // Load active availability windows for this teacher/day
   const windows = await getActiveSlotsByTeacherAndDay(teacherId, dayOfWeek);
 
-  // Load scheduled lessons whose window overlaps the whole calendar day
+  // Build the day boundary used by both conflict queries.
   const dateStart = `${date}T00:00:00.000Z`;
   const nextDay = new Date(`${date}T00:00:00.000Z`);
   nextDay.setUTCDate(nextDay.getUTCDate() + 1);
   const dateEnd = nextDay.toISOString();
-  const scheduledLessons = await getScheduledLessonsOnDate(teacherId, dateStart, dateEnd);
 
-  // Generate candidate slots for every availability window
+  // Load existing scheduled lessons and availability exceptions in parallel.
+  const [scheduledLessons, exceptions] = await Promise.all([
+    getScheduledLessonsOnDate(teacherId, dateStart, dateEnd),
+    getActiveExceptionsForDate(teacherId, dateStart, dateEnd),
+  ]);
+
+  // Generate candidate slots for every availability window.
   const candidates: Array<{ startAt: string; endAt: string }> = [];
 
   for (const window of windows) {
@@ -221,15 +227,27 @@ export async function generateAvailableSlots(
     }
   }
 
-  // Remove candidates that overlap any existing scheduled lesson.
-  // Overlap formula: lesson.start < slot.end AND lesson.end > slot.start
-  const available = candidates.filter((slot) => {
+  // Step 1 — remove slots that overlap an existing scheduled lesson.
+  // Overlap formula (half-open): lesson.start < slot.end AND lesson.end > slot.start
+  const afterLessons = candidates.filter((slot) => {
     const slotStart = new Date(slot.startAt).getTime();
     const slotEnd = new Date(slot.endAt).getTime();
     return !scheduledLessons.some((lesson) => {
       const lessonStart = new Date(lesson.scheduledStartAt).getTime();
       const lessonEnd = new Date(lesson.scheduledEndAt).getTime();
       return lessonStart < slotEnd && lessonEnd > slotStart;
+    });
+  });
+
+  // Step 2 — remove slots that overlap an availability exception (blocked period).
+  // Same half-open overlap formula: exception.start < slot.end AND exception.end > slot.start
+  const available = afterLessons.filter((slot) => {
+    const slotStart = new Date(slot.startAt).getTime();
+    const slotEnd = new Date(slot.endAt).getTime();
+    return !exceptions.some((ex) => {
+      const exStart = new Date(ex.startsAt).getTime();
+      const exEnd = new Date(ex.endsAt).getTime();
+      return exStart < slotEnd && exEnd > slotStart;
     });
   });
 

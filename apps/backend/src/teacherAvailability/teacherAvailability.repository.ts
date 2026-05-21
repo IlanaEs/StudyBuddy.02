@@ -198,6 +198,30 @@ export async function getScheduledLessonsOnDate(
   }));
 }
 
+// Loads availability exceptions that overlap [dateStart, dateEnd) for the given
+// teacher. Used by the slot generator as the final filter step.
+// Same half-open overlap formula: exception.start < dateEnd AND exception.end > dateStart
+export async function getActiveExceptionsForDate(
+  teacherId: string,
+  dateStart: string,
+  dateEnd: string,
+): Promise<Array<{ startsAt: string; endsAt: string }>> {
+  const { data, error } = await adminClient()
+    .from('availability_exceptions')
+    .select('starts_at,ends_at')
+    .eq('teacher_id', teacherId)
+    .lt('starts_at', dateEnd)
+    .gt('ends_at', dateStart);
+
+  if (error) throw new AppError('Failed to load availability exceptions', 500);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((data as any[]) ?? []).map((r) => ({
+    startsAt: toISOString(r.starts_at),
+    endsAt: toISOString(r.ends_at),
+  }));
+}
+
 // ── Slot Writes ───────────────────────────────────────────────────────────────
 
 export async function insertSlot(
