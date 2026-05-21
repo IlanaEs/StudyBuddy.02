@@ -13,6 +13,7 @@ const expectedFiles = [
   '20260514183726_007_security_hardening.sql',
   '20260522000100_008_teacher_scheduling_preferences.sql',
   '20260522000200_009_availability_exceptions.sql',
+  '20260522000300_010_onboarding_drafts.sql',
 ];
 
 const migrationFiles = {
@@ -22,6 +23,7 @@ const migrationFiles = {
   securityHardening: '20260514183726_007_security_hardening.sql',
   schedulingPreferences: '20260522000100_008_teacher_scheduling_preferences.sql',
   availabilityExceptions: '20260522000200_009_availability_exceptions.sql',
+  onboardingDrafts: '20260522000300_010_onboarding_drafts.sql',
 };
 
 const expectedTables = [
@@ -158,6 +160,36 @@ for (const index of [
   if (!sqlByFile[migrationFiles.availabilityExceptions].includes(`create index ${index}`)) {
     fail(`missing availability exception index ${index}`);
   }
+}
+
+if (!sqlByFile[migrationFiles.onboardingDrafts].includes('create table public.onboarding_drafts')) {
+  fail('missing table onboarding_drafts');
+}
+
+for (const column of [
+  'user_id',
+  'draft_data',
+  'onboarding_step',
+  'onboarding_completed',
+]) {
+  if (!sqlByFile[migrationFiles.onboardingDrafts].includes(column)) {
+    fail(`missing onboarding_drafts column ${column}`);
+  }
+}
+
+for (const constraint of [
+  'onboarding_drafts_user_id_fk',
+  'onboarding_drafts_user_id_unique',
+  'onboarding_drafts_step_check',
+  'onboarding_drafts_hourly_rate_check',
+]) {
+  if (!sqlByFile[migrationFiles.onboardingDrafts].includes(`constraint ${constraint}`)) {
+    fail(`missing onboarding_drafts constraint ${constraint}`);
+  }
+}
+
+if (!sqlByFile[migrationFiles.onboardingDrafts].includes('create index onboarding_drafts_user_id_idx')) {
+  fail('missing onboarding_drafts user_id index');
 }
 
 const rlsWithoutSubjectLookup = sqlByFile[migrationFiles.rls].replace(

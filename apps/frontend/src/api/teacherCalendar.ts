@@ -17,16 +17,24 @@ export type BusySlot = {
 
 // Triggers Google OAuth via Supabase linkIdentity — causes a full-page redirect.
 // linkIdentity pre-checks the session via GET /auth/v1/user before redirecting.
-// 403 from that call means: session expired, OR allow_manual_linking is disabled
-// in the Supabase dashboard (Auth → Advanced → Allow manual linking).
+// A 403 from that pre-check means the session is expired or allow_manual_linking
+// is disabled in the Supabase dashboard (Auth → Advanced → Allow manual linking).
+//
+// redirectTo must use window.location.origin + '/teacher-onboarding' rather than
+// window.location.href so that:
+//   1. The URL is stable and predictable regardless of query params or hash fragments
+//      that may be present in href after a previous OAuth return.
+//   2. It matches exactly what is registered in Supabase → Auth → URL Configuration
+//      → Allowed Redirect URLs (e.g. http://localhost:3001/teacher-onboarding).
 export async function initiateCalendarConnect(): Promise<void> {
   const supabase = getSupabaseBrowserClient();
+  const redirectTo = `${window.location.origin}/teacher-onboarding`;
   const { error } = await supabase.auth.linkIdentity({
     provider: 'google',
     options: {
       scopes: GCAL_SCOPE,
       queryParams: { access_type: 'offline', prompt: 'consent' },
-      redirectTo: window.location.href,
+      redirectTo,
     },
   });
   if (error) {
@@ -34,6 +42,7 @@ export async function initiateCalendarConnect(): Promise<void> {
       console.error('[initiateCalendarConnect] linkIdentity failed', {
         status: (error as { status?: number }).status,
         message: error.message,
+        redirectTo,
       });
     }
     throw error;

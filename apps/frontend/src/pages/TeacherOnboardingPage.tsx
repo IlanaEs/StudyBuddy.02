@@ -528,12 +528,16 @@ function GoogleCalendarCard({
   busyCount,
   onConnect,
   onDisconnect,
+  errorHint,
 }: {
   status: GCalStatus;
   lastSynced?: string | null;
   busyCount?: number;
   onConnect: () => void;
   onDisconnect: () => void;
+  /** Provides a machine-readable reason so the sync_failed state can show
+   *  an appropriate recovery hint rather than a one-size-fits-all message. */
+  errorHint?: 'session_expired' | 'generic';
 }) {
   const borderByStatus: Record<GCalStatus, string> = {
     not_connected: 'var(--line-2)',
@@ -667,30 +671,34 @@ function GoogleCalendarCard({
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>לא ניתן להתחבר</div>
             <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
-              הרשאה נדחתה או פג תוקף — נסה שוב
+              {errorHint === 'session_expired'
+                ? 'פג תוקף הסשן — אנא התחבר מחדש כדי לחבר Google Calendar'
+                : 'הרשאה נדחתה או פג תוקף — נסה שוב'}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onConnect}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-              padding: '7px 12px',
-              borderRadius: 999,
-              border: '1px solid var(--line-2)',
-              background: 'transparent',
-              color: 'var(--text-2)',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
-          >
-            <RefreshCw size={11} />
-            נסה שוב
-          </button>
+          {errorHint !== 'session_expired' && (
+            <button
+              type="button"
+              onClick={onConnect}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '7px 12px',
+                borderRadius: 999,
+                border: '1px solid var(--line-2)',
+                background: 'transparent',
+                color: 'var(--text-2)',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              <RefreshCw size={11} />
+              נסה שוב
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -740,6 +748,9 @@ export function TeacherOnboardingPage() {
   const isActivatingRef = useRef(false);
 
   const [gcalStatus, setGcalStatus] = useState<GCalStatus>('not_connected');
+  // Tracks why the last connect attempt failed so the card can show a
+  // targeted recovery hint (e.g. "re-login" vs generic "try again").
+  const [gcalConnectError, setGcalConnectError] = useState<'session_expired' | 'generic' | null>(null);
   const [busyBlocks, setBusyBlocks] = useState<string[]>([]);
   const [gcalLastSynced, setGcalLastSynced] = useState<string | null>(null);
   const [gcalBusyCount, setGcalBusyCount] = useState(0);
@@ -915,21 +926,33 @@ export function TeacherOnboardingPage() {
 
   async function handleGCalConnect() {
     const token = session?.access_token;
+
+    // linkIdentity requires a valid Supabase session. Without one it hits
+    // GET /auth/v1/user → 403 before OAuth even opens. Detect early and
+    // show a targeted "re-login" message instead of a generic failure.
+    if (!token) {
+      setGcalConnectError('session_expired');
+      setGcalStatus('sync_failed');
+      return;
+    }
+
+    setGcalConnectError(null);
     setGcalStatus('connecting');
     try {
       // Flush current form state to the DB before the OAuth redirect so it
       // can be restored when the browser returns to this page. We await here
       // so the write completes before navigation leaves the page.
-      if (token) {
-        await saveOnboardingDraft(data, step, token);
-      }
+      await saveOnboardingDraft(data, step, token);
       sessionStorage.setItem('sb_gcal_connecting', '1');
       sessionStorage.setItem('sb_gcal_return_step', String(step));
       await initiateCalendarConnect();
       // initiateCalendarConnect() causes a full-page redirect — nothing below runs.
-    } catch {
+    } catch (err) {
       sessionStorage.removeItem('sb_gcal_connecting');
       sessionStorage.removeItem('sb_gcal_return_step');
+      // 403 = session expired or allow_manual_linking disabled in Supabase dashboard.
+      const is403 = (err as { status?: number }).status === 403;
+      setGcalConnectError(is403 ? 'session_expired' : 'generic');
       setGcalStatus('sync_failed');
     }
   }
@@ -1448,6 +1471,7 @@ export function TeacherOnboardingPage() {
                 busyCount={gcalBusyCount}
                 onConnect={handleGCalConnect}
                 onDisconnect={handleGCalDisconnect}
+                errorHint={gcalConnectError ?? undefined}
               />
             </div>
 
