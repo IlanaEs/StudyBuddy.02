@@ -9,6 +9,7 @@ import { teacherAvailabilityRouter } from './teacherAvailability/teacherAvailabi
 import { teacherSchedulingPreferencesRouter } from './teacherSchedulingPreferences/teacherSchedulingPreferences.routes.js';
 import { teacherAvailabilityExceptionsRouter } from './teacherAvailabilityExceptions/teacherAvailabilityExceptions.routes.js';
 import { teacherOnboardingRouter } from './teacherOnboarding/teacherOnboarding.routes.js';
+import { studentOnboardingRouter } from './studentOnboarding/studentOnboarding.routes.js';
 
 export function createApp() {
   const app = express();
@@ -22,6 +23,7 @@ export function createApp() {
   app.use('/api/teacher-scheduling-preferences', teacherSchedulingPreferencesRouter);
   app.use('/api/teacher-availability-exceptions', teacherAvailabilityExceptionsRouter);
   app.use('/api/teachers', teacherOnboardingRouter);
+  app.use('/api/student-onboarding', studentOnboardingRouter);
 
   app.use(errorHandler);
 

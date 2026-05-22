@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   GraduationCap, Users, Target, Calendar, Zap, Repeat, BookOpen,
   ShieldCheck, Search, Monitor, Home, ArrowLeftRight, Clock,
-  Loader2, Check, Circle,
+  Loader2, Check, Circle, Mail, Lock, Eye, EyeOff,
 } from 'lucide-react';
 import { useMatchingStore } from '../store/matchingStore';
 import { WizardShell } from '../components/WizardShell';
@@ -14,8 +14,14 @@ import { WizardSummaryCard } from '../components/WizardSummaryCard';
 import { subjectsByLevel, gradesByLevel } from '../data/mockSubjects';
 import { mockMatches } from '../data/mockMatches';
 import type { EducationLevel, LearningGoal, LocationPreference, TimeSlot } from '../types/matching.types';
+import { useAuth } from '../../../auth/AuthProvider';
+import { getSupabaseBrowserClient } from '../../../auth/supabaseClient';
+import { completeOAuthSignup, initStudentOnboarding } from '../../../api/studentOnboarding';
 
-const TOTAL_STEPS = 10;
+const TOTAL_STEPS = 11;
+const AUTH_STEP = 8;
+// Flag stored in localStorage to detect return from Google OAuth
+const OAUTH_PENDING_KEY = 'sb_student_onboarding_oauth_pending';
 
 const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי'];
 const TIME_SLOTS: { value: TimeSlot; label: string }[] = [
@@ -50,21 +56,176 @@ const SOFT_PREFS_PARENT = [
 export function MatchingWizardPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { step, intake, updateIntake, nextStep, prevStep, setStep, setMatchResults, setLoading, isLoading } = useMatchingStore();
+  const auth = useAuth();
+  const {
+    step, intake, updateIntake, nextStep, prevStep, setStep,
+    setMatchResults, setLoading, isLoading, restoreFromStorage, clearStorage,
+  } = useMatchingStore();
   const [subjectSearch, setSubjectSearch] = useState('');
   const [freeTextSubject, setFreeTextSubject] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Auth step local state
+  const [authTab, setAuthTab] = useState<'signup' | 'login'>('signup');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
+  const oauthReturnHandled = useRef(false);
+
+  // ── Initial mount ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const role = searchParams.get('role');
     if (role === 'student' || role === 'parent') {
       useMatchingStore.getState().reset();
       updateIntake({ userContext: role });
       setStep(2);
-    } else if (step > 10) {
-      useMatchingStore.getState().reset();
+      return;
     }
-  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+    if (step > TOTAL_STEPS) {
+      useMatchingStore.getState().reset();
+      return;
+    }
+    // Restore draft for users who refreshed mid-flow
+    if (step === 0) {
+      restoreFromStorage();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── OAuth return: handle once auth status becomes authenticated ───────────────
+  useEffect(() => {
+    if (auth.status !== 'authenticated') return;
+    if (oauthReturnHandled.current) return;
+    const oauthPending = localStorage.getItem(OAUTH_PENDING_KEY);
+    if (!oauthPending) return;
+
+    oauthReturnHandled.current = true;
+    localStorage.removeItem(OAUTH_PENDING_KEY);
+    void handlePostOAuthReturn();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.status]);
+
+  // ── Guard: unauthenticated user must not bypass auth step ─────────────────────
+  useEffect(() => {
+    if (auth.status === 'loading') return;
+    if (step > AUTH_STEP && auth.status === 'unauthenticated') {
+      setStep(AUTH_STEP);
+    }
+  }, [auth.status, step, setStep]);
+
+  // ── Post-OAuth: set role + advance to step 9 ──────────────────────────────────
+  async function handlePostOAuthReturn() {
+    if (!auth.session?.access_token) return;
+    const savedRole = intake.userContext;
+    if (!savedRole) return;
+
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      const result = await completeOAuthSignup(
+        savedRole,
+        auth.user?.full_name ?? intake.fullName,
+        auth.session.access_token,
+      );
+      if ('error' in result) {
+        setAuthError(result.error);
+        return;
+      }
+      clearStorage();
+      setStep(AUTH_STEP + 1);
+    } catch {
+      setAuthError('שגיאה בעיבוד החשבון. נסו שנית.');
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  // ── Email/password auth ───────────────────────────────────────────────────────
+  async function handleEmailAuth() {
+    setAuthError(null);
+    if (!authEmail.trim() || !authPassword.trim()) {
+      setAuthError('נא למלא אימייל וסיסמה');
+      return;
+    }
+    if (authTab === 'signup' && authPassword.length < 8) {
+      setAuthError('הסיסמה חייבת להכיל לפחות 8 תווים');
+      return;
+    }
+    if (isParent && authTab === 'signup' && !intake.childName.trim()) {
+      setAuthError('נא להכניס את שם הילד/ה');
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      if (authTab === 'signup') {
+        await auth.signup({
+          email: authEmail,
+          full_name: intake.fullName,
+          password: authPassword,
+          role: isParent ? 'parent' : 'student',
+        });
+      } else {
+        await auth.login({ email: authEmail, password: authPassword });
+      }
+      clearStorage();
+      setStep(AUTH_STEP + 1);
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : 'שגיאה. נסו שנית.');
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  // ── Google OAuth ──────────────────────────────────────────────────────────────
+  async function handleGoogleOAuth() {
+    if (isParent && !intake.childName.trim()) {
+      setAuthError('נא להכניס את שם הילד/ה לפני ההתחברות עם גוגל');
+      return;
+    }
+    // Force-persist current draft (step 8 is above the auto-persist threshold of 7)
+    try {
+      localStorage.setItem('sb_student_onboarding', JSON.stringify({ step: 7, intake }));
+    } catch { /* ignore */ }
+    localStorage.setItem(OAUTH_PENDING_KEY, 'true');
+
+    const supabase = getSupabaseBrowserClient();
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/onboarding/matching` },
+    });
+  }
+
+  // ── Submit: create student profile + intake ───────────────────────────────────
+  async function submitIntake(): Promise<boolean> {
+    const token = auth.session?.access_token;
+    if (!token) {
+      setStep(AUTH_STEP);
+      return false;
+    }
+    const intakeInput = {
+      full_name: intake.fullName,
+      grade_level: intake.gradeLevel,
+      sub_level: intake.subLevel,
+      subject_name: intake.subjectName,
+      learning_goal: intake.learningGoal,
+      location_preference: (intake.locationPreference ?? 'online') as 'online' | 'frontal' | 'both',
+      city: intake.city,
+      budget_min: intake.budgetMin,
+      budget_max: intake.budgetMax,
+      preferred_days: intake.preferredDays,
+      preferred_time_ranges: intake.preferredTimeRanges as string[],
+      learning_style: intake.learningStyle,
+      soft_preferences: intake.softPreferences,
+      ...(isParent && intake.childName ? { child_name: intake.childName } : {}),
+    };
+    const result = await initStudentOnboarding(intakeInput, token);
+    if ('error' in result) {
+      setErrors({ submit: result.error });
+      return false;
+    }
+    return true;
+  }
 
   const isParent = intake.userContext === 'parent';
   const subjects = subjectsByLevel[intake.gradeLevel ?? 'elementary'] ?? [];
@@ -78,9 +239,9 @@ export function MatchingWizardPage() {
     if (s === 4 && !intake.gradeLevel) e.gradeLevel = 'נא לבחור רמה';
     if (s === 6 && !intake.subjectName) e.subjectName = 'נא לבחור מקצוע';
     if (s === 7 && intake.budgetMax === null) e.budget = 'נא לבחור תקציב';
-    if (s === 8 && intake.preferredDays.length === 0) e.days = 'נא לסמן לפחות יום אחד';
-    if (s === 8 && intake.locationPreference === null) e.location = 'נא לבחור מיקום';
-    if (s === 8 && (intake.locationPreference === 'frontal' || intake.locationPreference === 'both') && !intake.city) e.city = 'נא להכניס עיר';
+    if (s === 9 && intake.preferredDays.length === 0) e.days = 'נא לסמן לפחות יום אחד';
+    if (s === 9 && intake.locationPreference === null) e.location = 'נא לבחור מיקום';
+    if (s === 9 && (intake.locationPreference === 'frontal' || intake.locationPreference === 'both') && !intake.city) e.city = 'נא להכניס עיר';
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -89,7 +250,12 @@ export function MatchingWizardPage() {
     if (!validate(step)) return;
     if (step === TOTAL_STEPS) {
       setLoading(true);
-      await new Promise((r) => setTimeout(r, 2200));
+      const ok = await submitIntake();
+      if (!ok) {
+        setLoading(false);
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 1800));
       setMatchResults(mockMatches);
       setLoading(false);
       navigate('/onboarding/results');
@@ -169,9 +335,7 @@ export function MatchingWizardPage() {
     return (
       <WizardShell>
         <WizardProgress current={2} total={TOTAL_STEPS} />
-        <WizardStepHeader
-          title={isParent ? 'נעים להכיר! איך לקרוא לך?' : 'היי! נעים להכיר, איך קוראים לך?'}
-        />
+        <WizardStepHeader title={isParent ? 'נעים להכיר! איך לקרוא לך?' : 'היי! נעים להכיר, איך קוראים לך?'} />
         <input
           type="text"
           placeholder={isParent ? 'השם המלא שלך...' : 'השם שלך כאן...'}
@@ -365,8 +529,131 @@ export function MatchingWizardPage() {
     );
   }
 
-  // ── STEP 8: Availability + Location ──────────────────────────────
-  if (step === 8) {
+  // ── STEP 8: Auth checkpoint ───────────────────────────────────────
+  if (step === AUTH_STEP) {
+    if (authLoading) {
+      return (
+        <div dir="rtl" lang="he" className="min-h-screen flex flex-col items-center justify-center px-4" style={{ background: 'var(--bg)' }}>
+          <Loader2 size={40} className="animate-spin" style={{ color: 'var(--cyan)', marginBottom: 16 }} />
+          <p style={{ color: 'var(--text-2)' }}>מגדירים את החשבון שלך...</p>
+        </div>
+      );
+    }
+
+    return (
+      <WizardShell>
+        <WizardProgress current={AUTH_STEP} total={TOTAL_STEPS} />
+        <WizardStepHeader
+          title={isParent ? 'צרו חשבון הורה' : 'צרו חשבון תלמיד/ה'}
+          subtitle="השלב האחרון לפני שנמצא לך מורה"
+        />
+
+        {/* Parent: child name collected before auth */}
+        {isParent && (
+          <div className="mb-4">
+            <div className="font-semibold mb-1 text-sm" style={{ color: 'var(--text-2)' }}>שם הילד/ה</div>
+            <input
+              type="text"
+              placeholder="שם מלא של הילד/ה..."
+              value={intake.childName}
+              onChange={(e) => updateIntake({ childName: e.target.value })}
+              className="w-full p-3 rounded-xl"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 15, outline: 'none' }}
+            />
+          </div>
+        )}
+
+        {/* Tabs: signup / login */}
+        <div className="flex mb-4 rounded-xl overflow-hidden" style={{ border: '1px solid var(--line-2)' }}>
+          {(['signup', 'login'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setAuthTab(tab)}
+              className="flex-1 py-2 text-sm font-medium"
+              style={{
+                background: authTab === tab ? 'var(--cyan)' : 'var(--surface-2)',
+                color: authTab === tab ? '#0f4544' : 'var(--text-2)',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {tab === 'signup' ? 'יצירת חשבון' : 'כניסה קיימת'}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-col gap-3 mb-4">
+          <div className="relative">
+            <Mail size={15} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-3)' }} />
+            <input
+              type="email"
+              placeholder="כתובת אימייל"
+              value={authEmail}
+              onChange={(e) => setAuthEmail(e.target.value)}
+              className="w-full p-3 pr-9 rounded-xl"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 15, outline: 'none' }}
+              dir="ltr"
+            />
+          </div>
+          <div className="relative">
+            <Lock size={15} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-3)' }} />
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder={authTab === 'signup' ? 'סיסמה (לפחות 8 תווים)' : 'סיסמה'}
+              value={authPassword}
+              onChange={(e) => setAuthPassword(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && void handleEmailAuth()}
+              className="w-full p-3 pr-9 rounded-xl"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 15, outline: 'none' }}
+              dir="ltr"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute left-3 top-1/2 -translate-y-1/2"
+              style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: 0 }}
+            >
+              {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+        </div>
+
+        {authError && (
+          <div className="mb-3 p-3 rounded-lg text-sm" style={{ background: 'color-mix(in oklab, var(--coral) 15%, var(--surface-2))', color: 'var(--coral)', border: '1px solid color-mix(in oklab, var(--coral) 30%, transparent)' }}>
+            {authError}
+          </div>
+        )}
+
+        <button
+          onClick={() => void handleEmailAuth()}
+          className="w-full py-3 font-bold rounded-xl mb-3"
+          style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer', fontSize: 16 }}
+        >
+          {authTab === 'signup' ? 'צרו חשבון' : 'כניסה'}
+        </button>
+
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex-1 h-px" style={{ background: 'var(--line-2)' }} />
+          <span className="text-xs" style={{ color: 'var(--text-3)' }}>או</span>
+          <div className="flex-1 h-px" style={{ background: 'var(--line-2)' }} />
+        </div>
+
+        <button
+          onClick={() => void handleGoogleOAuth()}
+          className="w-full py-3 font-medium rounded-xl flex items-center justify-center gap-2 mb-4"
+          style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--line-2)', cursor: 'pointer', fontSize: 15 }}
+        >
+          <GoogleIcon />
+          המשך עם גוגל
+        </button>
+
+        <button onClick={prevStep} className="w-full text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזור</button>
+      </WizardShell>
+    );
+  }
+
+  // ── STEP 9: Availability + Location ──────────────────────────────
+  if (step === 9) {
     const locationOptions: { value: LocationPreference; label: string; icon: React.ReactNode }[] = [
       { value: 'online', label: 'אונליין', icon: <Monitor size={15} /> },
       { value: 'frontal', label: 'פרונטלי (פנים אל פנים)', icon: <Home size={15} /> },
@@ -375,7 +662,7 @@ export function MatchingWizardPage() {
 
     return (
       <WizardShell>
-        <WizardProgress current={8} total={TOTAL_STEPS} />
+        <WizardProgress current={9} total={TOTAL_STEPS} />
         <WizardStepHeader title={isParent ? 'באילו ימים ושעות הילד/ה פנוי/ה לשיעור?' : 'מתי הכי נוח לך ללמוד?'} subtitle="קליק מהיר על הימים והשעות המועדפים" />
 
         <div className="mb-4">
@@ -445,12 +732,12 @@ export function MatchingWizardPage() {
     );
   }
 
-  // ── STEP 9: Learning Style + Soft Preferences ─────────────────────
-  if (step === 9) {
+  // ── STEP 10: Learning Style + Soft Preferences ────────────────────
+  if (step === 10) {
     const softPrefs = isParent ? SOFT_PREFS_PARENT : SOFT_PREFS_STUDENT;
     return (
       <WizardShell>
-        <WizardProgress current={9} total={TOTAL_STEPS} />
+        <WizardProgress current={10} total={TOTAL_STEPS} />
         <WizardStepHeader
           title={isParent ? 'האם ישנם דגשים מיוחדים?' : 'בוא/י נדייק את הכימיה. מה חשוב לך במורה?'}
           subtitle={isParent ? 'סמנו קריטריונים שיעזרו לנו למצוא את המורה בעל הגישה המתאימה ביותר.' : 'אופציונלי'}
@@ -492,7 +779,7 @@ export function MatchingWizardPage() {
     );
   }
 
-  // ── STEP 10: Review / Summary ─────────────────────────────────────
+  // ── STEP 11: Review / Summary ─────────────────────────────────────
   const levelLabels: Record<string, string> = { elementary: 'יסודי', middle: 'חטיבה', high: 'תיכון', academic: 'אקדמיה' };
   const goalLabels: Record<string, string> = { single_session: 'שיעור חד-פעמי', ongoing: 'מורה קבוע', exam_prep: 'מרתון לבחינה' };
   const locationLabels: Record<string, string> = { online: 'אונליין', frontal: 'פרונטלי', both: 'אונליין + פרונטלי' };
@@ -503,13 +790,14 @@ export function MatchingWizardPage() {
 
   return (
     <WizardShell>
-      <WizardProgress current={10} total={TOTAL_STEPS} />
+      <WizardProgress current={11} total={TOTAL_STEPS} />
       <WizardStepHeader title="נראה לך הכל בסדר?" subtitle="בדוק/י את הפרטים לפני שנמצא לך מורה" />
 
       <WizardSummaryCard items={[
         { label: 'שם', value: intake.fullName },
+        ...(isParent && intake.childName ? [{ label: 'שם הילד/ה', value: intake.childName }] : []),
         { label: 'יעד', value: goalLabels[intake.learningGoal ?? ''] ?? '' },
-        { label: 'רמה', value: `${levelLabels[intake.gradeLevel ?? '']} ${intake.subLevel}` },
+        { label: 'רמה', value: `${levelLabels[intake.gradeLevel ?? '']} ${intake.subLevel}`.trim() },
         { label: 'מקצוע', value: intake.subjectName },
         { label: 'תקציב', value: intake.budgetMax === 100 ? 'עד ₪100' : intake.budgetMax === 150 ? '₪100–₪150' : '₪150+' },
         { label: 'ימים', value: intake.preferredDays.join(', ') || '—' },
@@ -518,6 +806,12 @@ export function MatchingWizardPage() {
         ...(intake.city ? [{ label: 'עיר', value: intake.city }] : []),
       ]} onEdit={() => setStep(2)} />
 
+      {errors.submit && (
+        <div className="mt-3 p-3 rounded-lg text-sm" style={{ background: 'color-mix(in oklab, var(--coral) 15%, var(--surface-2))', color: 'var(--coral)' }}>
+          {errors.submit}
+        </div>
+      )}
+
       <div className="flex gap-3 mt-4">
         <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור</button>
         <button onClick={() => void handleNext()} className="flex-1 py-4 font-bold rounded-xl text-lg" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>
@@ -525,6 +819,17 @@ export function MatchingWizardPage() {
         </button>
       </div>
     </WizardShell>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 48 48" fill="none">
+      <path d="M44.5 20H24v8.5h11.8C34.7 33.9 29.9 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z" fill="#FFC107"/>
+      <path d="M6.3 14.7l7 5.1C15.2 16.4 19.3 14 24 14c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 16.3 2 9.7 7.4 6.3 14.7z" fill="#FF3D00"/>
+      <path d="M24 46c5.8 0 10.8-1.9 14.7-5.2l-6.8-5.6C29.9 37 27.1 38 24 38c-5.8 0-10.7-3.9-12.4-9.3l-7 5.4C7.9 41.3 15.5 46 24 46z" fill="#4CAF50"/>
+      <path d="M44.5 20H24v8.5h11.8c-.8 2.3-2.3 4.3-4.3 5.7l6.8 5.6C42.2 36.3 45 30.6 45 24c0-1.3-.2-2.7-.5-4z" fill="#1976D2"/>
+    </svg>
   );
 }
 

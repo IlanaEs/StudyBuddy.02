@@ -18,5 +18,15 @@ export const loginSchema = z.object({
   }),
 });
 
+const oauthSignupRoles = ['student', 'parent'] as const;
+
+export const completeOAuthSignupSchema = z.object({
+  body: z.object({
+    role: z.enum(oauthSignupRoles),
+    full_name: z.string().min(1).max(150),
+  }),
+});
+
 export type SignupInput = z.infer<typeof signupSchema>['body'];
 export type LoginInput = z.infer<typeof loginSchema>['body'];
+export type CompleteOAuthSignupInput = z.infer<typeof completeOAuthSignupSchema>['body'];
