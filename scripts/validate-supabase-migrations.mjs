@@ -4,26 +4,28 @@ import { join } from 'node:path';
 const migrationsDir = new URL('../supabase/migrations/', import.meta.url);
 
 const expectedFiles = [
-  '20260514181242_001_enums_and_common.sql',
-  '20260514181326_002_core_users_students_teachers.sql',
-  '20260514181418_003_matching_booking_lessons.sql',
-  '20260514181520_004_crm_chat_notifications.sql',
-  '20260514181622_005_rls_policies.sql',
-  '20260514182555_006_auth_user_link.sql',
-  '20260514183726_007_security_hardening.sql',
-  '20260522000100_008_teacher_scheduling_preferences.sql',
-  '20260522000200_009_availability_exceptions.sql',
-  '20260522000300_010_onboarding_drafts.sql',
+  '001_enums_and_common.sql',
+  '002_core_users_students_teachers.sql',
+  '003_matching_booking_lessons.sql',
+  '004_crm_chat_notifications.sql',
+  '005_rls_policies.sql',
+  '006_auth_user_link.sql',
+  '007_security_hardening.sql',
+  '008_teacher_onboarding.sql',
+  '009_matching_engine_indexes.sql',
+  '010_teacher_scheduling_preferences.sql',
+  '011_availability_exceptions.sql',
+  '012_onboarding_drafts.sql',
 ];
 
 const migrationFiles = {
-  enums: '20260514181242_001_enums_and_common.sql',
-  rls: '20260514181622_005_rls_policies.sql',
-  authLink: '20260514182555_006_auth_user_link.sql',
-  securityHardening: '20260514183726_007_security_hardening.sql',
-  schedulingPreferences: '20260522000100_008_teacher_scheduling_preferences.sql',
-  availabilityExceptions: '20260522000200_009_availability_exceptions.sql',
-  onboardingDrafts: '20260522000300_010_onboarding_drafts.sql',
+  enums: '001_enums_and_common.sql',
+  rls: '005_rls_policies.sql',
+  authLink: '006_auth_user_link.sql',
+  securityHardening: '007_security_hardening.sql',
+  schedulingPreferences: '010_teacher_scheduling_preferences.sql',
+  availabilityExceptions: '011_availability_exceptions.sql',
+  onboardingDrafts: '012_onboarding_drafts.sql',
 };
 
 const expectedTables = [
