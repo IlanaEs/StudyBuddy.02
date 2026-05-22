@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   GraduationCap, Users, Target, Calendar, Zap, Repeat, BookOpen,
   ShieldCheck, Search, Monitor, Home, ArrowLeftRight, Clock,
-  Loader2, Check, Circle, Mail, Lock, Eye, EyeOff,
+  Loader2, Check, Circle, Mail, Lock, Eye, EyeOff, CalendarDays,
+  Sparkles,
 } from 'lucide-react';
 import { useMatchingStore } from '../store/matchingStore';
 import { WizardShell } from '../components/WizardShell';
@@ -11,17 +12,23 @@ import { WizardProgress } from '../components/WizardProgress';
 import { WizardStepHeader } from '../components/WizardStepHeader';
 import { WizardOptionCard } from '../components/WizardOptionCard';
 import { WizardSummaryCard } from '../components/WizardSummaryCard';
+import { DualRangeSlider } from '../components/DualRangeSlider';
+import { AvailabilityGrid } from '../components/AvailabilityGrid';
 import { subjectsByLevel, gradesByLevel } from '../data/mockSubjects';
 import { mockMatches } from '../data/mockMatches';
 import type { EducationLevel, LearningGoal, LocationPreference, TimeSlot } from '../types/matching.types';
 import { useAuth } from '../../../auth/AuthProvider';
 import { getSupabaseBrowserClient } from '../../../auth/supabaseClient';
-import { completeOAuthSignup, initStudentOnboarding } from '../../../api/studentOnboarding';
+import { completeOAuthSignup, createStudentProfile, createStudentIntake } from '../../../api/students';
 
 const TOTAL_STEPS = 11;
 const AUTH_STEP = 8;
-// Flag stored in localStorage to detect return from Google OAuth
 const OAUTH_PENDING_KEY = 'sb_student_onboarding_oauth_pending';
+
+const BUDGET_MIN = 0;
+const BUDGET_MAX = 500;
+const BUDGET_DEFAULT_MIN = 60;
+const BUDGET_DEFAULT_MAX = 250;
 
 const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי'];
 const TIME_SLOTS: { value: TimeSlot; label: string }[] = [
@@ -74,6 +81,10 @@ export function MatchingWizardPage() {
   const [authLoading, setAuthLoading] = useState(false);
   const oauthReturnHandled = useRef(false);
 
+  // Availability step state
+  const [availMode, setAvailMode] = useState<'sync' | 'manual' | 'synced'>('sync');
+  const [calSyncing, setCalSyncing] = useState(false);
+
   // ── Initial mount ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const role = searchParams.get('role');
@@ -87,13 +98,19 @@ export function MatchingWizardPage() {
       useMatchingStore.getState().reset();
       return;
     }
-    // Restore draft for users who refreshed mid-flow
     if (step === 0) {
       restoreFromStorage();
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── OAuth return: handle once auth status becomes authenticated ───────────────
+  // ── Initialize budget defaults when entering step 7 ───────────────────────────
+  useEffect(() => {
+    if (step === 7 && intake.budgetMin === null) {
+      updateIntake({ budgetMin: BUDGET_DEFAULT_MIN, budgetMax: BUDGET_DEFAULT_MAX });
+    }
+  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── OAuth return ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (auth.status !== 'authenticated') return;
     if (oauthReturnHandled.current) return;
@@ -114,7 +131,19 @@ export function MatchingWizardPage() {
     }
   }, [auth.status, step, setStep]);
 
-  // ── Post-OAuth: set role + advance to step 9 ──────────────────────────────────
+  // ── GCal sync (UI placeholder — real read requires backend calendar endpoint) ─
+  async function handleCalSync() {
+    setCalSyncing(true);
+    await new Promise((r) => setTimeout(r, 1800));
+    updateIntake({
+      preferredDays: ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי'],
+      preferredTimeRanges: ['afternoon', 'evening'],
+    });
+    setCalSyncing(false);
+    setAvailMode('synced');
+  }
+
+  // ── Post-OAuth: set role, create student profile, advance ─────────────────────
   async function handlePostOAuthReturn() {
     if (!auth.session?.access_token) return;
     const savedRole = intake.userContext;
@@ -123,16 +152,29 @@ export function MatchingWizardPage() {
     setAuthLoading(true);
     setAuthError(null);
     try {
-      const result = await completeOAuthSignup(
+      const oauthResult = await completeOAuthSignup(
         savedRole,
         auth.user?.full_name ?? intake.fullName,
         auth.session.access_token,
       );
-      if ('error' in result) {
-        setAuthError(result.error);
+      if ('error' in oauthResult) {
+        setAuthError(oauthResult.error);
         return;
       }
-      clearStorage();
+
+      const profileResult = await createStudentProfile(
+        {
+          full_name: auth.user?.full_name ?? intake.fullName,
+          grade_level: intake.gradeLevel ?? null,
+          ...(savedRole === 'parent' && intake.childName ? { child_name: intake.childName } : {}),
+        },
+        auth.session.access_token,
+      );
+      if ('error' in profileResult) {
+        setAuthError(profileResult.error);
+        return;
+      }
+
       setStep(AUTH_STEP + 1);
     } catch {
       setAuthError('שגיאה בעיבוד החשבון. נסו שנית.');
@@ -168,7 +210,24 @@ export function MatchingWizardPage() {
       } else {
         await auth.login({ email: authEmail, password: authPassword });
       }
-      clearStorage();
+
+      const supabase = getSupabaseBrowserClient();
+      const { data: { session: freshSession } } = await supabase.auth.getSession();
+      if (freshSession?.access_token) {
+        const profileResult = await createStudentProfile(
+          {
+            full_name: intake.fullName,
+            grade_level: intake.gradeLevel ?? null,
+            ...(isParent && intake.childName ? { child_name: intake.childName } : {}),
+          },
+          freshSession.access_token,
+        );
+        if ('error' in profileResult) {
+          setAuthError(profileResult.error);
+          return;
+        }
+      }
+
       setStep(AUTH_STEP + 1);
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'שגיאה. נסו שנית.');
@@ -183,7 +242,6 @@ export function MatchingWizardPage() {
       setAuthError('נא להכניס את שם הילד/ה לפני ההתחברות עם גוגל');
       return;
     }
-    // Force-persist current draft (step 8 is above the auto-persist threshold of 7)
     try {
       localStorage.setItem('sb_student_onboarding', JSON.stringify({ step: 7, intake }));
     } catch { /* ignore */ }
@@ -196,34 +254,34 @@ export function MatchingWizardPage() {
     });
   }
 
-  // ── Submit: create student profile + intake ───────────────────────────────────
+  // ── Submit: create intake + clear draft ───────────────────────────────────────
   async function submitIntake(): Promise<boolean> {
     const token = auth.session?.access_token;
     if (!token) {
       setStep(AUTH_STEP);
       return false;
     }
-    const intakeInput = {
-      full_name: intake.fullName,
-      grade_level: intake.gradeLevel,
-      sub_level: intake.subLevel,
-      subject_name: intake.subjectName,
-      learning_goal: intake.learningGoal,
-      location_preference: (intake.locationPreference ?? 'online') as 'online' | 'frontal' | 'both',
-      city: intake.city,
-      budget_min: intake.budgetMin,
-      budget_max: intake.budgetMax,
-      preferred_days: intake.preferredDays,
-      preferred_time_ranges: intake.preferredTimeRanges as string[],
-      learning_style: intake.learningStyle,
-      soft_preferences: intake.softPreferences,
-      ...(isParent && intake.childName ? { child_name: intake.childName } : {}),
-    };
-    const result = await initStudentOnboarding(intakeInput, token);
+    const result = await createStudentIntake(
+      {
+        subject_name: intake.subjectName,
+        sub_level: intake.subLevel,
+        learning_goal: intake.learningGoal,
+        location_preference: (intake.locationPreference ?? 'online') as 'online' | 'frontal' | 'both',
+        city: intake.city,
+        budget_min: intake.budgetMin,
+        budget_max: intake.budgetMax,
+        preferred_days: intake.preferredDays,
+        preferred_time_ranges: intake.preferredTimeRanges as string[],
+        learning_style: intake.learningStyle,
+      },
+      token,
+    );
     if ('error' in result) {
       setErrors({ submit: result.error });
       return false;
     }
+    clearStorage();
+    localStorage.removeItem(OAUTH_PENDING_KEY);
     return true;
   }
 
@@ -238,7 +296,6 @@ export function MatchingWizardPage() {
     if (s === 3 && !intake.learningGoal) e.learningGoal = 'נא לבחור מטרה';
     if (s === 4 && !intake.gradeLevel) e.gradeLevel = 'נא לבחור רמה';
     if (s === 6 && !intake.subjectName) e.subjectName = 'נא לבחור מקצוע';
-    if (s === 7 && intake.budgetMax === null) e.budget = 'נא לבחור תקציב';
     if (s === 9 && intake.preferredDays.length === 0) e.days = 'נא לסמן לפחות יום אחד';
     if (s === 9 && intake.locationPreference === null) e.location = 'נא לבחור מיקום';
     if (s === 9 && (intake.locationPreference === 'frontal' || intake.locationPreference === 'both') && !intake.city) e.city = 'נא להכניס עיר';
@@ -268,12 +325,35 @@ export function MatchingWizardPage() {
     return arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val];
   }
 
-  // ── STEP 0: Entry screen ──────────────────────────────────────────
+  // ── Shared CTA button style ───────────────────────────────────────────────────
+  const ctaPrimary: React.CSSProperties = {
+    background: 'var(--cyan)',
+    color: '#0f4544',
+    border: 'none',
+    cursor: 'pointer',
+    fontWeight: 700,
+  };
+
+  const ctaBack: React.CSSProperties = {
+    background: 'var(--surface-2)',
+    color: 'var(--text-2)',
+    border: '1px solid var(--line-2)',
+    cursor: 'pointer',
+  };
+
+  // ── STEP 0: Entry screen ──────────────────────────────────────────────────────
   if (step === 0) {
     return (
       <div dir="rtl" lang="he" className="min-h-screen flex flex-col items-center justify-center px-4 py-10" style={{ background: 'var(--bg)' }}>
         <div className="w-full max-w-lg text-center">
-          <div className="flex items-center justify-center w-20 h-20 rounded-2xl mx-auto mb-6" style={{ background: 'color-mix(in oklab, var(--cyan) 15%, var(--surface))', color: 'var(--cyan)' }}>
+          <div
+            className="flex items-center justify-center w-20 h-20 rounded-2xl mx-auto mb-6"
+            style={{
+              background: 'color-mix(in oklab, var(--cyan) 15%, var(--surface))',
+              color: 'var(--cyan)',
+              boxShadow: '0 8px 32px -8px color-mix(in oklab, var(--cyan) 40%, transparent)',
+            }}
+          >
             <GraduationCap size={40} />
           </div>
           <h1 className="text-3xl font-bold mb-3" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)' }}>
@@ -296,8 +376,8 @@ export function MatchingWizardPage() {
           </div>
           <button
             onClick={() => nextStep()}
-            className="w-full max-w-xs py-4 font-bold rounded-2xl text-lg"
-            style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}
+            className="w-full max-w-xs py-4 font-bold rounded-2xl text-lg wizard-cta-primary"
+            style={ctaPrimary}
           >
             בואו נתחיל
           </button>
@@ -306,10 +386,10 @@ export function MatchingWizardPage() {
     );
   }
 
-  // ── STEP 1: User context ──────────────────────────────────────────
+  // ── STEP 1: User context ──────────────────────────────────────────────────────
   if (step === 1) {
     return (
-      <WizardShell>
+      <WizardShell step={step}>
         <WizardProgress current={1} total={TOTAL_STEPS} />
         <WizardStepHeader title="מי מחפש מורה?" />
         <WizardOptionCard
@@ -330,10 +410,10 @@ export function MatchingWizardPage() {
     );
   }
 
-  // ── STEP 2: Name ──────────────────────────────────────────────────
+  // ── STEP 2: Name ──────────────────────────────────────────────────────────────
   if (step === 2) {
     return (
-      <WizardShell>
+      <WizardShell step={step}>
         <WizardProgress current={2} total={TOTAL_STEPS} />
         <WizardStepHeader title={isParent ? 'נעים להכיר! איך לקרוא לך?' : 'היי! נעים להכיר, איך קוראים לך?'} />
         <input
@@ -342,26 +422,27 @@ export function MatchingWizardPage() {
           value={intake.fullName}
           onChange={(e) => updateIntake({ fullName: e.target.value })}
           onKeyDown={(e) => e.key === 'Enter' && void handleNext()}
-          className="w-full p-3 rounded-xl mb-2"
+          className="w-full p-3 rounded-xl mb-2 wizard-input"
           style={{
             background: 'var(--surface-2)',
             border: `1px solid ${errors.fullName ? 'var(--coral)' : 'var(--line-2)'}`,
             color: 'var(--text)',
             fontSize: 16,
             outline: 'none',
+            transition: 'border-color 0.18s ease, box-shadow 0.18s ease',
           }}
           autoFocus
         />
         {errors.fullName && <div style={{ color: 'var(--coral)', fontSize: 13, marginBottom: 8 }}>{errors.fullName}</div>}
         <div className="flex gap-3 mt-4">
-          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור</button>
-          <button onClick={() => void handleNext()} className="flex-1 py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>המשך</button>
+          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={ctaBack}>חזור</button>
+          <button onClick={() => void handleNext()} className="flex-1 py-3 rounded-xl wizard-cta-primary" style={ctaPrimary}>המשך</button>
         </div>
       </WizardShell>
     );
   }
 
-  // ── STEP 3: Goal ──────────────────────────────────────────────────
+  // ── STEP 3: Goal ──────────────────────────────────────────────────────────────
   if (step === 3) {
     const studentGoals = [
       { value: 'single_session', icon: <Zap size={18} />, label: 'שיעור חד-פעמי', desc: 'לסגור פינה או להבין נושא ספציפי' },
@@ -375,18 +456,29 @@ export function MatchingWizardPage() {
     ];
     const goals = isParent ? parentGoals : studentGoals;
     return (
-      <WizardShell>
+      <WizardShell step={step}>
         <WizardProgress current={3} total={TOTAL_STEPS} />
-        <WizardStepHeader title={intake.fullName ? `${intake.fullName}, ${isParent ? 'מהו סוג הליווי הדרוש לילד/ה?' : 'מה היעד שלנו הפעם?'}` : (isParent ? 'מהו סוג הליווי הדרוש לילד/ה?' : 'מה היעד שלנו הפעם?')} />
+        <WizardStepHeader
+          title={intake.fullName
+            ? `${intake.fullName}, ${isParent ? 'מהו סוג הליווי הדרוש לילד/ה?' : 'מה היעד שלנו הפעם?'}`
+            : (isParent ? 'מהו סוג הליווי הדרוש לילד/ה?' : 'מה היעד שלנו הפעם?')}
+        />
         {goals.map((g) => (
-          <WizardOptionCard key={g.value} icon={g.icon} label={g.label} description={g.desc} selected={intake.learningGoal === g.value} onClick={() => { updateIntake({ learningGoal: g.value as LearningGoal }); nextStep(); }} />
+          <WizardOptionCard
+            key={g.value}
+            icon={g.icon}
+            label={g.label}
+            description={g.desc}
+            selected={intake.learningGoal === g.value}
+            onClick={() => { updateIntake({ learningGoal: g.value as LearningGoal }); nextStep(); }}
+          />
         ))}
         <button onClick={prevStep} className="mt-2 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזור</button>
       </WizardShell>
     );
   }
 
-  // ── STEP 4: Level ─────────────────────────────────────────────────
+  // ── STEP 4: Level ─────────────────────────────────────────────────────────────
   if (step === 4) {
     const studentLevels = [
       { value: 'elementary', label: 'יסודי' },
@@ -401,11 +493,16 @@ export function MatchingWizardPage() {
     ];
     const levels = isParent ? parentLevels : studentLevels;
     return (
-      <WizardShell>
+      <WizardShell step={step}>
         <WizardProgress current={4} total={TOTAL_STEPS} />
         <WizardStepHeader title={isParent ? 'מהי שכבת הגיל של הילד/ה?' : 'באיזו רמה הלימודים?'} />
         {levels.map((l) => (
-          <WizardOptionCard key={l.value} label={l.label} selected={intake.gradeLevel === l.value} onClick={() => { updateIntake({ gradeLevel: l.value as EducationLevel }); nextStep(); }} />
+          <WizardOptionCard
+            key={l.value}
+            label={l.label}
+            selected={intake.gradeLevel === l.value}
+            onClick={() => { updateIntake({ gradeLevel: l.value as EducationLevel }); nextStep(); }}
+          />
         ))}
         {isParent && (
           <div className="mt-3 p-3 rounded-lg flex items-start gap-2 text-sm" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>
@@ -418,11 +515,11 @@ export function MatchingWizardPage() {
     );
   }
 
-  // ── STEP 5: Sub-level ─────────────────────────────────────────────
+  // ── STEP 5: Sub-level ─────────────────────────────────────────────────────────
   if (step === 5) {
     const isAcademic = intake.gradeLevel === 'academic';
     return (
-      <WizardShell>
+      <WizardShell step={step}>
         <WizardProgress current={5} total={TOTAL_STEPS} />
         <WizardStepHeader title={isAcademic ? 'באיזו שנה?' : (isParent ? 'באיזו כיתה הילד/ה לומד/ת?' : 'באיזו כיתה?')} />
         <div className="flex flex-wrap gap-2">
@@ -430,13 +527,14 @@ export function MatchingWizardPage() {
             <button
               key={g}
               onClick={() => { updateIntake({ subLevel: g }); nextStep(); }}
-              className="px-4 py-2 rounded-xl font-medium"
+              className="px-4 py-2 rounded-xl font-medium wizard-cta-primary"
               style={{
                 background: intake.subLevel === g ? 'var(--cyan)' : 'var(--surface-2)',
                 color: intake.subLevel === g ? '#0f4544' : 'var(--text)',
                 border: `1px solid ${intake.subLevel === g ? 'var(--cyan)' : 'var(--line-2)'}`,
                 cursor: 'pointer',
                 fontSize: 15,
+                transition: 'background 0.15s, border-color 0.15s, color 0.15s',
               }}
             >
               {g}
@@ -448,10 +546,10 @@ export function MatchingWizardPage() {
     );
   }
 
-  // ── STEP 6: Subject ───────────────────────────────────────────────
+  // ── STEP 6: Subject ───────────────────────────────────────────────────────────
   if (step === 6) {
     return (
-      <WizardShell>
+      <WizardShell step={step}>
         <WizardProgress current={6} total={TOTAL_STEPS} />
         <WizardStepHeader title={isParent ? 'עבור איזה מקצוע נדרש הסיוע?' : 'איזה מקצוע או קורס צריך חיזוק?'} />
         {!freeTextSubject ? (
@@ -461,8 +559,8 @@ export function MatchingWizardPage() {
               placeholder="חיפוש מקצוע..."
               value={subjectSearch}
               onChange={(e) => setSubjectSearch(e.target.value)}
-              className="w-full p-3 rounded-xl mb-3"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 15, outline: 'none' }}
+              className="w-full p-3 rounded-xl mb-3 wizard-input"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 15, outline: 'none', transition: 'border-color 0.18s, box-shadow 0.18s' }}
             />
             <div className="max-h-48 overflow-y-auto flex flex-col gap-1 mb-3">
               {filteredSubjects.map((s) => (
@@ -475,6 +573,7 @@ export function MatchingWizardPage() {
                     border: `1px solid ${intake.subjectName === s ? 'var(--cyan)' : 'var(--line-2)'}`,
                     color: 'var(--text)',
                     cursor: 'pointer',
+                    transition: 'background 0.15s, border-color 0.15s',
                   }}
                 >
                   {s}
@@ -483,18 +582,22 @@ export function MatchingWizardPage() {
             </div>
             <div className="flex items-center gap-2 text-sm mb-3" style={{ color: 'var(--text-3)' }}>
               <Search size={14} />
-              <span>לא מצאת את הקורס הספציפי שלך?{' '}<button onClick={() => setFreeTextSubject(true)} style={{ color: 'var(--cyan)', background: 'none', border: 'none', cursor: 'pointer' }}>לחץ/י כאן להקלדה חופשית</button></span>
+              <span>לא מצאת את הקורס הספציפי שלך?{' '}
+                <button onClick={() => setFreeTextSubject(true)} style={{ color: 'var(--cyan)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                  לחץ/י כאן להקלדה חופשית
+                </button>
+              </span>
             </div>
           </>
         ) : (
           <>
             <input
               type="text"
-              placeholder="הקלידו את שם הקורס (למשל: מבוא לכלכלה א׳) — אנחנו נדאג להתאים מורה מומחה."
+              placeholder="הקלידו את שם הקורס..."
               value={intake.subjectName}
               onChange={(e) => updateIntake({ subjectName: e.target.value, subjectId: e.target.value })}
-              className="w-full p-3 rounded-xl mb-3"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 14, outline: 'none' }}
+              className="w-full p-3 rounded-xl mb-3 wizard-input"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 14, outline: 'none', transition: 'border-color 0.18s, box-shadow 0.18s' }}
               autoFocus
             />
             <button onClick={() => setFreeTextSubject(false)} className="text-sm mb-3" style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer' }}>חזור לרשימה</button>
@@ -502,34 +605,57 @@ export function MatchingWizardPage() {
         )}
         {errors.subjectName && <div style={{ color: 'var(--coral)', fontSize: 13, marginBottom: 8 }}>{errors.subjectName}</div>}
         <div className="flex gap-3 mt-2">
-          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור</button>
-          <button onClick={() => void handleNext()} className="flex-1 py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>המשך</button>
+          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={ctaBack}>חזור</button>
+          <button onClick={() => void handleNext()} className="flex-1 py-3 rounded-xl wizard-cta-primary" style={ctaPrimary}>המשך</button>
         </div>
       </WizardShell>
     );
   }
 
-  // ── STEP 7: Budget ────────────────────────────────────────────────
+  // ── STEP 7: Budget — Dual range slider ───────────────────────────────────────
   if (step === 7) {
-    const budgets = [
-      { label: 'עד ₪100 לשעה', min: 0, max: 100 },
-      { label: '₪100 - ₪150 לשעה', min: 100, max: 150 },
-      { label: '₪150+ לשעה', min: 150, max: 999 },
-    ];
+    const sliderMin = intake.budgetMin ?? BUDGET_DEFAULT_MIN;
+    const sliderMax = intake.budgetMax ?? BUDGET_DEFAULT_MAX;
+
     return (
-      <WizardShell>
+      <WizardShell step={step}>
         <WizardProgress current={7} total={TOTAL_STEPS} />
-        <WizardStepHeader title={isParent ? 'מהו תקציב היעד שלכם עבור שעת שיעור?' : 'מה הטווח שלך לשיעור?'} />
-        {budgets.map((b) => (
-          <WizardOptionCard key={b.label} label={b.label} selected={intake.budgetMax === b.max} onClick={() => { updateIntake({ budgetMin: b.min, budgetMax: b.max }); nextStep(); }} />
-        ))}
-        {errors.budget && <div style={{ color: 'var(--coral)', fontSize: 13 }}>{errors.budget}</div>}
-        <button onClick={prevStep} className="mt-2 text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזור</button>
+        <WizardStepHeader
+          title={isParent ? 'מהו תקציב היעד לשעת שיעור?' : 'מה הטווח שלך לשיעור?'}
+          subtitle="גרור/י את הסמנים לקביעת טווח מחיר"
+        />
+
+        <div
+          className="p-4 rounded-2xl mb-5"
+          style={{
+            background: 'color-mix(in oklab, var(--surface-2) 80%, transparent)',
+            border: '1px solid color-mix(in oklab, var(--cyan) 15%, var(--line-2))',
+            backdropFilter: 'blur(8px)',
+          }}
+        >
+          <DualRangeSlider
+            min={BUDGET_MIN}
+            max={BUDGET_MAX}
+            step={10}
+            valueMin={sliderMin}
+            valueMax={sliderMax}
+            onChangeMin={(v) => updateIntake({ budgetMin: v })}
+            onChangeMax={(v) => updateIntake({ budgetMax: v })}
+            formatValue={(v) => v === BUDGET_MAX ? `₪${v}+` : `₪${v}`}
+          />
+        </div>
+
+        <div className="flex gap-3">
+          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={ctaBack}>חזור</button>
+          <button onClick={() => void handleNext()} className="flex-1 py-3 rounded-xl wizard-cta-primary" style={ctaPrimary}>
+            המשך לשמירת ההעדפות →
+          </button>
+        </div>
       </WizardShell>
     );
   }
 
-  // ── STEP 8: Auth checkpoint ───────────────────────────────────────
+  // ── STEP 8: Auth checkpoint ───────────────────────────────────────────────────
   if (step === AUTH_STEP) {
     if (authLoading) {
       return (
@@ -541,14 +667,13 @@ export function MatchingWizardPage() {
     }
 
     return (
-      <WizardShell>
+      <WizardShell step={step}>
         <WizardProgress current={AUTH_STEP} total={TOTAL_STEPS} />
         <WizardStepHeader
           title={isParent ? 'צרו חשבון הורה' : 'צרו חשבון תלמיד/ה'}
           subtitle="השלב האחרון לפני שנמצא לך מורה"
         />
 
-        {/* Parent: child name collected before auth */}
         {isParent && (
           <div className="mb-4">
             <div className="font-semibold mb-1 text-sm" style={{ color: 'var(--text-2)' }}>שם הילד/ה</div>
@@ -557,13 +682,12 @@ export function MatchingWizardPage() {
               placeholder="שם מלא של הילד/ה..."
               value={intake.childName}
               onChange={(e) => updateIntake({ childName: e.target.value })}
-              className="w-full p-3 rounded-xl"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 15, outline: 'none' }}
+              className="w-full p-3 rounded-xl wizard-input"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 15, outline: 'none', transition: 'border-color 0.18s, box-shadow 0.18s' }}
             />
           </div>
         )}
 
-        {/* Tabs: signup / login */}
         <div className="flex mb-4 rounded-xl overflow-hidden" style={{ border: '1px solid var(--line-2)' }}>
           {(['signup', 'login'] as const).map((tab) => (
             <button
@@ -575,6 +699,7 @@ export function MatchingWizardPage() {
                 color: authTab === tab ? '#0f4544' : 'var(--text-2)',
                 border: 'none',
                 cursor: 'pointer',
+                transition: 'background 0.18s, color 0.18s',
               }}
             >
               {tab === 'signup' ? 'יצירת חשבון' : 'כניסה קיימת'}
@@ -590,8 +715,8 @@ export function MatchingWizardPage() {
               placeholder="כתובת אימייל"
               value={authEmail}
               onChange={(e) => setAuthEmail(e.target.value)}
-              className="w-full p-3 pr-9 rounded-xl"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 15, outline: 'none' }}
+              className="w-full p-3 pr-9 rounded-xl wizard-input"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 15, outline: 'none', transition: 'border-color 0.18s, box-shadow 0.18s' }}
               dir="ltr"
             />
           </div>
@@ -603,8 +728,8 @@ export function MatchingWizardPage() {
               value={authPassword}
               onChange={(e) => setAuthPassword(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && void handleEmailAuth()}
-              className="w-full p-3 pr-9 rounded-xl"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 15, outline: 'none' }}
+              className="w-full p-3 pr-9 rounded-xl wizard-input"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 15, outline: 'none', transition: 'border-color 0.18s, box-shadow 0.18s' }}
               dir="ltr"
             />
             <button
@@ -626,8 +751,8 @@ export function MatchingWizardPage() {
 
         <button
           onClick={() => void handleEmailAuth()}
-          className="w-full py-3 font-bold rounded-xl mb-3"
-          style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer', fontSize: 16 }}
+          className="w-full py-3 rounded-xl mb-3 wizard-cta-primary"
+          style={{ ...ctaPrimary, fontSize: 16 }}
         >
           {authTab === 'signup' ? 'צרו חשבון' : 'כניסה'}
         </button>
@@ -641,7 +766,7 @@ export function MatchingWizardPage() {
         <button
           onClick={() => void handleGoogleOAuth()}
           className="w-full py-3 font-medium rounded-xl flex items-center justify-center gap-2 mb-4"
-          style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--line-2)', cursor: 'pointer', fontSize: 15 }}
+          style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--line-2)', cursor: 'pointer', fontSize: 15, transition: 'background 0.18s, border-color 0.18s' }}
         >
           <GoogleIcon />
           המשך עם גוגל
@@ -652,7 +777,7 @@ export function MatchingWizardPage() {
     );
   }
 
-  // ── STEP 9: Availability + Location ──────────────────────────────
+  // ── STEP 9: Availability — GCal sync or manual grid ───────────────────────────
   if (step === 9) {
     const locationOptions: { value: LocationPreference; label: string; icon: React.ReactNode }[] = [
       { value: 'online', label: 'אונליין', icon: <Monitor size={15} /> },
@@ -661,45 +786,144 @@ export function MatchingWizardPage() {
     ];
 
     return (
-      <WizardShell>
+      <WizardShell step={step}>
         <WizardProgress current={9} total={TOTAL_STEPS} />
-        <WizardStepHeader title={isParent ? 'באילו ימים ושעות הילד/ה פנוי/ה לשיעור?' : 'מתי הכי נוח לך ללמוד?'} subtitle="קליק מהיר על הימים והשעות המועדפים" />
+        <WizardStepHeader
+          title={isParent ? 'מתי הילד/ה פנוי/ה?' : 'מתי הכי נוח לך?'}
+          subtitle="נציג רק מורים שפנויים בשעות שלך"
+        />
 
-        <div className="mb-4">
-          <div className="font-semibold mb-2" style={{ color: 'var(--text-2)', fontSize: 14 }}>ימים מועדפים:</div>
-          <div className="flex flex-wrap gap-2">
-            {DAYS.map((d) => (
-              <button key={d} onClick={() => updateIntake({ preferredDays: toggleArray(intake.preferredDays, d) })}
-                className="px-3 py-1 rounded-lg text-sm font-medium"
-                style={{ background: intake.preferredDays.includes(d) ? 'var(--cyan)' : 'var(--surface-2)', color: intake.preferredDays.includes(d) ? '#0f4544' : 'var(--text)', border: `1px solid ${intake.preferredDays.includes(d) ? 'var(--cyan)' : 'var(--line-2)'}`, cursor: 'pointer' }}>
-                {d}
-              </button>
-            ))}
+        {/* ── Google Calendar sync card ───────────────────────────── */}
+        {availMode !== 'synced' && (
+          <div
+            className="p-4 rounded-2xl mb-4"
+            style={{
+              background: 'color-mix(in oklab, var(--cyan) 8%, var(--surface-2))',
+              border: '1px solid color-mix(in oklab, var(--cyan) 28%, var(--line-2))',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <div className="flex items-start gap-3 mb-3">
+              <div
+                className="flex items-center justify-center w-10 h-10 rounded-xl flex-shrink-0"
+                style={{
+                  background: 'color-mix(in oklab, var(--cyan) 18%, var(--surface))',
+                  color: 'var(--cyan)',
+                }}
+              >
+                <CalendarDays size={20} />
+              </div>
+              <div>
+                <div className="font-bold text-sm mb-0.5" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)' }}>
+                  ⚡ סנכרון מהיר (מומלץ)
+                </div>
+                <div style={{ color: 'var(--text-2)', fontSize: 12, lineHeight: 1.5 }}>
+                  חיבור קליק אחד ל-Google Calendar יחסוך לך זמן, ימנע כפילויות, ויציג לך רק מורים שבאמת פנויים בלו״ז שלך.
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => void handleCalSync()}
+              disabled={calSyncing}
+              className="w-full py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 wizard-cta-primary"
+              style={{
+                ...ctaPrimary,
+                opacity: calSyncing ? 0.7 : 1,
+                fontSize: 14,
+              }}
+            >
+              {calSyncing ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  מסנכרן עם יומן גוגל...
+                </>
+              ) : (
+                <>
+                  <CalendarDays size={16} />
+                  חבר את יומן גוגל
+                </>
+              )}
+            </button>
           </div>
-          {errors.days && <div style={{ color: 'var(--coral)', fontSize: 13, marginTop: 4 }}>{errors.days}</div>}
-        </div>
+        )}
 
-        <div className="mb-4">
-          <div className="font-semibold mb-2" style={{ color: 'var(--text-2)', fontSize: 14 }}>שעות מועדפות:</div>
-          <div className="flex flex-col gap-2">
-            {TIME_SLOTS.map((ts) => (
-              <button key={ts.value} onClick={() => updateIntake({ preferredTimeRanges: toggleArray(intake.preferredTimeRanges as string[], ts.value) as TimeSlot[] })}
-                className="text-right px-3 py-2 rounded-lg text-sm"
-                style={{ background: intake.preferredTimeRanges.includes(ts.value) ? 'color-mix(in oklab, var(--cyan) 15%, var(--surface-2))' : 'var(--surface-2)', border: `1px solid ${intake.preferredTimeRanges.includes(ts.value) ? 'var(--cyan)' : 'var(--line-2)'}`, color: 'var(--text)', cursor: 'pointer' }}>
-                {ts.label}
-              </button>
-            ))}
+        {/* ── Synced success state ────────────────────────────────── */}
+        {availMode === 'synced' && (
+          <div
+            className="p-4 rounded-2xl mb-4 flex items-center gap-3"
+            style={{
+              background: 'color-mix(in oklab, var(--lime) 10%, var(--surface-2))',
+              border: '1px solid color-mix(in oklab, var(--lime) 35%, var(--line-2))',
+            }}
+          >
+            <div
+              className="flex items-center justify-center w-9 h-9 rounded-xl flex-shrink-0"
+              style={{ background: 'color-mix(in oklab, var(--lime) 20%, var(--surface))', color: 'var(--lime)' }}
+            >
+              <Check size={18} />
+            </div>
+            <div>
+              <div className="font-semibold text-sm" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)' }}>
+                יומן גוגל מחובר
+              </div>
+              <div style={{ color: 'var(--text-3)', fontSize: 12 }}>
+                זמינות זוהתה אוטומטית — ניתן לשנות ידנית למטה
+              </div>
+            </div>
+            <button
+              onClick={() => setAvailMode('manual')}
+              style={{ marginRight: 'auto', color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}
+            >
+              ערוך
+            </button>
           </div>
-        </div>
+        )}
 
+        {/* ── Manual link ─────────────────────────────────────────── */}
+        {availMode === 'sync' && (
+          <div className="text-center mb-4">
+            <button
+              onClick={() => setAvailMode('manual')}
+              style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 13 }}
+            >
+              מעדיף/ת לסמן ידנית ללא חיבור יומן?
+            </button>
+          </div>
+        )}
+
+        {/* ── Manual grid ─────────────────────────────────────────── */}
+        {(availMode === 'manual' || availMode === 'synced') && (
+          <div className="mb-4">
+            <div className="font-semibold mb-2 text-sm" style={{ color: 'var(--text-2)' }}>זמינות שבועית:</div>
+            <AvailabilityGrid
+              selectedDays={intake.preferredDays}
+              selectedTimes={intake.preferredTimeRanges as string[]}
+              onChangeDays={(days) => updateIntake({ preferredDays: days })}
+              onChangeTimes={(times) => updateIntake({ preferredTimeRanges: times as TimeSlot[] })}
+            />
+            {errors.days && <div style={{ color: 'var(--coral)', fontSize: 13, marginTop: 4 }}>{errors.days}</div>}
+          </div>
+        )}
+
+        {/* ── Location type ───────────────────────────────────────── */}
         <div className="mb-4">
-          <div className="font-semibold mb-2" style={{ color: 'var(--text-2)', fontSize: 14 }}>סוג שיעור:</div>
+          <div className="font-semibold mb-2 text-sm" style={{ color: 'var(--text-2)' }}>סוג שיעור:</div>
           <div className="flex flex-col gap-2">
             {locationOptions.map((loc) => (
-              <button key={loc.value} onClick={() => updateIntake({ locationPreference: loc.value })}
+              <button
+                key={loc.value}
+                onClick={() => updateIntake({ locationPreference: loc.value })}
                 className="text-right px-3 py-2 rounded-lg text-sm flex items-center gap-2"
-                style={{ background: intake.locationPreference === loc.value ? 'color-mix(in oklab, var(--cyan) 15%, var(--surface-2))' : 'var(--surface-2)', border: `1px solid ${intake.locationPreference === loc.value ? 'var(--cyan)' : 'var(--line-2)'}`, color: 'var(--text)', cursor: 'pointer' }}>
-                <span style={{ color: intake.locationPreference === loc.value ? 'var(--cyan)' : 'var(--text-3)', flexShrink: 0 }}>{loc.icon}</span>
+                style={{
+                  background: intake.locationPreference === loc.value ? 'color-mix(in oklab, var(--cyan) 15%, var(--surface-2))' : 'var(--surface-2)',
+                  border: `1px solid ${intake.locationPreference === loc.value ? 'var(--cyan)' : 'var(--line-2)'}`,
+                  color: 'var(--text)',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s, border-color 0.15s',
+                }}
+              >
+                <span style={{ color: intake.locationPreference === loc.value ? 'var(--cyan)' : 'var(--text-3)', flexShrink: 0, transition: 'color 0.15s' }}>{loc.icon}</span>
                 {loc.label}
               </button>
             ))}
@@ -709,10 +933,15 @@ export function MatchingWizardPage() {
 
         {(intake.locationPreference === 'frontal' || intake.locationPreference === 'both') && (
           <div className="mb-4">
-            <div className="font-semibold mb-2" style={{ color: 'var(--text-2)', fontSize: 14 }}>עיר:</div>
-            <input type="text" placeholder="הכנס/י עיר..." value={intake.city} onChange={(e) => updateIntake({ city: e.target.value })}
-              className="w-full p-3 rounded-xl"
-              style={{ background: 'var(--surface-2)', border: `1px solid ${errors.city ? 'var(--coral)' : 'var(--line-2)'}`, color: 'var(--text)', fontSize: 15, outline: 'none' }} />
+            <div className="font-semibold mb-2 text-sm" style={{ color: 'var(--text-2)' }}>עיר:</div>
+            <input
+              type="text"
+              placeholder="הכנס/י עיר..."
+              value={intake.city}
+              onChange={(e) => updateIntake({ city: e.target.value })}
+              className="w-full p-3 rounded-xl wizard-input"
+              style={{ background: 'var(--surface-2)', border: `1px solid ${errors.city ? 'var(--coral)' : 'var(--line-2)'}`, color: 'var(--text)', fontSize: 15, outline: 'none', transition: 'border-color 0.18s, box-shadow 0.18s' }}
+            />
             {errors.city && <div style={{ color: 'var(--coral)', fontSize: 13, marginTop: 4 }}>{errors.city}</div>}
           </div>
         )}
@@ -720,37 +949,46 @@ export function MatchingWizardPage() {
         {isParent && (
           <div className="mb-4 p-3 rounded-lg flex items-start gap-2 text-sm" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>
             <Clock size={13} style={{ flexShrink: 0, marginTop: 1 }} />
-            <span>אנו נציג אך ורק מורים שפנויים באופן ודאי בחלונות הזמן שתגדירו. אין צורך בטלפונים, בירורים או תיאומים מורכבים.</span>
+            <span>נציג אך ורק מורים שפנויים באופן ודאי בחלונות הזמן שתגדירו.</span>
           </div>
         )}
 
         <div className="flex gap-3 mt-2">
-          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור</button>
-          <button onClick={() => void handleNext()} className="flex-1 py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>המשך</button>
+          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={ctaBack}>חזור</button>
+          <button onClick={() => void handleNext()} className="flex-1 py-3 rounded-xl wizard-cta-primary" style={ctaPrimary}>המשך</button>
         </div>
       </WizardShell>
     );
   }
 
-  // ── STEP 10: Learning Style + Soft Preferences ────────────────────
+  // ── STEP 10: Learning Style + Soft Preferences ────────────────────────────────
   if (step === 10) {
     const softPrefs = isParent ? SOFT_PREFS_PARENT : SOFT_PREFS_STUDENT;
     return (
-      <WizardShell>
+      <WizardShell step={step}>
         <WizardProgress current={10} total={TOTAL_STEPS} />
         <WizardStepHeader
           title={isParent ? 'האם ישנם דגשים מיוחדים?' : 'בוא/י נדייק את הכימיה. מה חשוב לך במורה?'}
-          subtitle={isParent ? 'סמנו קריטריונים שיעזרו לנו למצוא את המורה בעל הגישה המתאימה ביותר.' : 'אופציונלי'}
+          subtitle={isParent ? 'סמנו קריטריונים שיעזרו לנו למצוא את המורה המתאים.' : 'אופציונלי'}
         />
 
         {!isParent && (
           <div className="mb-5">
-            <div className="font-semibold mb-2" style={{ color: 'var(--text-2)', fontSize: 14 }}>סגנון למידה:</div>
+            <div className="font-semibold mb-2 text-sm" style={{ color: 'var(--text-2)' }}>סגנון למידה:</div>
             <div className="flex flex-col gap-2">
               {LEARNING_STYLES.map((ls) => (
-                <button key={ls.value} onClick={() => updateIntake({ learningStyle: toggleArray(intake.learningStyle, ls.value) })}
+                <button
+                  key={ls.value}
+                  onClick={() => updateIntake({ learningStyle: toggleArray(intake.learningStyle, ls.value) })}
                   className="text-right px-3 py-2 rounded-lg text-sm"
-                  style={{ background: intake.learningStyle.includes(ls.value) ? 'color-mix(in oklab, var(--cyan) 15%, var(--surface-2))' : 'var(--surface-2)', border: `1px solid ${intake.learningStyle.includes(ls.value) ? 'var(--cyan)' : 'var(--line-2)'}`, color: 'var(--text)', cursor: 'pointer' }}>
+                  style={{
+                    background: intake.learningStyle.includes(ls.value) ? 'color-mix(in oklab, var(--cyan) 15%, var(--surface-2))' : 'var(--surface-2)',
+                    border: `1px solid ${intake.learningStyle.includes(ls.value) ? 'var(--cyan)' : 'var(--line-2)'}`,
+                    color: 'var(--text)',
+                    cursor: 'pointer',
+                    transition: 'background 0.15s, border-color 0.15s',
+                  }}
+                >
                   {ls.label}
                 </button>
               ))}
@@ -759,12 +997,21 @@ export function MatchingWizardPage() {
         )}
 
         <div className="mb-4">
-          <div className="font-semibold mb-2" style={{ color: 'var(--text-2)', fontSize: 14 }}>העדפות נוספות:</div>
+          <div className="font-semibold mb-2 text-sm" style={{ color: 'var(--text-2)' }}>העדפות נוספות:</div>
           <div className="flex flex-col gap-2">
             {softPrefs.map((sp) => (
-              <button key={sp.value} onClick={() => updateIntake({ softPreferences: toggleArray(intake.softPreferences, sp.value) })}
+              <button
+                key={sp.value}
+                onClick={() => updateIntake({ softPreferences: toggleArray(intake.softPreferences, sp.value) })}
                 className="text-right px-3 py-2 rounded-lg text-sm"
-                style={{ background: intake.softPreferences.includes(sp.value) ? 'color-mix(in oklab, var(--cyan) 15%, var(--surface-2))' : 'var(--surface-2)', border: `1px solid ${intake.softPreferences.includes(sp.value) ? 'var(--cyan)' : 'var(--line-2)'}`, color: 'var(--text)', cursor: 'pointer' }}>
+                style={{
+                  background: intake.softPreferences.includes(sp.value) ? 'color-mix(in oklab, var(--cyan) 15%, var(--surface-2))' : 'var(--surface-2)',
+                  border: `1px solid ${intake.softPreferences.includes(sp.value) ? 'var(--cyan)' : 'var(--line-2)'}`,
+                  color: 'var(--text)',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s, border-color 0.15s',
+                }}
+              >
                 {sp.label}
               </button>
             ))}
@@ -772,14 +1019,14 @@ export function MatchingWizardPage() {
         </div>
 
         <div className="flex gap-3 mt-2">
-          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור</button>
-          <button onClick={() => void handleNext()} className="flex-1 py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>המשך</button>
+          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={ctaBack}>חזור</button>
+          <button onClick={() => void handleNext()} className="flex-1 py-3 rounded-xl wizard-cta-primary" style={ctaPrimary}>המשך</button>
         </div>
       </WizardShell>
     );
   }
 
-  // ── STEP 11: Review / Summary ─────────────────────────────────────
+  // ── STEP 11: Review / Summary ─────────────────────────────────────────────────
   const levelLabels: Record<string, string> = { elementary: 'יסודי', middle: 'חטיבה', high: 'תיכון', academic: 'אקדמיה' };
   const goalLabels: Record<string, string> = { single_session: 'שיעור חד-פעמי', ongoing: 'מורה קבוע', exam_prep: 'מרתון לבחינה' };
   const locationLabels: Record<string, string> = { online: 'אונליין', frontal: 'פרונטלי', both: 'אונליין + פרונטלי' };
@@ -789,22 +1036,29 @@ export function MatchingWizardPage() {
   }
 
   return (
-    <WizardShell>
+    <WizardShell step={step}>
       <WizardProgress current={11} total={TOTAL_STEPS} />
-      <WizardStepHeader title="נראה לך הכל בסדר?" subtitle="בדוק/י את הפרטים לפני שנמצא לך מורה" />
+      <WizardStepHeader
+        title="נראה לך הכל בסדר?"
+        subtitle="בדוק/י את הפרטים לפני שנמצא לך מורה"
+        badge={<><Sparkles size={10} />  כמעט סיימנו</>}
+      />
 
-      <WizardSummaryCard items={[
-        { label: 'שם', value: intake.fullName },
-        ...(isParent && intake.childName ? [{ label: 'שם הילד/ה', value: intake.childName }] : []),
-        { label: 'יעד', value: goalLabels[intake.learningGoal ?? ''] ?? '' },
-        { label: 'רמה', value: `${levelLabels[intake.gradeLevel ?? '']} ${intake.subLevel}`.trim() },
-        { label: 'מקצוע', value: intake.subjectName },
-        { label: 'תקציב', value: intake.budgetMax === 100 ? 'עד ₪100' : intake.budgetMax === 150 ? '₪100–₪150' : '₪150+' },
-        { label: 'ימים', value: intake.preferredDays.join(', ') || '—' },
-        { label: 'שעות', value: intake.preferredTimeRanges.map((t) => ({ morning: 'בוקר', afternoon: 'צהריים', evening: 'ערב' } as Record<TimeSlot, string>)[t]).join(', ') || '—' },
-        { label: 'מיקום', value: locationLabels[intake.locationPreference ?? ''] ?? '—' },
-        ...(intake.city ? [{ label: 'עיר', value: intake.city }] : []),
-      ]} onEdit={() => setStep(2)} />
+      <WizardSummaryCard
+        items={[
+          { label: 'שם', value: intake.fullName },
+          ...(isParent && intake.childName ? [{ label: 'שם הילד/ה', value: intake.childName }] : []),
+          { label: 'יעד', value: goalLabels[intake.learningGoal ?? ''] ?? '' },
+          { label: 'רמה', value: `${levelLabels[intake.gradeLevel ?? '']} ${intake.subLevel}`.trim() },
+          { label: 'מקצוע', value: intake.subjectName },
+          { label: 'תקציב', value: intake.budgetMax === null ? 'לא צוין' : intake.budgetMax >= BUDGET_MAX ? `₪${intake.budgetMin}+` : `₪${intake.budgetMin} – ₪${intake.budgetMax}` },
+          { label: 'ימים', value: intake.preferredDays.join(', ') || '—' },
+          { label: 'שעות', value: intake.preferredTimeRanges.map((t) => ({ morning: 'בוקר', afternoon: 'צהריים', evening: 'ערב' } as Record<TimeSlot, string>)[t]).join(', ') || '—' },
+          { label: 'מיקום', value: locationLabels[intake.locationPreference ?? ''] ?? '—' },
+          ...(intake.city ? [{ label: 'עיר', value: intake.city }] : []),
+        ]}
+        onEdit={() => setStep(2)}
+      />
 
       {errors.submit && (
         <div className="mt-3 p-3 rounded-lg text-sm" style={{ background: 'color-mix(in oklab, var(--coral) 15%, var(--surface-2))', color: 'var(--coral)' }}>
@@ -813,8 +1067,12 @@ export function MatchingWizardPage() {
       )}
 
       <div className="flex gap-3 mt-4">
-        <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}>חזור</button>
-        <button onClick={() => void handleNext()} className="flex-1 py-4 font-bold rounded-xl text-lg" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>
+        <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={ctaBack}>חזור</button>
+        <button
+          onClick={() => void handleNext()}
+          className="flex-1 py-4 rounded-xl text-lg wizard-cta-primary"
+          style={ctaPrimary}
+        >
           מצאו לי מורים
         </button>
       </div>
@@ -824,7 +1082,7 @@ export function MatchingWizardPage() {
 
 function GoogleIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 48 48" fill="none">
+    <svg width="18" height="18" viewBox="0 0 48 48" fill="none" aria-hidden="true">
       <path d="M44.5 20H24v8.5h11.8C34.7 33.9 29.9 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z" fill="#FFC107"/>
       <path d="M6.3 14.7l7 5.1C15.2 16.4 19.3 14 24 14c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 16.3 2 9.7 7.4 6.3 14.7z" fill="#FF3D00"/>
       <path d="M24 46c5.8 0 10.8-1.9 14.7-5.2l-6.8-5.6C29.9 37 27.1 38 24 38c-5.8 0-10.7-3.9-12.4-9.3l-7 5.4C7.9 41.3 15.5 46 24 46z" fill="#4CAF50"/>
