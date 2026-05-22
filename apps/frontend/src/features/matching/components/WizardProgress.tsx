@@ -4,23 +4,43 @@ interface WizardProgressProps {
 }
 
 export function WizardProgress({ current, total }: WizardProgressProps) {
-  const pct = Math.round((current / total) * 100);
   return (
-    <div className="mb-6">
-      <div className="flex justify-between mb-1" style={{ color: 'var(--text-3)', fontSize: 13 }}>
-        <span>שלב {current} מתוך {total}</span>
-        <span>{pct}%</span>
+    <div className="mb-6" dir="ltr">
+      <div
+        className="flex justify-between mb-2 items-center"
+        dir="rtl"
+        style={{ color: 'var(--text-3)', fontSize: 12 }}
+      >
+        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, letterSpacing: '0.02em' }}>
+          {Math.round((current / total) * 100)}% הושלם
+        </span>
+        <span style={{ fontFamily: 'var(--font-mono)' }}>
+          {current} / {total}
+        </span>
       </div>
-      <div style={{ background: 'var(--line-2)', borderRadius: 99, height: 6, overflow: 'hidden' }}>
-        <div
-          style={{
-            width: `${pct}%`,
-            height: '100%',
-            background: 'var(--cyan)',
-            borderRadius: 99,
-            transition: 'width 0.3s ease',
-          }}
-        />
+
+      <div className="flex gap-[3px]">
+        {Array.from({ length: total }, (_, i) => {
+          const seg = i + 1;
+          const done = seg < current;
+          const active = seg === current;
+          return (
+            <div
+              key={seg}
+              style={{
+                flex: 1,
+                height: 4,
+                borderRadius: 99,
+                transition: 'background 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
+                background: done || active ? 'var(--cyan)' : 'var(--line-2)',
+                boxShadow: active
+                  ? '0 0 10px 2px color-mix(in oklab, var(--cyan) 55%, transparent)'
+                  : 'none',
+                opacity: done ? 0.7 : active ? 1 : 0.35,
+              }}
+            />
+          );
+        })}
       </div>
     </div>
   );

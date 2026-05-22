@@ -49,4 +49,26 @@ describe('auth foundation routes', () => {
     expect(response.status).toBe(422);
     expect(response.body).toEqual({ error: 'Request validation failed' });
   });
+
+  it('rejects POST /api/students without a bearer token', async () => {
+    const app = createApp();
+
+    const response = await request(app)
+      .post('/api/students')
+      .send({ full_name: 'Test Student' });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Missing authentication token' });
+  });
+
+  it('rejects POST /api/student-intakes without a bearer token', async () => {
+    const app = createApp();
+
+    const response = await request(app)
+      .post('/api/student-intakes')
+      .send({ subject_name: 'Math', location_preference: 'online' });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Missing authentication token' });
+  });
 });
