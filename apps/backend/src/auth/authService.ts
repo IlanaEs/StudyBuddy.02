@@ -2,7 +2,7 @@ import type { User } from '@supabase/supabase-js';
 
 import { AppError } from '../errors/AppError.js';
 import { createSupabaseAdminClient, createSupabasePublicClient } from '../supabase/supabaseClients.js';
-import type { LoginInput, SignupInput } from './authValidation.js';
+import type { CompleteOAuthSignupInput, LoginInput, SignupInput } from './authValidation.js';
 import { findLocalUserByAuthId, syncLocalUser } from './authRepository.js';
 import type { LocalUser, UserRole } from './authTypes.js';
 import { userRoles } from './authTypes.js';
@@ -159,6 +159,40 @@ export async function verifyAccessToken(accessToken: string) {
     auth_user_id: data.user.id,
     user: localUser,
   };
+}
+
+export async function completeOAuthSignup(
+  accessToken: string,
+  input: CompleteOAuthSignupInput,
+): Promise<{ user: LocalUser }> {
+  const { data, error } = await publicClient().auth.getUser(accessToken);
+
+  if (error || !data.user) {
+    throw new AppError('Invalid OAuth session', 401);
+  }
+
+  const authUser = data.user;
+  const existingRole = authUser.app_metadata?.role;
+
+  if (!existingRole) {
+    const { error: metadataError } = await adminClient().auth.admin.updateUserById(authUser.id, {
+      app_metadata: { role: input.role },
+      user_metadata: { full_name: input.full_name },
+    });
+
+    if (metadataError) {
+      throw new AppError('Unable to assign user role', 500);
+    }
+  }
+
+  const user = await syncLocalUser({
+    authUserId: authUser.id,
+    email: authUser.email ?? '',
+    role: (existingRole ?? input.role) as LocalUser['role'],
+    fullName: input.full_name ?? authUser.user_metadata?.full_name ?? '',
+  });
+
+  return { user };
 }
 
 export async function logout(accessToken: string) {

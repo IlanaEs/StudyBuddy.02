@@ -13,6 +13,29 @@ describe('auth foundation routes', () => {
     expect(response.body).toEqual({ error: 'Missing authentication token' });
   });
 
+  it('rejects /auth/complete-oauth-signup without a bearer token', async () => {
+    const app = createApp();
+
+    const response = await request(app)
+      .post('/auth/complete-oauth-signup')
+      .send({ role: 'student', full_name: 'Test User' });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Missing authentication token' });
+  });
+
+  it('validates complete-oauth-signup: rejects invalid role', async () => {
+    const app = createApp();
+
+    const response = await request(app)
+      .post('/auth/complete-oauth-signup')
+      .set('Authorization', 'Bearer fake-token')
+      .send({ role: 'admin', full_name: 'Test User' });
+
+    expect(response.status).toBe(422);
+    expect(response.body).toEqual({ error: 'Request validation failed' });
+  });
+
   it('validates signup input before calling Supabase Auth', async () => {
     const app = createApp();
 
