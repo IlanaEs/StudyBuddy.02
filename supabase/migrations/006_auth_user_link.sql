@@ -12,4 +12,4 @@ alter table public.users
 add constraint users_supabase_auth_user_id_fk
 foreign key (supabase_auth_user_id) references auth.users(id) on delete cascade;
 
-create index users_supabase_auth_user_id_idx on public.users(supabase_auth_user_id);
+create index users_supabase_auth_user_id_idx on public.users(supabase_auth_user_id);;

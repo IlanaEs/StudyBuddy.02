@@ -128,4 +128,4 @@ for each row execute function public.set_updated_at();
 
 create trigger set_availability_slots_updated_at
 before update on public.availability_slots
-for each row execute function public.set_updated_at();
+for each row execute function public.set_updated_at();;
