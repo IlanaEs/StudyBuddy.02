@@ -8,6 +8,7 @@ export type TimeSlot = 'morning' | 'afternoon' | 'evening';
 export interface StudentIntakeState {
   userContext: UserContext | null;
   fullName: string;
+  childName: string;
   learningGoal: LearningGoal | null;
   gradeLevel: EducationLevel | null;
   subLevel: string;   // e.g. "י׳", "שנה ב׳", etc.
