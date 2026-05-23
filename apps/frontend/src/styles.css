@@ -2469,6 +2469,7 @@ a {
 }
 @keyframes ob-spin {
   to { transform: rotate(360deg); }
+}
 
 /* ==================================================
    WIZARD UI POLISH — onboarding flow
