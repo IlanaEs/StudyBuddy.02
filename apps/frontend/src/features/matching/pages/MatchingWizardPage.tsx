@@ -20,6 +20,12 @@ import type { EducationLevel, LearningGoal, LocationPreference, TimeSlot } from 
 import { useAuth } from '../../../auth/AuthProvider';
 import { getSupabaseBrowserClient } from '../../../auth/supabaseClient';
 import { completeOAuthSignup, createStudentProfile, createStudentIntake } from '../../../api/students';
+import {
+  syncStudentCalendarAvailability,
+  initiateCalendarOAuth,
+  GCAL_SYNC_RETURN_KEY,
+} from '../../../api/studentCalendar';
+import { consumeEarlyProviderToken } from '../../../auth/supabaseClient';
 
 const TOTAL_STEPS = 11;
 const AUTH_STEP = 8;
@@ -80,10 +86,12 @@ export function MatchingWizardPage() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
   const oauthReturnHandled = useRef(false);
+  const calSyncReturnHandled = useRef(false);
 
   // Availability step state
   const [availMode, setAvailMode] = useState<'sync' | 'manual' | 'synced'>('sync');
   const [calSyncing, setCalSyncing] = useState(false);
+  const [calSyncError, setCalSyncError] = useState<string | null>(null);
 
   // ── Initial mount ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -131,16 +139,76 @@ export function MatchingWizardPage() {
     }
   }, [auth.status, step, setStep]);
 
-  // ── GCal sync (UI placeholder — real read requires backend calendar endpoint) ─
+  // ── Calendar OAuth return: detect return, consume provider token, call backend ─
+  useEffect(() => {
+    if (auth.status !== 'authenticated') return;
+    if (calSyncReturnHandled.current) return;
+    if (!localStorage.getItem(GCAL_SYNC_RETURN_KEY)) return;
+
+    calSyncReturnHandled.current = true;
+    localStorage.removeItem(GCAL_SYNC_RETURN_KEY);
+
+    const providerToken =
+      consumeEarlyProviderToken() ??
+      // Fallback: Supabase session may carry provider_token after re-auth
+      (auth.session as { provider_token?: string } | null)?.provider_token;
+
+    if (!providerToken || !auth.session?.access_token) {
+      setCalSyncError('לא ניתן היה לקרוא את היומן. נסה/י שוב או בחר/י ידנית.');
+      setAvailMode('manual');
+      setCalSyncing(false);
+      return;
+    }
+
+    setCalSyncing(true);
+    setCalSyncError(null);
+    void doCalendarSync(auth.session.access_token, providerToken);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.status]);
+
+  // ── Perform the actual backend call + update intake ───────────────────────────
+  async function doCalendarSync(accessToken: string, providerToken: string) {
+    try {
+      const result = await syncStudentCalendarAvailability(accessToken, providerToken);
+      updateIntake({
+        preferredDays: result.preferredDays,
+        preferredTimeRanges: result.preferredTimeRanges as TimeSlot[],
+      });
+      setAvailMode('synced');
+      setCalSyncError(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'שגיאה בסנכרון';
+      if (msg.includes('401') || msg.toLowerCase().includes('expired')) {
+        setCalSyncError('פג תוקף ההרשאה לגוגל קאלנדר. לחץ/י שוב לחיבור מחדש.');
+      } else if (msg.includes('403') || msg.toLowerCase().includes('permission')) {
+        setCalSyncError('אין גישה ליומן. ודא/י שאישרת את הגישה ל-Google Calendar.');
+      } else {
+        setCalSyncError('לא הצלחנו לקרוא את היומן. ניתן להמשיך ולסמן ידנית.');
+      }
+      setAvailMode('manual');
+    } finally {
+      setCalSyncing(false);
+    }
+  }
+
+  // ── GCal sync: initiate OAuth → redirect → return handled by useEffect above ──
   async function handleCalSync() {
     setCalSyncing(true);
-    await new Promise((r) => setTimeout(r, 1800));
-    updateIntake({
-      preferredDays: ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי'],
-      preferredTimeRanges: ['afternoon', 'evening'],
-    });
-    setCalSyncing(false);
-    setAvailMode('synced');
+    setCalSyncError(null);
+    try {
+      localStorage.setItem(GCAL_SYNC_RETURN_KEY, '1');
+      await initiateCalendarOAuth();
+      // Page redirects to Google — execution does not continue here
+    } catch (err) {
+      localStorage.removeItem(GCAL_SYNC_RETURN_KEY);
+      setCalSyncError(
+        err instanceof Error && (err as { status?: number }).status === 403
+          ? 'ההתחברות עם גוגל אינה מופעלת. נסה/י לסמן ידנית.'
+          : 'שגיאה בחיבור לגוגל. נסה/י שוב.',
+      );
+      setCalSyncing(false);
+      setAvailMode('manual');
+    }
   }
 
   // ── Post-OAuth: set role, create student profile, advance ─────────────────────
@@ -845,6 +913,20 @@ export function MatchingWizardPage() {
                 </>
               )}
             </button>
+
+            {/* ── Calendar sync error ─────────────────────────────── */}
+            {calSyncError && (
+              <div
+                className="mt-2 px-3 py-2 rounded-lg text-xs flex items-start gap-2"
+                style={{
+                  background: 'color-mix(in oklab, var(--coral) 10%, var(--surface-2))',
+                  border: '1px solid color-mix(in oklab, var(--coral) 30%, var(--line-2))',
+                  color: 'var(--coral)',
+                }}
+              >
+                {calSyncError}
+              </div>
+            )}
           </div>
         )}
 
