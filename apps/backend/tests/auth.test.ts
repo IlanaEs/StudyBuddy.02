@@ -4,10 +4,10 @@ import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
 
 describe('auth foundation routes', () => {
-  it('rejects /auth/me without a bearer token', async () => {
+  it('rejects /api/auth/me without a bearer token', async () => {
     const app = createApp();
 
-    const response = await request(app).get('/auth/me');
+    const response = await request(app).get('/api/auth/me');
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ error: 'Missing authentication token' });
@@ -39,7 +39,7 @@ describe('auth foundation routes', () => {
   it('validates signup input before calling Supabase Auth', async () => {
     const app = createApp();
 
-    const response = await request(app).post('/auth/signup').send({
+    const response = await request(app).post('/api/auth/signup').send({
       email: 'not-an-email',
       password: 'short',
       role: 'admin',

@@ -26,7 +26,7 @@ export function createApp() {
   }));
   app.use(express.json());
 
-  app.use('/auth', authRouter);
+  app.use('/api/auth', authRouter);
   app.use('/health', healthRouter);
   app.use('/api/booking-requests', bookingRequestsRouter);
   app.use('/api/lessons', lessonsRouter);

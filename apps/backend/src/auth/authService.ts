@@ -16,6 +16,7 @@ type AuthSessionPayload = {
 type AuthResponse = {
   user: LocalUser;
   session: AuthSessionPayload;
+  requiresEmailConfirmation?: true;
 };
 
 const publicClient = createSupabasePublicClient;
@@ -93,10 +94,13 @@ export async function signup(input: SignupInput): Promise<AuthResponse> {
     fullName: input.full_name,
   });
 
-  return {
-    user,
-    session: mapSession(data.session),
-  };
+  // Supabase returns a null session when email confirmation is required.
+  // Signal this to the frontend so it can show the correct message.
+  if (!data.session) {
+    return { user, session: mapSession(null), requiresEmailConfirmation: true };
+  }
+
+  return { user, session: mapSession(data.session) };
 }
 
 export async function login(input: LoginInput): Promise<AuthResponse> {

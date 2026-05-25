@@ -12,4 +12,4 @@ authRouter.post('/signup', validateRequest(signupSchema), asyncHandler(signupCon
 authRouter.post('/login', validateRequest(loginSchema), asyncHandler(loginController));
 authRouter.post('/logout', requireAuth, asyncHandler(logoutController));
 authRouter.post('/complete-oauth-signup', validateRequest(completeOAuthSignupSchema), requireAuth, asyncHandler(completeOAuthSignupController));
-authRouter.get('/me', requireAuth, meController);
+authRouter.get('/me', requireAuth, asyncHandler(meController));
