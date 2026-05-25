@@ -59,31 +59,28 @@ function mapSession(session: { access_token: string; refresh_token: string; expi
 }
 
 export async function signup(input: SignupInput): Promise<AuthResponse> {
-  const { data, error } = await publicClient().auth.signUp({
+  // Create the Supabase Auth user via the admin client so that app_metadata.role
+  // is set atomically in one call. The previous two-step approach (signUp then
+  // updateUserById) left a partial auth user with no role whenever the second
+  // call failed, causing every subsequent /auth/me to return 403.
+  // email_confirm:true bypasses the email confirmation step so a session can be
+  // issued immediately without requiring the user to check their inbox.
+  const { data, error } = await adminClient().auth.admin.createUser({
     email: input.email,
     password: input.password,
-    options: {
-      data: {
-        full_name: input.full_name,
-      },
-    },
+    app_metadata: { role: input.role },
+    user_metadata: { full_name: input.full_name },
+    email_confirm: true,
   });
 
   if (error || !data.user?.email) {
-    throw new AppError('Unable to create Supabase Auth user', 422);
-  }
-
-  const { error: metadataError } = await adminClient().auth.admin.updateUserById(data.user.id, {
-    app_metadata: {
-      role: input.role,
-    },
-    user_metadata: {
-      full_name: input.full_name,
-    },
-  });
-
-  if (metadataError) {
-    throw new AppError('Unable to assign authenticated user role', 500);
+    const isDuplicate = (error as { code?: string }).code === 'email_exists'
+      || error?.message?.toLowerCase().includes('already registered')
+      || error?.message?.toLowerCase().includes('already exists');
+    throw new AppError(
+      isDuplicate ? 'An account with this email already exists' : 'Unable to create account',
+      422,
+    );
   }
 
   const user = await syncLocalUser({
@@ -93,9 +90,22 @@ export async function signup(input: SignupInput): Promise<AuthResponse> {
     fullName: input.full_name,
   });
 
+  // admin.createUser does not issue a session — sign in immediately to get tokens.
+  const { data: signInData, error: signInError } = await publicClient().auth.signInWithPassword({
+    email: input.email,
+    password: input.password,
+  });
+
+  if (signInError || !signInData.session) {
+    // User and local row were created successfully; we just cannot issue a
+    // session right now. Return without tokens — the frontend will redirect
+    // to login where the user can sign in normally.
+    return { user, session: mapSession(null) };
+  }
+
   return {
     user,
-    session: mapSession(data.session),
+    session: mapSession(signInData.session),
   };
 }
 

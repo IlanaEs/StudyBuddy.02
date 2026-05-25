@@ -51,7 +51,7 @@ export type CompleteOnboardingResult = {
 
 function buildSaveBody(data: TeacherOnboardingData, step: number) {
   return {
-    fullName: data.fullName,
+    fullName: data.fullName || undefined,
     hourlyRate: data.hourlyRate || '0',
     professionalStatus: data.professionalStatus,
     onboardingStep: step,

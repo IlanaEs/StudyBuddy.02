@@ -9,6 +9,7 @@ import { teacherAvailabilityRouter } from './teacherAvailability/teacherAvailabi
 import { teacherSchedulingPreferencesRouter } from './teacherSchedulingPreferences/teacherSchedulingPreferences.routes.js';
 import { teacherAvailabilityExceptionsRouter } from './teacherAvailabilityExceptions/teacherAvailabilityExceptions.routes.js';
 import { teacherOnboardingRouter } from './teacherOnboarding/teacherOnboarding.routes.js';
+import { teacherCalendarRouter } from './teacherCalendar/teacherCalendar.routes.js';
 import { studentsRouter } from './students/students.routes.js';
 import { studentIntakesRouter } from './studentIntakes/studentIntakes.routes.js';
 
@@ -23,6 +24,9 @@ export function createApp() {
   app.use('/api/teacher-availability', teacherAvailabilityRouter);
   app.use('/api/teacher-scheduling-preferences', teacherSchedulingPreferencesRouter);
   app.use('/api/teacher-availability-exceptions', teacherAvailabilityExceptionsRouter);
+  // Calendar router first: its public /me/calendar/callback must be matched
+  // before the onboarding router's global requireAuth would reject it (401).
+  app.use('/api/teachers', teacherCalendarRouter);
   app.use('/api/teachers', teacherOnboardingRouter);
   app.use('/api/students', studentsRouter);
   app.use('/api/student-intakes', studentIntakesRouter);

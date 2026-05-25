@@ -14,6 +14,7 @@ import { MatchResultsPage } from '../features/matching/pages/MatchResultsPage';
 import { BookingRequestPage } from '../features/matching/pages/BookingRequestPage';
 import { BookingConfirmationPage } from '../features/matching/pages/BookingConfirmationPage';
 import { StudentDashboardPage } from '../features/studentDashboard/pages/StudentDashboardPage';
+import { TeacherDashboardPage } from '../features/teacherDashboard/pages/TeacherDashboardPage';
 import { TeacherOnboardingPage } from '../pages/TeacherOnboardingPage';
 
 export function App() {
@@ -29,6 +30,7 @@ export function App() {
         <Route path="/onboarding/booking" element={<BookingRequestPage />} />
         <Route path="/onboarding/confirmation" element={<BookingConfirmationPage />} />
         <Route path="/student/dashboard" element={<StudentDashboardPage />} />
+        <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
         <Route path="/login" element={<LoginRoute />} />
         <Route path="/signup" element={<SignupRoute />} />
         <Route
