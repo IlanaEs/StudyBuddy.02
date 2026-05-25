@@ -728,13 +728,17 @@ type DraftStatus = 'idle' | 'saving' | 'saved' | 'save-error';
 
 export function TeacherOnboardingPage() {
   const navigate = useNavigate();
-  const { session } = useAuth();
+  const { session, refreshProfile } = useAuth();
   const [step, setStep] = useState(1);
   const [data, setData] = useState<TeacherOnboardingData>(INITIAL_DATA);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
   const [draftStatus, setDraftStatus] = useState<DraftStatus>('idle');
   const [completionError, setCompletionError] = useState<string | null>(null);
   const [nextRoute, setNextRoute] = useState('/dashboard');
+  // Initial draft fetch state — shown while the first GET /api/teachers/me/onboarding
+  // is in-flight. After the fetch resolves (success or null draft) this becomes false.
+  const [draftLoading, setDraftLoading] = useState(true);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Snapshot of data+token captured when entering step 7 (loading screen)
   const completionSnapshotRef = useRef<{ data: TeacherOnboardingData; token: string } | null>(null);
@@ -768,6 +772,9 @@ export function TeacherOnboardingPage() {
     if (!token || hasFetchedDraftRef.current) return;
     hasFetchedDraftRef.current = true;
 
+    setDraftLoading(true);
+    setDraftError(null);
+
     fetchOnboardingDraft(token)
       .then((response) => {
         if ('error' in response) {
@@ -775,6 +782,8 @@ export function TeacherOnboardingPage() {
           // This is the only case that resets the flag; a null draft is a
           // legitimate "no record yet" response and must NOT loop forever.
           hasFetchedDraftRef.current = false;
+          setDraftError('לא ניתן לטעון את הטיוטה. אנא רענן את הדף.');
+          setDraftLoading(false);
           return;
         }
 
@@ -788,20 +797,25 @@ export function TeacherOnboardingPage() {
           // No draft saved yet — still honour the OAuth return step so the
           // user lands back on the calendar screen after approving GCal.
           if (returnStep > 1 && returnStep <= 6) setStep(returnStep);
+          setDraftLoading(false);
           return;
         }
 
         // Don't overwrite changes the user made while the fetch was in-flight
-        if (hasUserEditedRef.current) return;
-        const hydrated = hydrateFromRemote(response.data.onboarding, INITIAL_DATA);
-        setData((prev) => ({ ...prev, ...hydrated }));
-        const savedStep = response.data.onboarding.onboardingStep;
-        const targetStep = Math.max(savedStep, returnStep);
-        if (targetStep > 1 && targetStep <= 6) setStep(targetStep);
+        if (!hasUserEditedRef.current) {
+          const hydrated = hydrateFromRemote(response.data.onboarding, INITIAL_DATA);
+          setData((prev) => ({ ...prev, ...hydrated }));
+          const savedStep = response.data.onboarding.onboardingStep;
+          const targetStep = Math.max(savedStep, returnStep);
+          if (targetStep > 1 && targetStep <= 6) setStep(targetStep);
+        }
+        setDraftLoading(false);
       })
       .catch(() => {
         // Network-level failure — allow retry when token rotates
         hasFetchedDraftRef.current = false;
+        setDraftError('לא ניתן לטעון את הטיוטה. אנא רענן את הדף.');
+        setDraftLoading(false);
       });
   }, [session?.access_token]);
 
@@ -1001,7 +1015,7 @@ export function TeacherOnboardingPage() {
     const minDisplay = new Promise<void>((resolve) => setTimeout(resolve, 3600));
 
     Promise.all([minDisplay, completeOnboarding(snapshot.data, snapshot.token)])
-      .then(([, response]) => {
+      .then(async ([, response]) => {
         if (cancelled) return;
         clearInterval(interval);
         if ('error' in response) {
@@ -1010,6 +1024,14 @@ export function TeacherOnboardingPage() {
           setStep(6);
         } else {
           setNextRoute(response.data.nextRoute);
+          // Refresh the auth context so AuthProvider.profile.onboardingCompleted
+          // flips to true before we navigate. Without this, DashboardPlaceholderRoute
+          // sees the stale profile and redirects back to /teacher-onboarding.
+          await refreshProfile().catch(() => {
+            // Non-fatal: if the refresh fails the user still lands on the
+            // success screen and can navigate manually. The next page load
+            // will pick up the correct profile from /api/auth/me.
+          });
           setStep(8);
         }
       })
@@ -1026,6 +1048,87 @@ export function TeacherOnboardingPage() {
       clearInterval(interval);
     };
   }, [step]);
+
+  // ── Initial draft loading / error ─────────────────────────────────────────────
+  // Show a spinner while the first GET /api/teachers/me/onboarding is in-flight.
+  // Once the draft resolves (or errors), draftLoading becomes false and we render
+  // the normal step flow. This prevents a flash of step-1 before the saved step
+  // is restored.
+  if (draftLoading) {
+    return (
+      <div
+        dir="rtl"
+        lang="he"
+        style={{
+          minHeight: '100dvh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'var(--bg)',
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+          <Loader2 size={32} className="animate-spin" style={{ color: SB_ORANGE }} />
+          <span style={{ fontSize: 14, color: 'var(--text-3)', fontWeight: 500 }}>
+            טוען טיוטה...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (draftError) {
+    return (
+      <div
+        dir="rtl"
+        lang="he"
+        style={{
+          minHeight: '100dvh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'var(--bg)',
+          padding: 24,
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 400,
+            width: '100%',
+            padding: '28px 24px',
+            borderRadius: 'var(--radius-lg)',
+            border: '2px solid #ef4444',
+            background: 'rgba(239,68,68,0.08)',
+            textAlign: 'center',
+          }}
+        >
+          <p style={{ fontSize: 15, color: '#ef4444', fontWeight: 700, margin: '0 0 16px' }}>
+            {draftError}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              hasFetchedDraftRef.current = false;
+              setDraftError(null);
+              setDraftLoading(true);
+            }}
+            style={{
+              padding: '10px 20px',
+              borderRadius: 'var(--radius)',
+              border: `2px solid ${SB_ORANGE}`,
+              background: SB_ORANGE,
+              color: '#fff',
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            נסה שוב
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ── STEP 1: Identity ─────────────────────────────────────────────────────────
   if (step === 1) {

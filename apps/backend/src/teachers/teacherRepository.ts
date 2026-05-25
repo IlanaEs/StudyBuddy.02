@@ -265,7 +265,7 @@ export async function completeOnboarding(
     }
   }
 
-  // Stage 5 (last): activate the profile only after all other writes succeed
+  // Stage 5: activate the profile only after all other writes succeed
   const { error: activateError } = await adminClient()
     .from('teacher_profiles')
     .update({
@@ -278,6 +278,19 @@ export async function completeOnboarding(
   if (activateError) {
     throw new AppError('Failed to activate teacher profile', 500);
   }
+
+  // Stage 6: sync onboarding_drafts so /api/auth/me reflects completion immediately.
+  // The drafts row is the source of truth for AuthProvider.profile.onboardingCompleted.
+  // We upsert rather than update in case the row was never created (e.g. legacy accounts).
+  await adminClient()
+    .from('onboarding_drafts')
+    .upsert(
+      { user_id: userId, onboarding_completed: true, onboarding_step: 8 },
+      { onConflict: 'user_id' },
+    );
+  // Non-fatal: teacher_profiles is the operational source of truth; the draft row
+  // is only read by /api/auth/me to build AuthProvider.profile. If this fails the
+  // teacher is still activated; they'll see the correct state after their next login.
 
   return { teacherProfileId: profileId };
 }
