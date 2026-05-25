@@ -12,12 +12,10 @@ import type { TimeBlockId } from '../components/onboarding/TeacherAvailabilityCa
 import type { GCalStatus, BusySlot } from '../api/teacherCalendar';
 import {
   initiateCalendarConnect,
-  syncCalendar,
   fetchCalendarStatus,
   fetchBusySlots,
   disconnectCalendar as disconnectCalendarApi,
 } from '../api/teacherCalendar';
-import { consumeEarlyProviderToken } from '../auth/supabaseClient';
 
 import { SelectableChip } from '../components/onboarding/SelectableChip';
 import { SelectableCard } from '../components/onboarding/SelectableCard';
@@ -768,21 +766,25 @@ export function TeacherOnboardingPage() {
     if (!token || hasFetchedDraftRef.current) return;
     hasFetchedDraftRef.current = true;
 
+    // Consume the OAuth origin step synchronously — before any async work.
+    // Reading it inside .then() means it is silently lost when the draft fetch
+    // fails (API error or network error), stranding the user on step 1 instead
+    // of returning them to the calendar step after OAuth.
+    // sb_gcal_success_step is intentionally NOT consumed here — the GCal effect
+    // reads it when it handles the ?calendar=connected return.
+    const returnStepRaw = sessionStorage.getItem('sb_gcal_origin_step');
+    const returnStep = returnStepRaw ? parseInt(returnStepRaw, 10) : 1;
+    if (returnStepRaw) sessionStorage.removeItem('sb_gcal_origin_step');
+
     fetchOnboardingDraft(token)
       .then((response) => {
         if ('error' in response) {
-          // Network or auth error — allow retry when token rotates.
-          // This is the only case that resets the flag; a null draft is a
-          // legitimate "no record yet" response and must NOT loop forever.
+          // API error — allow retry when token rotates. Still restore the step
+          // so the user lands at the right wizard screen even without a draft.
+          if (returnStep > 1 && returnStep <= 6) setStep(returnStep);
           hasFetchedDraftRef.current = false;
           return;
         }
-
-        // Consume the OAuth return step key regardless of whether a draft
-        // exists. This prevents it from being re-read on later re-renders.
-        const returnStepRaw = sessionStorage.getItem('sb_gcal_return_step');
-        const returnStep = returnStepRaw ? parseInt(returnStepRaw, 10) : 1;
-        if (returnStepRaw) sessionStorage.removeItem('sb_gcal_return_step');
 
         if (!response.data.onboarding) {
           // No draft saved yet — still honour the OAuth return step so the
@@ -800,7 +802,9 @@ export function TeacherOnboardingPage() {
         if (targetStep > 1 && targetStep <= 6) setStep(targetStep);
       })
       .catch(() => {
-        // Network-level failure — allow retry when token rotates
+        // Network-level failure — allow retry when token rotates. Still restore
+        // the step so the GCal effect can fire and consume the origin step.
+        if (returnStep > 1 && returnStep <= 6) setStep(returnStep);
         hasFetchedDraftRef.current = false;
       });
   }, [session?.access_token]);
@@ -834,75 +838,78 @@ export function TeacherOnboardingPage() {
     const accessToken = session?.access_token;
     if (!accessToken) return;
 
-    // session.provider_token is often missing because the SIGNED_IN event that
-    // carries it fires during Supabase client init — before AuthProvider subscribes.
-    // consumeEarlyProviderToken() returns the token captured at client-creation time.
-    const sessionProviderToken = session?.provider_token;
-    const earlyToken = sessionProviderToken ? null : consumeEarlyProviderToken();
-    const providerToken = sessionProviderToken ?? earlyToken ?? undefined;
-    const wasConnecting = sessionStorage.getItem('sb_gcal_connecting') === '1';
+    // Backend-owned OAuth: the backend /callback redirects here with ?calendar=
+    // connected|failed. The backend is the source of truth — we never read a
+    // Supabase provider_token. Busy slots come from GET /busy-slots.
+    const params = new URLSearchParams(window.location.search);
+    const calendarResult = params.get('calendar');
 
-    if (import.meta.env.DEV) {
-      console.debug('[GCalEffect] fired', {
-        step,
-        hasAccessToken: !!accessToken,
-        hasProviderToken: !!providerToken,
-        providerTokenSource: sessionProviderToken ? 'session' : earlyToken ? 'early-capture' : 'none',
-        providerTokenLength: providerToken?.length ?? 0,
-        wasConnecting,
-      });
-    }
-
-    if (wasConnecting) sessionStorage.removeItem('sb_gcal_connecting');
-
-    if (providerToken) {
-      // Returned from OAuth with a live Google token — sync immediately
-      setGcalStatus('connecting');
-      syncCalendar(accessToken, providerToken)
-        .then(slots => {
-          const blocks = mapBusySlotsToBlockKeys(slots);
-          setBusyBlocks(blocks);
-          setGcalBusyCount(blocks.length);
-          setGcalLastSynced(new Date().toISOString());
-          setGcalStatus('connected');
-          // Remove any already-selected blocks that are now busy
-          const busySet = new Set(blocks);
-          const remaining = data.weeklyTimeBlocks.filter(k => !busySet.has(k));
-          if (remaining.length < data.weeklyTimeBlocks.length) {
-            setRemovedBlocksNotice(true);
-            updateTimeBlocks(remaining);
-          }
-        })
-        .catch((err: unknown) => {
-          if (import.meta.env.DEV) {
-            console.error('[GCalEffect] syncCalendar failed', err instanceof Error ? err.message : err);
-          }
-          setGcalStatus('sync_failed');
-        });
-    } else if (wasConnecting) {
-      // OAuth was attempted but no provider_token → denied or error
-      if (import.meta.env.DEV) {
-        console.debug('[GCalEffect] wasConnecting but no provider_token — marking sync_failed');
+    // Applies fetched busy slots to local state and removes any selected blocks
+    // that are now busy. Shared by the OAuth-return and normal-load paths.
+    const applyBusySlots = (slots: BusySlot[]) => {
+      const blocks = mapBusySlotsToBlockKeys(slots);
+      setBusyBlocks(blocks);
+      setGcalBusyCount(blocks.length);
+      const busySet = new Set(blocks);
+      const remaining = data.weeklyTimeBlocks.filter(k => !busySet.has(k));
+      if (remaining.length < data.weeklyTimeBlocks.length) {
+        setRemovedBlocksNotice(true);
+        updateTimeBlocks(remaining);
       }
-      setGcalStatus('sync_failed');
-    } else {
-      // Normal load — check cached status from backend
-      fetchCalendarStatus(accessToken)
-        .then(status => {
-          if (status !== 'connected') return;
-          setGcalStatus('connected');
-          fetchBusySlots(accessToken)
-            .then(slots => {
-              const blocks = mapBusySlotsToBlockKeys(slots);
-              setBusyBlocks(blocks);
-              setGcalBusyCount(blocks.length);
-            })
-            .catch(() => {/* non-fatal */});
-        })
-        .catch(() => {/* non-fatal */});
+      return blocks;
+    };
+
+    if (calendarResult) {
+      // Strip the query param so a page refresh doesn't re-trigger the flow.
+      window.history.replaceState({}, '', window.location.pathname);
+      sessionStorage.removeItem('sb_gcal_connecting');
+      const successStepRaw = sessionStorage.getItem('sb_gcal_success_step');
+      const successStep = successStepRaw ? parseInt(successStepRaw, 10) : 0;
+      sessionStorage.removeItem('sb_gcal_success_step');
+
+      if (calendarResult === 'connected') {
+        setGcalStatus('connecting');
+        fetchCalendarStatus(accessToken)
+          .then(status => {
+            if (status !== 'connected') {
+              setGcalConnectError?.('generic');
+              setGcalStatus('sync_failed');
+              return;
+            }
+            setGcalStatus('connected');
+            setGcalLastSynced(new Date().toISOString());
+            return fetchBusySlots(accessToken).then(slots => {
+              applyBusySlots(slots);
+              // Advance to the next step after the calendar step.
+              if (successStep >= 1 && successStep <= 6) {
+                setStep(successStep);
+                silentSave(data, successStep);
+              }
+            });
+          })
+          .catch(() => {
+            setGcalStatus('sync_failed');
+          });
+      } else {
+        // calendar=failed — stay on calendar step with a clear error.
+        setGcalConnectError?.('generic');
+        setGcalStatus('sync_failed');
+      }
+      return;
     }
+
+    // Normal load — check cached connection status from backend.
+    fetchCalendarStatus(accessToken)
+      .then(status => {
+        if (status !== 'connected') return;
+        setGcalStatus('connected');
+        fetchBusySlots(accessToken)
+          .then(slots => { applyBusySlots(slots); })
+          .catch(() => {/* non-fatal */});
+      })
+      .catch(() => {/* non-fatal */});
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, session?.access_token, session?.provider_token]);
+  }, [step, session?.access_token]);
 
   function next() {
     const nextStep = step + 1;
@@ -944,15 +951,15 @@ export function TeacherOnboardingPage() {
       // so the write completes before navigation leaves the page.
       await saveOnboardingDraft(data, step, token);
       sessionStorage.setItem('sb_gcal_connecting', '1');
-      sessionStorage.setItem('sb_gcal_return_step', String(step));
-      await initiateCalendarConnect();
+      sessionStorage.setItem('sb_gcal_origin_step', String(step));
+      sessionStorage.setItem('sb_gcal_success_step', String(step + 1));
+      await initiateCalendarConnect(token);
       // initiateCalendarConnect() causes a full-page redirect — nothing below runs.
     } catch (err) {
       sessionStorage.removeItem('sb_gcal_connecting');
-      sessionStorage.removeItem('sb_gcal_return_step');
-      // 403 = session expired or allow_manual_linking disabled in Supabase dashboard.
-      const is403 = (err as { status?: number }).status === 403;
-      setGcalConnectError(is403 ? 'session_expired' : 'generic');
+      sessionStorage.removeItem('sb_gcal_origin_step');
+      sessionStorage.removeItem('sb_gcal_success_step');
+      setGcalConnectError?.('generic');
       setGcalStatus('sync_failed');
     }
   }

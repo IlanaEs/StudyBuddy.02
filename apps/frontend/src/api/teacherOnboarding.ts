@@ -51,7 +51,9 @@ export type CompleteOnboardingResult = {
 
 function buildSaveBody(data: TeacherOnboardingData, step: number) {
   return {
-    fullName: data.fullName,
+    // undefined (not '') so the backend's z.string().min(1).optional() doesn't
+    // reject a blank name when the teacher hasn't yet filled step 1.
+    fullName: data.fullName || undefined,
     hourlyRate: data.hourlyRate || '0',
     professionalStatus: data.professionalStatus,
     onboardingStep: step,

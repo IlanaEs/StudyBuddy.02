@@ -1,11 +1,7 @@
-import { getSupabaseBrowserClient } from '../auth/supabaseClient';
-
 const API = import.meta.env.VITE_API_BASE_URL;
 if (!API) {
   throw new Error('VITE_API_BASE_URL is not set — calendar API calls will fail');
 }
-
-const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
 
 export type GCalStatus = 'not_connected' | 'connecting' | 'connected' | 'sync_failed';
 
@@ -15,41 +11,27 @@ export type BusySlot = {
   source: 'google_calendar';
 };
 
-// Triggers Google OAuth via Supabase linkIdentity — causes a full-page redirect.
-// linkIdentity pre-checks the session via GET /auth/v1/user before redirecting.
-// A 403 from that pre-check means the session is expired or allow_manual_linking
-// is disabled in the Supabase dashboard (Auth → Advanced → Allow manual linking).
+// Backend-owned Google Calendar OAuth.
+// The backend builds the Google OAuth URL (with a signed state carrying the
+// user id) and exchanges the code itself in its /callback route. The frontend
+// no longer touches Supabase linkIdentity or provider_token — it just asks the
+// backend where to send the browser, then navigates there.
 //
-// redirectTo must use window.location.origin + '/teacher-onboarding' rather than
-// window.location.href so that:
-//   1. The URL is stable and predictable regardless of query params or hash fragments
-//      that may be present in href after a previous OAuth return.
-//   2. It matches exactly what is registered in Supabase → Auth → URL Configuration
-//      → Allowed Redirect URLs (e.g. http://localhost:3001/teacher-onboarding).
-export async function initiateCalendarConnect(): Promise<void> {
-  const supabase = getSupabaseBrowserClient();
-  const redirectTo = `${window.location.origin}/teacher-onboarding`;
-  const { error } = await supabase.auth.linkIdentity({
-    provider: 'google',
-    options: {
-      scopes: GCAL_SCOPE,
-      queryParams: { access_type: 'offline', prompt: 'consent' },
-      redirectTo,
-    },
+// GET /api/teachers/me/calendar/connect → { data: { url } }, then full-page nav.
+export async function initiateCalendarConnect(accessToken: string): Promise<void> {
+  const res = await fetch(`${API}/api/teachers/me/calendar/connect`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
-  if (error) {
-    if (import.meta.env.DEV) {
-      console.error('[initiateCalendarConnect] linkIdentity failed', {
-        status: (error as { status?: number }).status,
-        message: error.message,
-        redirectTo,
-      });
-    }
-    throw error;
+  const body = (await res.json()) as { data?: { url?: string }; error?: string };
+  if (!res.ok || !body.data?.url) {
+    const err = new Error(body.error ?? `Calendar connect failed: ${res.status}`);
+    (err as { status?: number }).status = res.status;
+    throw err;
   }
+  window.location.assign(body.data.url);
 }
 
-// GET /api/teachers/me/calendar/status
+// GET /api/teachers/me/calendar/status — the source of truth for connection state.
 export async function fetchCalendarStatus(accessToken: string): Promise<'connected' | 'not_connected'> {
   try {
     const res = await fetch(`${API}/api/teachers/me/calendar/status`, {
@@ -60,34 +42,6 @@ export async function fetchCalendarStatus(accessToken: string): Promise<'connect
     return body.data?.status === 'connected' ? 'connected' : 'not_connected';
   } catch {
     return 'not_connected';
-  }
-}
-
-// POST /api/teachers/me/calendar/sync — sends providerToken in X-Provider-Token header
-export async function syncCalendar(accessToken: string, providerToken: string): Promise<BusySlot[]> {
-  const res = await fetch(`${API}/api/teachers/me/calendar/sync`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'X-Provider-Token': providerToken,
-    },
-  });
-  const body = (await res.json()) as { data?: { busySlots?: BusySlot[] }; error?: string };
-  if (!res.ok) {
-    throw new Error(body.error ?? `Sync failed: ${res.status}`);
-  }
-  return body.data?.busySlots ?? [];
-}
-
-// POST /api/teachers/me/calendar/disconnect
-export async function disconnectCalendar(accessToken: string): Promise<void> {
-  const res = await fetch(`${API}/api/teachers/me/calendar/disconnect`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!res.ok) {
-    const body = (await res.json()) as { error?: string };
-    throw new Error(body.error ?? `Disconnect failed: ${res.status}`);
   }
 }
 
@@ -102,5 +56,17 @@ export async function fetchBusySlots(accessToken: string): Promise<BusySlot[]> {
     return body.data?.busySlots ?? [];
   } catch {
     return [];
+  }
+}
+
+// POST /api/teachers/me/calendar/disconnect
+export async function disconnectCalendar(accessToken: string): Promise<void> {
+  const res = await fetch(`${API}/api/teachers/me/calendar/disconnect`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    const body = (await res.json()) as { error?: string };
+    throw new Error(body.error ?? `Disconnect failed: ${res.status}`);
   }
 }
