@@ -16,6 +16,7 @@ const expectedFiles = [
   '010_teacher_scheduling_preferences.sql',
   '011_availability_exceptions.sql',
   '012_onboarding_drafts.sql',
+  '20260524000100_011_calendar_connections.sql',
 ];
 
 const migrationFiles = {

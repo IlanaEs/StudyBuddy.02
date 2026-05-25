@@ -14,14 +14,14 @@ import { teacherAvailabilityRouter } from './teacherAvailability/teacherAvailabi
 import { teacherSchedulingPreferencesRouter } from './teacherSchedulingPreferences/teacherSchedulingPreferences.routes.js';
 import { teacherAvailabilityExceptionsRouter } from './teacherAvailabilityExceptions/teacherAvailabilityExceptions.routes.js';
 import { teacherOnboardingRouter } from './teacherOnboarding/teacherOnboarding.routes.js';
+import { teacherCalendarRouter } from './teacherCalendar/teacherCalendar.routes.js';
 
 export function createApp() {
   const app = express();
 
-  app.use(cors({
-    origin: env.FRONTEND_ORIGIN,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Provider-Token'],
-  }));
+  // X-Provider-Token header removed: backend-owned OAuth no longer passes the
+  // Google provider_token through the frontend. CORS only needs Authorization.
+  app.use(cors({ origin: env.FRONTEND_ORIGIN }));
   app.use(express.json());
 
   app.use('/auth', authRouter);
@@ -34,6 +34,9 @@ export function createApp() {
   app.use('/api/teacher-availability', teacherAvailabilityRouter);
   app.use('/api/teacher-scheduling-preferences', teacherSchedulingPreferencesRouter);
   app.use('/api/teacher-availability-exceptions', teacherAvailabilityExceptionsRouter);
+  // Calendar router first: its public /me/calendar/callback must be matched
+  // before the onboarding router's global requireAuth would reject it (401).
+  app.use('/api/teachers', teacherCalendarRouter);
   app.use('/api/teachers', teacherOnboardingRouter);
 
   app.use(errorHandler);
