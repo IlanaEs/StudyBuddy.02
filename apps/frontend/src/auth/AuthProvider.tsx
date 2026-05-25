@@ -17,6 +17,11 @@ type AuthContextValue = {
   login: (input: LoginInput) => Promise<void>;
   signup: (input: SignupInput) => Promise<void>;
   logout: () => Promise<void>;
+  /** Re-fetches /api/auth/me and updates user + profile in-place.
+   *  Call this after any operation that changes the user's profile status
+   *  (e.g. completing teacher onboarding) so the in-memory context reflects
+   *  the new DB state without requiring a full page reload. */
+  refreshProfile: () => Promise<void>;
 };
 
 type LoginInput = {
@@ -236,6 +241,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [resolveSession],
   );
 
+  // Re-runs resolveSession with the current session so AuthProvider.profile
+  // and AuthProvider.user reflect any DB changes made since last load.
+  const refreshProfile = useCallback(async () => {
+    if (session) {
+      await resolveSession(session);
+    }
+  }, [session, resolveSession]);
+
   const logout = useCallback(async () => {
     const currentToken = session?.access_token;
 
@@ -252,8 +265,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   const value = useMemo(
-    () => ({ status, user, profile, session, error, login, signup, logout }),
-    [error, login, logout, profile, session, signup, status, user],
+    () => ({ status, user, profile, session, error, login, signup, logout, refreshProfile }),
+    [error, login, logout, profile, refreshProfile, session, signup, status, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
