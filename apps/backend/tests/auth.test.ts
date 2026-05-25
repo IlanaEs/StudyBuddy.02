@@ -13,11 +13,11 @@ describe('auth foundation routes', () => {
     expect(response.body).toEqual({ error: 'Missing authentication token' });
   });
 
-  it('rejects /auth/complete-oauth-signup without a bearer token', async () => {
+  it('rejects /api/auth/complete-oauth-signup without a bearer token', async () => {
     const app = createApp();
 
     const response = await request(app)
-      .post('/auth/complete-oauth-signup')
+      .post('/api/auth/complete-oauth-signup')
       .send({ role: 'student', full_name: 'Test User' });
 
     expect(response.status).toBe(401);
@@ -28,7 +28,7 @@ describe('auth foundation routes', () => {
     const app = createApp();
 
     const response = await request(app)
-      .post('/auth/complete-oauth-signup')
+      .post('/api/auth/complete-oauth-signup')
       .set('Authorization', 'Bearer fake-token')
       .send({ role: 'admin', full_name: 'Test User' });
 
