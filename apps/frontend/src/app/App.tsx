@@ -22,14 +22,7 @@ export function App() {
         <Route path="/" element={<MainLandingRoute />} />
         <Route path="/teachers" element={<TeachersLandingRoute />} />
         <Route path="/intake" element={<SafePlaceholderRoute title="Intake placeholder" />} />
-        <Route
-          path="/teacher-onboarding"
-          element={
-            <ProtectedRoute allowedRoles={['teacher']}>
-              <TeacherOnboardingPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/teacher-onboarding" element={<TeacherOnboardingPage />} />
         <Route path="/onboarding/matching" element={<MatchingWizardPage />} />
         <Route path="/onboarding/results" element={<MatchResultsPage />} />
         <Route path="/onboarding/booking" element={<BookingRequestPage />} />

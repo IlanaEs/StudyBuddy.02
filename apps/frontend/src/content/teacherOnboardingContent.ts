@@ -1,5 +1,7 @@
 export const SB_ORANGE = '#f97316';
 export const SB_ORANGE_SOFT = 'rgba(249,115,22,0.15)';
+/** Cyber-professional neon accent (spec: #00f6ff) — used on progress bars and active borders. */
+export const SB_NEON = '#00f6ff';
 
 export const PROFESSIONAL_STATUS_OPTIONS = [
   { value: 'student_instructor', label: 'סטודנט/ית' },
