@@ -156,7 +156,7 @@ describe('POST /api/teachers/me/calendar/sync', () => {
     expect(res.body).not.toHaveProperty('success');
   });
 
-  it('returns 200 with busySlots and syncedAt on success', async () => {
+  it('returns 200 with busySlots, syncedAt, status, and busyCount on success', async () => {
     vi.mocked(verifyAccessToken).mockResolvedValueOnce(TEACHER_AUTH);
     vi.mocked(fetchGoogleBusySlots).mockResolvedValueOnce(FAKE_BUSY_SLOTS);
     vi.mocked(saveCalendarSync).mockResolvedValueOnce(undefined);
@@ -167,6 +167,8 @@ describe('POST /api/teachers/me/calendar/sync', () => {
       .set('X-Provider-Token', 'google-oauth-token');
 
     expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe('connected');
+    expect(res.body.data.busyCount).toBe(FAKE_BUSY_SLOTS.length);
     expect(res.body.data.busySlots).toEqual(FAKE_BUSY_SLOTS);
     expect(typeof res.body.data.syncedAt).toBe('string');
     expect(res.body).not.toHaveProperty('success');

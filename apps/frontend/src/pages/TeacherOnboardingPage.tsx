@@ -131,35 +131,65 @@ function isAcademicPath(status: ProfessionalStatus | null): boolean {
   return status !== null && ACADEMIC_PATH_STATUSES.includes(status);
 }
 
+// Maps Google Calendar busy slots (UTC ISO timestamps) to onboarding grid block keys
+// like "ראשון-morning" using Asia/Jerusalem local time.
+//
+// Walking hour-by-hour (same approach as availabilityMapper.ts in the student flow)
+// correctly handles:
+//   - all-day events (Google returns midnight-to-midnight UTC)
+//   - multi-day events
+//   - events that span two time-block periods
+//   - DST transitions in Israel (UTC+2 winter / UTC+3 summer)
+//
+// Block hour boundaries (Jerusalem local time, consistent with TeacherAvailabilityCalendar):
+//   morning   08:00–13:00
+//   afternoon 13:00–18:00
+//   evening   18:00–22:00
+const ISRAEL_TZ = 'Asia/Jerusalem';
+const MS_PER_HOUR = 60 * 60 * 1000;
+
+const _mapDowFormatter = new Intl.DateTimeFormat('en-US', { timeZone: ISRAEL_TZ, weekday: 'long' });
+const _mapHourFormatter = new Intl.DateTimeFormat('en-US', { timeZone: ISRAEL_TZ, hour: 'numeric', hour12: false });
+
+const _DOW_MAP: Record<string, number> = {
+  Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3,
+  Thursday: 4, Friday: 5, Saturday: 6,
+};
+
+const _HEBREW_DAYS: Record<number, typeof AVAIL_DAYS[number]> = {
+  0: 'ראשון', 1: 'שני', 2: 'שלישי', 3: 'רביעי', 4: 'חמישי', 5: 'שישי', 6: 'שבת',
+};
+
+const _TIME_BLOCKS: Array<{ id: TimeBlockId; startH: number; endH: number }> = [
+  { id: 'morning',   startH: 8,  endH: 13 },
+  { id: 'afternoon', startH: 13, endH: 18 },
+  { id: 'evening',   startH: 18, endH: 22 },
+];
+
+function _getLocalDow(date: Date): number {
+  const weekday = _mapDowFormatter.formatToParts(date).find((p) => p.type === 'weekday')?.value ?? 'Sunday';
+  return _DOW_MAP[weekday] ?? 0;
+}
+
+function _getLocalHour(date: Date): number {
+  const h = parseInt(_mapHourFormatter.formatToParts(date).find((p) => p.type === 'hour')?.value ?? '0', 10);
+  return h === 24 ? 0 : h;
+}
+
 function mapBusySlotsToBlockKeys(busySlots: BusySlot[]): string[] {
   const blockKeys = new Set<string>();
-  const hebrewDays: Record<number, typeof AVAIL_DAYS[number]> = {
-    0: 'ראשון', 1: 'שני', 2: 'שלישי', 3: 'רביעי', 4: 'חמישי', 5: 'שישי', 6: 'שבת',
-  };
-  const timeBlocks: Array<{ id: TimeBlockId; startH: number; endH: number }> = [
-    { id: 'morning', startH: 8, endH: 13 },
-    { id: 'afternoon', startH: 13, endH: 18 },
-    { id: 'evening', startH: 18, endH: 22 },
-  ];
   for (const slot of busySlots) {
-    const slotStart = new Date(slot.startAt);
-    const slotEnd = new Date(slot.endAt);
-    const cursor = new Date(slotStart);
-    cursor.setHours(0, 0, 0, 0);
-    while (cursor <= slotEnd) {
-      const hebrewDay = hebrewDays[cursor.getDay()];
-      if (hebrewDay) {
-        for (const block of timeBlocks) {
-          const blockStart = new Date(cursor);
-          blockStart.setHours(block.startH, 0, 0, 0);
-          const blockEnd = new Date(cursor);
-          blockEnd.setHours(block.endH, 0, 0, 0);
-          if (slotStart < blockEnd && slotEnd > blockStart) {
-            blockKeys.add(`${hebrewDay}-${block.id}`);
-          }
-        }
-      }
-      cursor.setDate(cursor.getDate() + 1);
+    const startMs = new Date(slot.startAt).getTime();
+    const endMs   = new Date(slot.endAt).getTime();
+    // Walk hour-by-hour through the busy period; each hour maps to at most one block.
+    for (let t = startMs; t < endMs; t += MS_PER_HOUR) {
+      const date     = new Date(t);
+      const dow      = _getLocalDow(date);
+      const hebrewDay = _HEBREW_DAYS[dow];
+      if (!hebrewDay) continue;
+      const hour = _getLocalHour(date);
+      const block = _TIME_BLOCKS.find((b) => hour >= b.startH && hour < b.endH);
+      if (block) blockKeys.add(`${hebrewDay}-${block.id}`);
     }
   }
   return [...blockKeys];
@@ -532,6 +562,7 @@ function GoogleCalendarCard({
   onConnect,
   onDisconnect,
   onManual,
+  onSync,
   errorHint,
 }: {
   status: GCalStatus;
@@ -541,6 +572,8 @@ function GoogleCalendarCard({
   onDisconnect: () => void;
   /** Called when the user explicitly skips GCal and wants to set availability manually. */
   onManual: () => void;
+  /** Called when the user presses "Sync Now" from the connected state. */
+  onSync: () => void;
   /** Provides a machine-readable reason so the sync_failed state can show
    *  an appropriate recovery hint rather than a one-size-fits-all message. */
   errorHint?: 'session_expired' | 'generic';
@@ -549,6 +582,7 @@ function GoogleCalendarCard({
     not_connected: 'var(--line-2)',
     connecting: 'color-mix(in oklab, var(--gold) 35%, transparent)',
     connected: 'color-mix(in oklab, var(--lime) 35%, transparent)',
+    syncing: 'color-mix(in oklab, var(--blue) 35%, transparent)',
     sync_failed: 'color-mix(in oklab, var(--coral) 35%, transparent)',
     manual_mode: 'color-mix(in oklab, var(--text-3) 25%, transparent)',
   };
@@ -637,6 +671,15 @@ function GoogleCalendarCard({
         </div>
       )}
 
+      {status === 'syncing' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Loader2 size={16} className="ob-spin" style={{ color: 'var(--blue)', flexShrink: 0 }} />
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>
+            מסנכרן אירועים מ-Google Calendar...
+          </span>
+        </div>
+      )}
+
       {status === 'connected' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <CalendarCheck size={20} style={{ color: 'var(--lime)', flexShrink: 0 }} />
@@ -645,10 +688,33 @@ function GoogleCalendarCard({
               Google Calendar מחובר
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>
-              {lastSynced ? `סונכרן ${new Date(lastSynced).toLocaleDateString('he-IL')} · ${busyCount} שעות חסומות` : 'מחובר'}
+              {lastSynced
+                ? `סונכרן ${new Date(lastSynced).toLocaleDateString('he-IL')} · ${busyCount ?? 0} שעות חסומות`
+                : 'מחובר'}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={onSync}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '5px 10px',
+                borderRadius: 999,
+                border: `1px solid ${SB_NEON}`,
+                background: 'transparent',
+                color: SB_NEON,
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <RefreshCw size={10} />
+              סנכרן עכשיו
+            </button>
             <button
               type="button"
               onClick={onDisconnect}
@@ -1047,7 +1113,10 @@ export function TeacherOnboardingPage() {
     if (wasConnecting) sessionStorage.removeItem('sb_gcal_connecting');
 
     if (providerToken) {
-      // Returned from OAuth with a live Google token — sync immediately
+      // Returned from OAuth with a live Google token — sync immediately.
+      // Cache the token in sessionStorage so "Sync Now" can re-use it within
+      // this session without triggering a full OAuth round-trip again.
+      try { sessionStorage.setItem('sb_gcal_provider_token', providerToken); } catch { /* quota */ }
       setGcalStatus('connecting');
       syncCalendar(accessToken, providerToken)
         .then(slots => {
@@ -1078,13 +1147,16 @@ export function TeacherOnboardingPage() {
       setGcalStatus('sync_failed');
     } else {
       // Normal load — check cached status from backend.
+      // Also restores lastSyncedAt so the connected card shows the correct timestamp
+      // on page refresh rather than showing "connected" with no sync date.
       // If the backend says not_connected but the user previously chose manual
       // mode (persisted in the draft's availabilityMode field), restore that
       // choice rather than defaulting back to the initial connect prompt.
       fetchCalendarStatus(accessToken)
-        .then(calStatus => {
+        .then(({ status: calStatus, lastSyncedAt }) => {
           if (calStatus === 'connected') {
             setGcalStatus('connected');
+            if (lastSyncedAt) setGcalLastSynced(lastSyncedAt);
             fetchBusySlots(accessToken)
               .then(slots => {
                 const blocks = mapBusySlotsToBlockKeys(slots);
@@ -1177,6 +1249,8 @@ export function TeacherOnboardingPage() {
     setGcalLastSynced(null);
     setRemovedBlocksNotice(false);
     update({ availabilityMode: 'manual' });
+    // Clear the cached provider token — it's only valid while connected to this account.
+    try { sessionStorage.removeItem('sb_gcal_provider_token'); } catch { /* ignore */ }
     if (accessToken) {
       disconnectCalendarApi(accessToken).catch(() => {/* non-fatal */});
     }
@@ -1190,6 +1264,55 @@ export function TeacherOnboardingPage() {
     setGcalConnectError(null);
     update({ availabilityMode: 'manual' });
     silentSave({ ...data, availabilityMode: 'manual' }, step);
+  }
+
+  // Called when the user presses "Sync Now" from the connected card.
+  // Uses a cached Google provider token (stored in sessionStorage after the initial
+  // OAuth sync) so a re-sync can happen without a full OAuth round-trip.
+  // Falls back to handleGCalConnect() (re-OAuth) if no cached token is available.
+  async function handleGCalSyncNow() {
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      setGcalConnectError('session_expired');
+      setGcalStatus('sync_failed');
+      return;
+    }
+
+    const cachedProviderToken = sessionStorage.getItem('sb_gcal_provider_token');
+    if (cachedProviderToken) {
+      setGcalConnectError(null);
+      setGcalStatus('syncing');
+      try {
+        const slots = await syncCalendar(accessToken, cachedProviderToken);
+        const blocks = mapBusySlotsToBlockKeys(slots);
+        setBusyBlocks(blocks);
+        setGcalBusyCount(blocks.length);
+        setGcalLastSynced(new Date().toISOString());
+        setGcalStatus('connected');
+        // Remove any newly-busy blocks the user had previously selected
+        const busySet = new Set(blocks);
+        const remaining = data.weeklyTimeBlocks.filter(k => !busySet.has(k));
+        if (remaining.length < data.weeklyTimeBlocks.length) {
+          setRemovedBlocksNotice(true);
+          updateTimeBlocks(remaining);
+        }
+      } catch (err) {
+        // 401/403 = provider token expired; clear it so the next attempt triggers OAuth
+        const httpStatus = (err as { status?: number }).status;
+        if (httpStatus === 401 || httpStatus === 403) {
+          try { sessionStorage.removeItem('sb_gcal_provider_token'); } catch { /* ignore */ }
+          setGcalConnectError('session_expired');
+        } else {
+          setGcalConnectError('generic');
+        }
+        setGcalStatus('sync_failed');
+      }
+      return;
+    }
+
+    // No cached token — re-trigger OAuth so Google issues a fresh one.
+    // After the user approves, the OAuth return path runs the sync automatically.
+    await handleGCalConnect();
   }
 
   // Enter loading screen: capture snapshot then go to step 7.
@@ -1999,6 +2122,7 @@ export function TeacherOnboardingPage() {
                 onConnect={handleGCalConnect}
                 onDisconnect={handleGCalDisconnect}
                 onManual={handleGCalManual}
+                onSync={handleGCalSyncNow}
                 errorHint={gcalConnectError ?? undefined}
               />
             </div>

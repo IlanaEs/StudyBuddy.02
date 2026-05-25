@@ -7,7 +7,7 @@ if (!API) {
 
 const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
 
-export type GCalStatus = 'not_connected' | 'connecting' | 'connected' | 'sync_failed' | 'manual_mode';
+export type GCalStatus = 'not_connected' | 'connecting' | 'connected' | 'syncing' | 'sync_failed' | 'manual_mode';
 
 export type BusySlot = {
   startAt: string;
@@ -49,21 +49,32 @@ export async function initiateCalendarConnect(): Promise<void> {
   }
 }
 
+// Shape returned by GET /api/teachers/me/calendar/status
+export type CalendarStatusResult = {
+  status: 'connected' | 'not_connected';
+  lastSyncedAt: string | null;
+};
+
 // GET /api/teachers/me/calendar/status
-export async function fetchCalendarStatus(accessToken: string): Promise<'connected' | 'not_connected'> {
+export async function fetchCalendarStatus(accessToken: string): Promise<CalendarStatusResult> {
   try {
     const res = await fetch(`${API}/api/teachers/me/calendar/status`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (!res.ok) return 'not_connected';
-    const body = (await res.json()) as { data?: { status?: string } };
-    return body.data?.status === 'connected' ? 'connected' : 'not_connected';
+    if (!res.ok) return { status: 'not_connected', lastSyncedAt: null };
+    const body = (await res.json()) as { data?: { status?: string; lastSyncedAt?: string | null } };
+    return {
+      status: body.data?.status === 'connected' ? 'connected' : 'not_connected',
+      lastSyncedAt: body.data?.lastSyncedAt ?? null,
+    };
   } catch {
-    return 'not_connected';
+    return { status: 'not_connected', lastSyncedAt: null };
   }
 }
 
-// POST /api/teachers/me/calendar/sync — sends providerToken in X-Provider-Token header
+// POST /api/teachers/me/calendar/sync — sends providerToken in X-Provider-Token header.
+// Attaches the HTTP status code to the thrown Error so callers can distinguish
+// 401 (token expired → reconnect) from 502 (Google API error → generic retry).
 export async function syncCalendar(accessToken: string, providerToken: string): Promise<BusySlot[]> {
   const res = await fetch(`${API}/api/teachers/me/calendar/sync`, {
     method: 'POST',
@@ -74,7 +85,9 @@ export async function syncCalendar(accessToken: string, providerToken: string): 
   });
   const body = (await res.json()) as { data?: { busySlots?: BusySlot[] }; error?: string };
   if (!res.ok) {
-    throw new Error(body.error ?? `Sync failed: ${res.status}`);
+    const err = new Error(body.error ?? `Sync failed: ${res.status}`) as Error & { status: number };
+    err.status = res.status;
+    throw err;
   }
   return body.data?.busySlots ?? [];
 }
