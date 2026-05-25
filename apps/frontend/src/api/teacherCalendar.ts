@@ -7,7 +7,7 @@ if (!API) {
 
 const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
 
-export type GCalStatus = 'not_connected' | 'connecting' | 'connected' | 'sync_failed';
+export type GCalStatus = 'not_connected' | 'connecting' | 'connected' | 'sync_failed' | 'manual_mode';
 
 export type BusySlot = {
   startAt: string;

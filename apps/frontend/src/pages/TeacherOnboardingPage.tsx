@@ -531,6 +531,7 @@ function GoogleCalendarCard({
   busyCount,
   onConnect,
   onDisconnect,
+  onManual,
   errorHint,
 }: {
   status: GCalStatus;
@@ -538,6 +539,8 @@ function GoogleCalendarCard({
   busyCount?: number;
   onConnect: () => void;
   onDisconnect: () => void;
+  /** Called when the user explicitly skips GCal and wants to set availability manually. */
+  onManual: () => void;
   /** Provides a machine-readable reason so the sync_failed state can show
    *  an appropriate recovery hint rather than a one-size-fits-all message. */
   errorHint?: 'session_expired' | 'generic';
@@ -547,6 +550,7 @@ function GoogleCalendarCard({
     connecting: 'color-mix(in oklab, var(--gold) 35%, transparent)',
     connected: 'color-mix(in oklab, var(--lime) 35%, transparent)',
     sync_failed: 'color-mix(in oklab, var(--coral) 35%, transparent)',
+    manual_mode: 'color-mix(in oklab, var(--text-3) 25%, transparent)',
   };
 
   return (
@@ -586,6 +590,23 @@ function GoogleCalendarCard({
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={onManual}
+              style={{
+                padding: '7px 12px',
+                borderRadius: 999,
+                border: '1px solid var(--line-2)',
+                background: 'transparent',
+                color: 'var(--text-3)',
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              המשך ידנית
+            </button>
             <button
               type="button"
               onClick={onConnect}
@@ -679,29 +700,80 @@ function GoogleCalendarCard({
                 : 'הרשאה נדחתה או פג תוקף — נסה שוב'}
             </div>
           </div>
-          {errorHint !== 'session_expired' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             <button
               type="button"
-              onClick={onConnect}
+              onClick={onManual}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '7px 12px',
+                padding: '7px 10px',
                 borderRadius: 999,
                 border: '1px solid var(--line-2)',
                 background: 'transparent',
-                color: 'var(--text-2)',
-                fontSize: 12,
+                color: 'var(--text-3)',
+                fontSize: 11,
                 fontWeight: 600,
                 cursor: 'pointer',
-                flexShrink: 0,
+                whiteSpace: 'nowrap',
               }}
             >
-              <RefreshCw size={11} />
-              נסה שוב
+              המשך ידנית
             </button>
-          )}
+            {errorHint !== 'session_expired' && (
+              <button
+                type="button"
+                onClick={onConnect}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '7px 12px',
+                  borderRadius: 999,
+                  border: '1px solid var(--line-2)',
+                  background: 'transparent',
+                  color: 'var(--text-2)',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                <RefreshCw size={11} />
+                נסה שוב
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {status === 'manual_mode' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <CalendarCheck size={20} style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>זמינות ידנית</div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
+              הגדרת זמינות ידנית — ניתן לחבר Google Calendar בכל עת
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onConnect}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '7px 12px',
+              borderRadius: 999,
+              border: `1px solid ${SB_ORANGE}`,
+              background: 'transparent',
+              color: SB_ORANGE,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            חבר Google Calendar
+          </button>
         </div>
       )}
     </div>
@@ -891,11 +963,12 @@ export function TeacherOnboardingPage() {
           return;
         }
 
-        // Consume the OAuth return step key regardless of whether a draft
-        // exists. This prevents it from being re-read on later re-renders.
+        // Consume the OAuth return context keys regardless of whether a draft
+        // exists. This prevents them from being re-read on later re-renders.
         const returnStepRaw = sessionStorage.getItem('sb_gcal_return_step');
         const returnStep = returnStepRaw ? parseInt(returnStepRaw, 10) : 1;
         if (returnStepRaw) sessionStorage.removeItem('sb_gcal_return_step');
+        sessionStorage.removeItem('sb_gcal_return_route');
 
         if (!response.data.onboarding) {
           // No draft saved yet — still honour the OAuth return step so the
@@ -1004,18 +1077,26 @@ export function TeacherOnboardingPage() {
       }
       setGcalStatus('sync_failed');
     } else {
-      // Normal load — check cached status from backend
+      // Normal load — check cached status from backend.
+      // If the backend says not_connected but the user previously chose manual
+      // mode (persisted in the draft's availabilityMode field), restore that
+      // choice rather than defaulting back to the initial connect prompt.
       fetchCalendarStatus(accessToken)
-        .then(status => {
-          if (status !== 'connected') return;
-          setGcalStatus('connected');
-          fetchBusySlots(accessToken)
-            .then(slots => {
-              const blocks = mapBusySlotsToBlockKeys(slots);
-              setBusyBlocks(blocks);
-              setGcalBusyCount(blocks.length);
-            })
-            .catch(() => {/* non-fatal */});
+        .then(calStatus => {
+          if (calStatus === 'connected') {
+            setGcalStatus('connected');
+            fetchBusySlots(accessToken)
+              .then(slots => {
+                const blocks = mapBusySlotsToBlockKeys(slots);
+                setBusyBlocks(blocks);
+                setGcalBusyCount(blocks.length);
+              })
+              .catch(() => {/* non-fatal */});
+          } else if (data.availabilityMode === 'manual') {
+            // User explicitly chose manual mode in a previous session.
+            setGcalStatus('manual_mode');
+          }
+          // else: stays at 'not_connected' (initial state) — no action needed
         })
         .catch(() => {/* non-fatal */});
     }
@@ -1072,11 +1153,13 @@ export function TeacherOnboardingPage() {
       await saveOnboardingDraft(data, step, token);
       sessionStorage.setItem('sb_gcal_connecting', '1');
       sessionStorage.setItem('sb_gcal_return_step', String(step));
+      sessionStorage.setItem('sb_gcal_return_route', '/teacher-onboarding');
       await initiateCalendarConnect();
       // initiateCalendarConnect() causes a full-page redirect — nothing below runs.
     } catch (err) {
       sessionStorage.removeItem('sb_gcal_connecting');
       sessionStorage.removeItem('sb_gcal_return_step');
+      sessionStorage.removeItem('sb_gcal_return_route');
       // 403 = session expired or allow_manual_linking disabled in Supabase dashboard.
       const is403 = (err as { status?: number }).status === 403;
       setGcalConnectError(is403 ? 'session_expired' : 'generic');
@@ -1086,7 +1169,9 @@ export function TeacherOnboardingPage() {
 
   function handleGCalDisconnect() {
     const accessToken = session?.access_token;
-    setGcalStatus('not_connected');
+    // After disconnecting GCal, revert to manual_mode (not not_connected) so the
+    // card shows "Availability set manually" rather than the initial connect prompt.
+    setGcalStatus('manual_mode');
     setBusyBlocks([]);
     setGcalBusyCount(0);
     setGcalLastSynced(null);
@@ -1095,6 +1180,16 @@ export function TeacherOnboardingPage() {
     if (accessToken) {
       disconnectCalendarApi(accessToken).catch(() => {/* non-fatal */});
     }
+  }
+
+  // Called when the user explicitly chooses to skip GCal and set availability manually.
+  // Marks the state as manual_mode so the card shows the appropriate fallback UI,
+  // and flushes the choice to the backend so it survives a page refresh.
+  function handleGCalManual() {
+    setGcalStatus('manual_mode');
+    setGcalConnectError(null);
+    update({ availabilityMode: 'manual' });
+    silentSave({ ...data, availabilityMode: 'manual' }, step);
   }
 
   // Enter loading screen: capture snapshot then go to step 7.
@@ -1903,6 +1998,7 @@ export function TeacherOnboardingPage() {
                 busyCount={gcalBusyCount}
                 onConnect={handleGCalConnect}
                 onDisconnect={handleGCalDisconnect}
+                onManual={handleGCalManual}
                 errorHint={gcalConnectError ?? undefined}
               />
             </div>
