@@ -34,6 +34,7 @@ import {
 import {
   SB_ORANGE,
   SB_ORANGE_SOFT,
+  SB_NEON,
   PROFESSIONAL_STATUS_OPTIONS,
   ACADEMIC_YEAR_OPTIONS,
   TEACHING_LEVELS,
@@ -219,16 +220,17 @@ function OnboardingShell({ children, wide = false }: { children: ReactNode; wide
           maxWidth: wide ? 880 : 640,
           background: 'var(--surface)',
           borderRadius: 'var(--radius-lg)',
-          border: '2px solid var(--line-2)',
+          border: `2px solid rgba(0,246,255,0.18)`,
           overflow: 'clip',
-          boxShadow: '5px 5px 0 rgba(0,0,0,0.4), 0 24px 60px -32px rgba(0,0,0,0.7)',
+          boxShadow: `5px 5px 0 rgba(0,0,0,0.4), 0 24px 60px -32px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,246,255,0.06) inset`,
         }}
       >
-        {/* Orange top stripe — visual anchor */}
+        {/* Neon top stripe — Cyber-Professional design spec */}
         <div
           style={{
             height: 4,
-            background: `linear-gradient(90deg, ${SB_ORANGE} 0%, #fb923c 50%, rgba(249,115,22,0.4) 100%)`,
+            background: `linear-gradient(90deg, ${SB_NEON} 0%, color-mix(in oklab, ${SB_NEON} 55%, ${SB_ORANGE}) 60%, rgba(249,115,22,0.3) 100%)`,
+            boxShadow: `0 0 10px ${SB_NEON}66`,
           }}
         />
         <div className="ob-step-body">{children}</div>

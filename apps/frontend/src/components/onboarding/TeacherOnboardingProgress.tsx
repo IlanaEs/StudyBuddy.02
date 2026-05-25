@@ -1,4 +1,4 @@
-import { STEP_LABELS, SB_ORANGE } from '../../content/teacherOnboardingContent';
+import { STEP_LABELS, SB_ORANGE, SB_NEON } from '../../content/teacherOnboardingContent';
 
 interface TeacherOnboardingProgressProps {
   step: number;
@@ -73,13 +73,14 @@ export function TeacherOnboardingProgress({
         </span>
       </div>
 
-      {/* Track */}
+      {/* Track — neon fill with subtle glow per spec */}
       <div
         style={{
-          height: 5,
+          height: 6,
           background: 'var(--line-2)',
           borderRadius: 99,
-          overflow: 'hidden',
+          overflow: 'visible',
+          position: 'relative',
         }}
       >
         <div
@@ -87,14 +88,15 @@ export function TeacherOnboardingProgress({
           style={{
             width: `${pct}%`,
             height: '100%',
-            background: `linear-gradient(90deg, ${SB_ORANGE}, #fb923c)`,
+            background: `linear-gradient(90deg, ${SB_NEON} 0%, color-mix(in oklab, ${SB_NEON} 80%, ${SB_ORANGE}) 100%)`,
             borderRadius: 99,
             transition: 'width 0.45s cubic-bezier(0.2, 0.8, 0.2, 1)',
+            boxShadow: pct > 0 ? `0 0 8px ${SB_NEON}66, 0 0 2px ${SB_NEON}` : 'none',
           }}
         />
       </div>
 
-      {/* Step dots */}
+      {/* Step dots — active dot uses neon */}
       <div
         style={{
           display: 'flex',
@@ -114,8 +116,9 @@ export function TeacherOnboardingProgress({
                 width: active ? 20 : 6,
                 height: 6,
                 borderRadius: 99,
-                background: active ? SB_ORANGE : done ? 'rgba(249,115,22,0.45)' : 'var(--line-2)',
-                transition: 'width 0.3s ease, background 0.3s ease',
+                background: active ? SB_NEON : done ? `${SB_NEON}55` : 'var(--line-2)',
+                boxShadow: active ? `0 0 6px ${SB_NEON}99` : 'none',
+                transition: 'width 0.3s ease, background 0.3s ease, box-shadow 0.3s ease',
               }}
             />
           );

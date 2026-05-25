@@ -2223,13 +2223,13 @@ a {
   animation: ob-check-pop 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-/* Inputs — focus ring */
+/* Inputs — neon focus ring (spec: #00f6ff) */
 .ob-input {
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .ob-input:focus {
-  border-color: #f97316 !important;
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2) !important;
+  border-color: #00f6ff !important;
+  box-shadow: 0 0 0 3px rgba(0, 246, 255, 0.15), 0 0 10px rgba(0, 246, 255, 0.12) !important;
   outline: none;
 }
 
