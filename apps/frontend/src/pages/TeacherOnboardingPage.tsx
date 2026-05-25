@@ -6,6 +6,7 @@ import {
   ShieldCheck, DollarSign, FileText, ToggleLeft, ToggleRight,
   Loader2, CheckCircle2, ArrowRight, BarChart2,
   CalendarCheck, CalendarX, RefreshCw, Link2Off,
+  UserPlus, LogIn,
 } from 'lucide-react';
 import { TeacherAvailabilityCalendar, makeBlockKey, AVAIL_DAYS } from '../components/onboarding/TeacherAvailabilityCalendar';
 import type { TimeBlockId } from '../components/onboarding/TeacherAvailabilityCalendar';
@@ -728,7 +729,7 @@ type DraftStatus = 'idle' | 'saving' | 'saved' | 'save-error';
 
 export function TeacherOnboardingPage() {
   const navigate = useNavigate();
-  const { session, refreshProfile } = useAuth();
+  const { status, session, login, signup, refreshProfile } = useAuth();
   const [step, setStep] = useState(1);
   const [data, setData] = useState<TeacherOnboardingData>(INITIAL_DATA);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
@@ -751,6 +752,20 @@ export function TeacherOnboardingPage() {
   // Prevents double-submission when activateProfile is clicked quickly
   const isActivatingRef = useRef(false);
 
+  // ── Auth gate (shown between step 3 and step 4 for guests) ─────────────────
+  const [showAuthGate, setShowAuthGate] = useState(false);
+  const [authGateTab, setAuthGateTab] = useState<'signup' | 'login'>('signup');
+  const [authGateFullName, setAuthGateFullName] = useState('');
+  const [authGateEmail, setAuthGateEmail] = useState('');
+  const [authGatePassword, setAuthGatePassword] = useState('');
+  const [authGateError, setAuthGateError] = useState<string | null>(null);
+  const [authGateLoading, setAuthGateLoading] = useState(false);
+  // Records which auth action ('signup'|'login') is pending post-auth sync.
+  // Set before calling login()/signup(), consumed by the post-auth useEffect.
+  const pendingPostAuthType = useRef<'signup' | 'login' | null>(null);
+  // Debounce timer for guest localStorage writes
+  const guestSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [gcalStatus, setGcalStatus] = useState<GCalStatus>('not_connected');
   // Tracks why the last connect attempt failed so the card can show a
   // targeted recovery hint (e.g. "re-login" vs generic "try again").
@@ -764,6 +779,93 @@ export function TeacherOnboardingPage() {
     hasUserEditedRef.current = true;
     setData((prev) => ({ ...prev, ...patch }));
   }
+
+  // ── Guest mode: load draft from localStorage when unauthenticated ──────────
+  // When the user is not logged in, we skip the backend fetch and restore any
+  // previous guest draft from localStorage instead. This also unblocks
+  // `draftLoading` so the spinner doesn't hang forever without a session.
+  useEffect(() => {
+    if (status !== 'unauthenticated') return;
+    if (hasFetchedDraftRef.current) return;
+    hasFetchedDraftRef.current = true;
+
+    try {
+      const raw = localStorage.getItem('sb_teacher_guest_draft');
+      if (raw && !hasUserEditedRef.current) {
+        const saved = JSON.parse(raw) as { data?: Partial<TeacherOnboardingData>; step?: number };
+        if (saved.data) setData((prev) => ({ ...prev, ...saved.data! }));
+        const savedStep = typeof saved.step === 'number' ? saved.step : 1;
+        if (savedStep >= 1 && savedStep <= 3) setStep(savedStep);
+      }
+    } catch { /* ignore malformed localStorage */ }
+
+    setDraftLoading(false);
+  }, [status]);
+
+  // ── Guest mode: auto-save draft to localStorage while in steps 1–3 ─────────
+  // Debounced (350 ms) so rapid keystrokes don't spam writes.
+  useEffect(() => {
+    if (status !== 'unauthenticated' || step > 3) return;
+    if (guestSaveTimerRef.current) clearTimeout(guestSaveTimerRef.current);
+    guestSaveTimerRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem('sb_teacher_guest_draft', JSON.stringify({ data, step }));
+      } catch { /* quota exceeded or private browsing */ }
+    }, 350);
+    return () => {
+      if (guestSaveTimerRef.current) clearTimeout(guestSaveTimerRef.current);
+    };
+  }, [data, step, status]);
+
+  // ── Post-auth sync: fires after the auth gate completes ────────────────────
+  // pendingPostAuthType.current is set just before login()/signup() resolves.
+  // Once status becomes 'authenticated' and the session token is available,
+  // this effect either pushes the guest draft to the backend (new account) or
+  // pulls the existing backend draft (returning account), then advances to step 4.
+  useEffect(() => {
+    if (pendingPostAuthType.current === null) return;
+    if (status !== 'authenticated') return;
+    const token = session?.access_token;
+    if (!token) return;
+
+    const type = pendingPostAuthType.current;
+    pendingPostAuthType.current = null; // consume
+
+    if (type === 'signup') {
+      // New account: push the current wizard state to the backend as the initial draft.
+      saveOnboardingDraft(data, step, token).catch(() => {}).finally(() => {
+        try { localStorage.removeItem('sb_teacher_guest_draft'); } catch {}
+      });
+      setShowAuthGate(false);
+      setStep(4);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      silentSave(data, 4);
+    } else {
+      // Existing account: pull their saved draft from the backend and restore it.
+      fetchOnboardingDraft(token)
+        .then((response) => {
+          try { localStorage.removeItem('sb_teacher_guest_draft'); } catch {}
+          if (!('error' in response) && response.data.onboarding) {
+            const hydrated = hydrateFromRemote(response.data.onboarding, INITIAL_DATA);
+            setData((prev) => ({ ...prev, ...hydrated }));
+            const savedStep = response.data.onboarding.onboardingStep ?? 1;
+            setStep(savedStep > 3 && savedStep <= 6 ? savedStep : 4);
+          } else {
+            // No existing backend draft — push local state as their starting point.
+            saveOnboardingDraft(data, step, token).catch(() => {});
+            setStep(4);
+          }
+          setShowAuthGate(false);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        })
+        .catch(() => {
+          setShowAuthGate(false);
+          setStep(4);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, session?.access_token]);
 
   // Load existing draft once per page load. Depends on session token so it
   // fires after AuthProvider resolves even if that happens post-mount.
@@ -919,6 +1021,15 @@ export function TeacherOnboardingPage() {
   }, [step, session?.access_token, session?.provider_token]);
 
   function next() {
+    // Require authentication before the teaching-operations step (step 4+).
+    // Unauthenticated users see the inline auth gate instead of advancing.
+    if (step === 3 && !session) {
+      setAuthGateFullName(data.fullName.trim());
+      setAuthGateError(null);
+      setShowAuthGate(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     const nextStep = step + 1;
     setStep(nextStep);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -996,6 +1107,40 @@ export function TeacherOnboardingPage() {
     }
     setStep(7);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Auth gate form submission — called when guest submits signup/login.
+  // Sets pendingPostAuthType so the post-auth effect can run the correct sync.
+  async function handleAuthGateSubmit() {
+    if (authGateLoading) return;
+    setAuthGateError(null);
+    setAuthGateLoading(true);
+    try {
+      if (authGateTab === 'signup') {
+        await signup({
+          email: authGateEmail.trim(),
+          password: authGatePassword,
+          full_name: (authGateFullName.trim() || data.fullName.trim()) || 'מורה',
+          role: 'teacher',
+        });
+        pendingPostAuthType.current = 'signup';
+      } else {
+        await login({ email: authGateEmail.trim(), password: authGatePassword });
+        pendingPostAuthType.current = 'login';
+      }
+      // Post-auth sync effect fires once status becomes 'authenticated'.
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'שגיאה';
+      if (msg === 'CHECK_EMAIL') {
+        setAuthGateError('אימות נשלח לדוא"ל — אשר/י את הכתובת ואז כנסי/י עם "כניסה לחשבון קיים".');
+        setAuthGateTab('login');
+      } else {
+        setAuthGateError(msg);
+      }
+      pendingPostAuthType.current = null;
+    } finally {
+      setAuthGateLoading(false);
+    }
   }
 
   // Step 7: run loading animation + call complete API simultaneously
@@ -1127,6 +1272,188 @@ export function TeacherOnboardingPage() {
           </button>
         </div>
       </div>
+    );
+  }
+
+  // ── Auth gate (shown between step 3 and step 4 for unauthenticated users) ───
+  if (showAuthGate) {
+    const canSubmit = !authGateLoading && authGateEmail.trim().length > 0 && authGatePassword.length >= 1;
+    const btnDisabled = !canSubmit;
+    return (
+      <OnboardingShell>
+        <TeacherOnboardingProgress step={3} totalContentSteps={6} progressPct={STEP_PROGRESS[3]} />
+        <StepHeader
+          title="כמעט שם — צור/י חשבון"
+          subtitle="שמור/י את הפרופיל שלך וגש/י ל-Google Calendar עם חשבון StudyBuddy."
+        />
+
+        {/* Tab switcher */}
+        <div
+          style={{
+            display: 'flex',
+            gap: 0,
+            marginBottom: 24,
+            border: '2px solid var(--line-2)',
+            borderRadius: 'var(--radius)',
+            overflow: 'hidden',
+          }}
+        >
+          {([
+            { key: 'signup' as const, label: 'חשבון חדש', icon: <UserPlus size={14} /> },
+            { key: 'login' as const, label: 'יש לי חשבון', icon: <LogIn size={14} /> },
+          ]).map(({ key, label, icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => { setAuthGateTab(key); setAuthGateError(null); }}
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 7,
+                padding: '12px',
+                border: 'none',
+                background: authGateTab === key ? SB_ORANGE : 'transparent',
+                color: authGateTab === key ? '#fff' : 'var(--text-2)',
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontFamily: 'var(--font-display)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {icon}
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Fields */}
+        <div style={{ display: 'grid', gap: 14 }}>
+          {authGateTab === 'signup' && (
+            <div>
+              <SectionLabel>שם מלא</SectionLabel>
+              <input
+                type="text"
+                value={authGateFullName}
+                onChange={(e) => setAuthGateFullName(e.target.value)}
+                placeholder="השם שיופיע לתלמידים"
+                autoComplete="name"
+                className="ob-input"
+                style={inputStyle}
+              />
+            </div>
+          )}
+          <div>
+            <SectionLabel>דוא"ל</SectionLabel>
+            <input
+              type="email"
+              value={authGateEmail}
+              onChange={(e) => setAuthGateEmail(e.target.value)}
+              placeholder="you@example.com"
+              autoComplete="email"
+              className="ob-input"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <SectionLabel>סיסמה</SectionLabel>
+            <input
+              type="password"
+              value={authGatePassword}
+              onChange={(e) => setAuthGatePassword(e.target.value)}
+              placeholder={authGateTab === 'signup' ? 'לפחות 8 תווים' : 'הסיסמה שלך'}
+              autoComplete={authGateTab === 'signup' ? 'new-password' : 'current-password'}
+              className="ob-input"
+              style={inputStyle}
+            />
+          </div>
+        </div>
+
+        {/* Error */}
+        {authGateError && (
+          <div
+            style={{
+              marginTop: 14,
+              padding: '10px 14px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1.5px solid var(--coral)',
+              background: 'rgba(226,43,87,0.08)',
+              color: 'var(--coral)',
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            {authGateError}
+          </div>
+        )}
+
+        {/* Nav */}
+        <div
+          style={{
+            display: 'flex',
+            gap: 10,
+            marginTop: 28,
+            position: 'sticky',
+            bottom: 0,
+            zIndex: 10,
+            background: 'var(--surface)',
+            padding: '16px 0 28px',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => { setShowAuthGate(false); setAuthGateError(null); }}
+            className="ob-btn-back"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '12px 18px',
+              borderRadius: 'var(--radius)',
+              border: '2px solid var(--line-2)',
+              background: 'transparent',
+              color: 'var(--text-2)',
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            <ChevronLeft size={15} />
+            חזור
+          </button>
+          <button
+            type="button"
+            onClick={() => { void handleAuthGateSubmit(); }}
+            disabled={btnDisabled}
+            className={btnDisabled ? '' : 'ob-btn-next'}
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              padding: '14px 20px',
+              borderRadius: 'var(--radius)',
+              border: `2px solid ${btnDisabled ? 'var(--line)' : SB_ORANGE}`,
+              background: btnDisabled ? 'transparent' : SB_ORANGE,
+              color: btnDisabled ? 'var(--text-3)' : '#fff',
+              fontSize: 15,
+              fontWeight: 800,
+              cursor: btnDisabled ? 'not-allowed' : 'pointer',
+              fontFamily: 'var(--font-display)',
+              letterSpacing: '-0.01em',
+              boxShadow: btnDisabled ? 'none' : `4px 4px 0 rgba(249,115,22,0.3)`,
+            }}
+          >
+            {authGateLoading && <Loader2 size={15} className="animate-spin" />}
+            {authGateTab === 'signup' ? 'צור/י חשבון והמשך/י' : 'כנסי/י והמשך/י'}
+            {!authGateLoading && !btnDisabled && <ArrowRight size={15} />}
+          </button>
+        </div>
+      </OnboardingShell>
     );
   }
 
