@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { apiRequest } from '../api/client';
-import type { AuthPayload, LocalUser, UserRole } from './authTypes';
+import type { AuthPayload, LocalUser, MeProfile, UserRole } from './authTypes';
 import { getSupabaseBrowserClient } from './supabaseClient';
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
@@ -11,6 +11,7 @@ type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 type AuthContextValue = {
   status: AuthStatus;
   user: LocalUser | null;
+  profile: MeProfile;
   session: Session | null;
   error: string | null;
   login: (input: LoginInput) => Promise<void>;
@@ -37,6 +38,7 @@ function getResponseError(response: { error?: string }) {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<LocalUser | null>(null);
+  const [profile, setProfile] = useState<MeProfile>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,15 +46,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!nextSession?.access_token) {
       setSession(null);
       setUser(null);
+      setProfile(null);
       setStatus('unauthenticated');
       return;
     }
 
-    const response = await apiRequest<{ user: LocalUser }>('/auth/me', undefined, nextSession.access_token);
+    const response = await apiRequest<{ user: LocalUser; profile: MeProfile }>('/api/auth/me', undefined, nextSession.access_token);
 
     if ('error' in response) {
       setSession(null);
       setUser(null);
+      setProfile(null);
       setStatus('unauthenticated');
       setError(response.error);
       return;
@@ -77,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return nextSession;
     });
     setUser(response.data.user);
+    setProfile(response.data.profile ?? null);
     setStatus('authenticated');
     setError(null);
   }, []);
@@ -146,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (input: LoginInput) => {
       setStatus('loading');
-      const response = await apiRequest<AuthPayload>('/auth/login', {
+      const response = await apiRequest<AuthPayload>('/api/auth/login', {
         body: JSON.stringify(input),
         method: 'POST',
       });
@@ -157,11 +162,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(getResponseError(response));
       }
 
-      const { session: authSession, user: localUser } = response.data;
+      const { session: authSession } = response.data;
 
       if (!authSession.access_token || !authSession.refresh_token) {
         setUser(null);
         setSession(null);
+        setProfile(null);
         setStatus('unauthenticated');
         return;
       }
@@ -178,18 +184,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw supabaseError;
       }
 
-      setSession(data.session);
-      setUser(localUser);
-      setStatus('authenticated');
-      setError(null);
+      // Use resolveSession to set user, profile, and status atomically via
+      // /api/auth/me — avoids a window where user is set but profile is null.
+      await resolveSession(data.session);
     },
-    [],
+    [resolveSession],
   );
 
   const signup = useCallback(
     async (input: SignupInput) => {
       setStatus('loading');
-      const response = await apiRequest<AuthPayload>('/auth/signup', {
+      const response = await apiRequest<AuthPayload>('/api/auth/signup', {
         body: JSON.stringify(input),
         method: 'POST',
       });
@@ -200,14 +205,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(getResponseError(response));
       }
 
-      const { session: authSession, user: localUser } = response.data;
+      const { session: authSession, requiresEmailConfirmation } = response.data;
 
-      if (!authSession.access_token || !authSession.refresh_token) {
+      if (requiresEmailConfirmation || !authSession.access_token || !authSession.refresh_token) {
         setUser(null);
         setSession(null);
+        setProfile(null);
         setStatus('unauthenticated');
         setError(null);
-        return;
+        // Signal to the caller that the user must confirm their email.
+        throw new Error('CHECK_EMAIL');
       }
 
       const supabase = getSupabaseBrowserClient();
@@ -222,19 +229,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw supabaseError;
       }
 
-      setSession(data.session);
-      setUser(localUser);
-      setStatus('authenticated');
-      setError(null);
+      // Use resolveSession to set user, profile, and status atomically via
+      // /api/auth/me — avoids a window where user is set but profile is null.
+      await resolveSession(data.session);
     },
-    [],
+    [resolveSession],
   );
 
   const logout = useCallback(async () => {
     const currentToken = session?.access_token;
 
     if (currentToken) {
-      await apiRequest('/auth/logout', { method: 'POST' }, currentToken);
+      await apiRequest('/api/auth/logout', { method: 'POST' }, currentToken);
     }
 
     const supabase = getSupabaseBrowserClient();
@@ -246,8 +252,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   const value = useMemo(
-    () => ({ status, user, session, error, login, signup, logout }),
-    [error, login, logout, session, signup, status, user],
+    () => ({ status, user, profile, session, error, login, signup, logout }),
+    [error, login, logout, profile, session, signup, status, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

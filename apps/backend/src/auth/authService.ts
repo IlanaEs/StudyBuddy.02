@@ -16,6 +16,7 @@ type AuthSessionPayload = {
 type AuthResponse = {
   user: LocalUser;
   session: AuthSessionPayload;
+  requiresEmailConfirmation?: true;
 };
 
 const publicClient = createSupabasePublicClient;
@@ -69,8 +70,16 @@ export async function signup(input: SignupInput): Promise<AuthResponse> {
     },
   });
 
-  if (error || !data.user?.email) {
-    throw new AppError('Unable to create Supabase Auth user', 422);
+  if (error) {
+    // Surface rate-limit as a user-visible message, not an opaque 422.
+    if ((error as { code?: string }).code === 'over_email_send_rate_limit') {
+      throw new AppError('Too many sign-up attempts. Please wait a few minutes and try again.', 429);
+    }
+    throw new AppError('Unable to create account. Please check your details and try again.', 422);
+  }
+
+  if (!data.user?.email) {
+    throw new AppError('Unable to create account. Please check your details and try again.', 422);
   }
 
   const { error: metadataError } = await adminClient().auth.admin.updateUserById(data.user.id, {
@@ -93,10 +102,13 @@ export async function signup(input: SignupInput): Promise<AuthResponse> {
     fullName: input.full_name,
   });
 
-  return {
-    user,
-    session: mapSession(data.session),
-  };
+  // Supabase returns a null session when email confirmation is required.
+  // Signal this to the frontend so it can show the correct message.
+  if (!data.session) {
+    return { user, session: mapSession(null), requiresEmailConfirmation: true };
+  }
+
+  return { user, session: mapSession(data.session) };
 }
 
 export async function login(input: LoginInput): Promise<AuthResponse> {

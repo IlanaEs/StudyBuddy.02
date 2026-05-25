@@ -14,6 +14,7 @@ export function SignupRoute() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('student');
   const [formError, setFormError] = useState<string | null>(null);
+  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
 
   if (auth.status === 'authenticated') {
     return <Navigate replace to="/dashboard" />;
@@ -22,13 +23,35 @@ export function SignupRoute() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
+    setNeedsEmailConfirmation(false);
 
     try {
       await auth.signup({ email, full_name: fullName, password, role });
       navigate('/dashboard', { replace: true });
     } catch (error) {
+      if (error instanceof Error && error.message === 'CHECK_EMAIL') {
+        setNeedsEmailConfirmation(true);
+        return;
+      }
       setFormError(error instanceof Error ? error.message : 'Unable to sign up');
     }
+  }
+
+  if (needsEmailConfirmation) {
+    return (
+      <div className="w-full max-w-md">
+        <p className="mb-3 text-sm uppercase text-studybuddy-lime">Almost there</p>
+        <h1 className="font-display text-4xl font-semibold">Check your email</h1>
+        <p className="mt-4 text-white/72">
+          We sent a confirmation link to <span className="text-white">{email}</span>. Click it to
+          activate your account, then{' '}
+          <Link className="text-studybuddy-turquoise" to="/login">
+            sign in
+          </Link>
+          .
+        </p>
+      </div>
+    );
   }
 
   return (

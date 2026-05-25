@@ -11,6 +11,12 @@ export type LocalUser = {
   status: 'active' | 'inactive' | 'blocked';
 };
 
+export type MeProfile = {
+  id: string | null;
+  status: 'onboarding' | 'active';
+  onboardingCompleted: boolean;
+} | null;
+
 export type AuthenticatedRequestContext = {
   access_token: string;
   auth_user_id: string;

@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 
 import { completeOAuthSignup, login, logout, signup } from './authService.js';
+import { getProfileForUser } from './authRepository.js';
 
 export async function signupController(request: Request, response: Response) {
   const result = await signup(request.body);
@@ -26,10 +27,11 @@ export async function completeOAuthSignupController(request: Request, response: 
   response.status(200).json({ data: result });
 }
 
-export function meController(request: Request, response: Response) {
+export async function meController(request: Request, response: Response) {
+  const user = request.auth!.user;
+  const profile = await getProfileForUser(user.id, user.role);
+
   response.status(200).json({
-    data: {
-      user: request.auth?.user,
-    },
+    data: { user, profile },
   });
 }
