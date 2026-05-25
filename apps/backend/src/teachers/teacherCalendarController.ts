@@ -60,7 +60,14 @@ export async function syncCalendarController(
 
     const syncedAt = new Date().toISOString();
 
-    res.status(200).json({ data: { busySlots, syncedAt } });
+    res.status(200).json({
+      data: {
+        status: 'connected',
+        busyCount: busySlots.length,
+        busySlots,
+        syncedAt,
+      },
+    });
   } catch (err) {
     next(err);
   }
