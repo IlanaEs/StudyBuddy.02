@@ -2470,3 +2470,39 @@ a {
 @keyframes ob-spin {
   to { transform: rotate(360deg); }
 }
+
+/* ── shadcn/ui design token bridge ─────────────────────────────────────────── */
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@layer base {
+  :root {
+    --background: var(--bg);
+    --foreground: var(--text);
+    --card: var(--surface);
+    --card-foreground: var(--text);
+    --popover: var(--surface);
+    --popover-foreground: var(--text);
+    --primary: var(--blue);
+    --primary-foreground: #06302f;
+    --secondary: var(--surface-2);
+    --secondary-foreground: var(--text);
+    --muted: var(--surface-2);
+    --muted-foreground: var(--text-2);
+    --accent: var(--surface-2);
+    --accent-foreground: var(--text);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: var(--line-2);
+    --input: var(--line-2);
+    --ring: var(--blue);
+    --radius: 14px;
+    --sidebar: var(--surface);
+    --sidebar-foreground: var(--text);
+    --sidebar-primary: var(--blue);
+    --sidebar-primary-foreground: #06302f;
+    --sidebar-accent: var(--surface-2);
+    --sidebar-accent-foreground: var(--text);
+    --sidebar-border: var(--line-2);
+    --sidebar-ring: var(--blue);
+  }
+}
