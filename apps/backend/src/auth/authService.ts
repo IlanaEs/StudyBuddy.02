@@ -70,8 +70,16 @@ export async function signup(input: SignupInput): Promise<AuthResponse> {
     },
   });
 
-  if (error || !data.user?.email) {
-    throw new AppError('Unable to create Supabase Auth user', 422);
+  if (error) {
+    // Surface rate-limit as a user-visible message, not an opaque 422.
+    if ((error as { code?: string }).code === 'over_email_send_rate_limit') {
+      throw new AppError('Too many sign-up attempts. Please wait a few minutes and try again.', 429);
+    }
+    throw new AppError('Unable to create account. Please check your details and try again.', 422);
+  }
+
+  if (!data.user?.email) {
+    throw new AppError('Unable to create account. Please check your details and try again.', 422);
   }
 
   const { error: metadataError } = await adminClient().auth.admin.updateUserById(data.user.id, {
