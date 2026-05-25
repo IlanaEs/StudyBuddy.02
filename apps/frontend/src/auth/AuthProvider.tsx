@@ -162,11 +162,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(getResponseError(response));
       }
 
-      const { session: authSession, user: localUser } = response.data;
+      const { session: authSession } = response.data;
 
       if (!authSession.access_token || !authSession.refresh_token) {
         setUser(null);
         setSession(null);
+        setProfile(null);
         setStatus('unauthenticated');
         return;
       }
@@ -183,12 +184,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw supabaseError;
       }
 
-      setSession(data.session);
-      setUser(localUser);
-      setStatus('authenticated');
-      setError(null);
+      // Use resolveSession to set user, profile, and status atomically via
+      // /api/auth/me — avoids a window where user is set but profile is null.
+      await resolveSession(data.session);
     },
-    [],
+    [resolveSession],
   );
 
   const signup = useCallback(
@@ -205,7 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(getResponseError(response));
       }
 
-      const { session: authSession, user: localUser, requiresEmailConfirmation } = response.data;
+      const { session: authSession, requiresEmailConfirmation } = response.data;
 
       if (requiresEmailConfirmation || !authSession.access_token || !authSession.refresh_token) {
         setUser(null);
@@ -229,12 +229,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw supabaseError;
       }
 
-      setSession(data.session);
-      setUser(localUser);
-      setStatus('authenticated');
-      setError(null);
+      // Use resolveSession to set user, profile, and status atomically via
+      // /api/auth/me — avoids a window where user is set but profile is null.
+      await resolveSession(data.session);
     },
-    [],
+    [resolveSession],
   );
 
   const logout = useCallback(async () => {
