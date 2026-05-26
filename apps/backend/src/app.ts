@@ -16,6 +16,7 @@ import { teacherAvailabilityExceptionsRouter } from './teacherAvailabilityExcept
 import { teacherOnboardingRouter } from './teacherOnboarding/teacherOnboarding.routes.js';
 import { studentsRouter } from './students/students.routes.js';
 import { studentAvailabilityRouter } from './studentAvailability/studentAvailability.routes.js';
+import { parentDashboardRouter } from './parentDashboard/parentDashboard.routes.js';
 
 export function createApp() {
   const app = express();
@@ -39,6 +40,7 @@ export function createApp() {
   app.use('/api/teachers', teacherOnboardingRouter);
   app.use('/api/students', studentsRouter);
   app.use('/api/student-availability', studentAvailabilityRouter);
+  app.use('/api/parents/me', parentDashboardRouter);
 
   app.use(errorHandler);
 
