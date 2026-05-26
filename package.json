@@ -12,6 +12,7 @@
     "dev": "npm run dev --workspace @studybuddy/backend & npm run dev --workspace @studybuddy/frontend",
     "dev:frontend": "npm run dev --workspace @studybuddy/frontend",
     "dev:backend": "npm run dev --workspace @studybuddy/backend",
+    "db:seed:parent-dashboard": "node scripts/seed-parent-dashboard.mjs",
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
