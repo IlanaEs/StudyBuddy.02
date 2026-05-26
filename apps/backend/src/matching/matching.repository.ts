@@ -91,7 +91,7 @@ export async function findInitialTeacherCandidates(
   // availability_slots embedded in the same query — avoids a separate fetch per teacher.
   const { data: profileData, error: profileError } = await adminClient()
     .from('teacher_profiles')
-    .select('id,user_id,hourly_rate,location_type,city,rating_avg,rating_count,is_verified,is_active,last_active_at,availability_slots(day_of_week,start_time,end_time,is_active)')
+    .select('id,user_id,hourly_rate,bio,location_type,city,rating_avg,rating_count,is_verified,is_active,last_active_at,availability_slots(day_of_week,start_time,end_time,is_active)')
     .in('id', teacherIds)
     .eq('is_active', true)
     .eq('is_verified', true)
@@ -109,10 +109,10 @@ export async function findInitialTeacherCandidates(
   const activeProfileIds = profiles.map((p) => p.id as string);
   const userIds = profiles.map((p) => p.user_id as string);
 
-  // ── Query 3: user statuses (batch) ────────────────────────────────────────
+  // ── Query 3: user statuses + full names (batch) ──────────────────────────
   const { data: userData, error: userError } = await adminClient()
     .from('users')
-    .select('id,status')
+    .select('id,status,full_name')
     .in('id', userIds);
 
   if (userError) {
@@ -122,6 +122,10 @@ export async function findInitialTeacherCandidates(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const userStatusMap = new Map<string, string>(
     ((userData ?? []) as any[]).map((u) => [u.id as string, u.status as string]),
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const userFullNameMap = new Map<string, string>(
+    ((userData ?? []) as any[]).map((u) => [u.id as string, (u.full_name as string | null) ?? '']),
   );
 
   // ── Query 4: scheduled lesson counts this week (batch) ───────────────────
@@ -189,6 +193,8 @@ export async function findInitialTeacherCandidates(
       return {
         teacherProfileId: profile.id as string,
         userId: profile.user_id as string,
+        fullName: userFullNameMap.get(profile.user_id as string) ?? '',
+        bio: (profile.bio as string | null) ?? null,
         hourlyRate: profile.hourly_rate as number,
         locationType: profile.location_type as 'online' | 'frontal' | 'both',
         city: profile.city as string | null,

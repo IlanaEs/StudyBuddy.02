@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   GraduationCap, Users, Target, Calendar, Zap, Repeat, BookOpen,
   ShieldCheck, Search, Monitor, Home, ArrowLeftRight, Clock,
@@ -14,12 +14,11 @@ import { WizardOptionCard } from '../components/WizardOptionCard';
 import { WizardSummaryCard } from '../components/WizardSummaryCard';
 import { DualRangeSlider } from '../components/DualRangeSlider';
 import { AvailabilityGrid } from '../components/AvailabilityGrid';
-import { subjectsByLevel, gradesByLevel } from '../data/mockSubjects';
-import { mockMatches } from '../data/mockMatches';
+import { subjectsByLevel, gradesByLevel } from '../data/subjectsByLevel';
 import type { EducationLevel, LearningGoal, LocationPreference, TimeSlot } from '../types/matching.types';
 import { useAuth } from '../../../auth/AuthProvider';
 import { getSupabaseBrowserClient } from '../../../auth/supabaseClient';
-import { completeOAuthSignup, createStudentProfile, createStudentIntake } from '../../../api/students';
+import { completeOAuthSignup, createStudentProfile, createStudentIntake, runMatching } from '../../../api/students';
 import {
   syncStudentCalendarAvailability,
   initiateCalendarOAuth,
@@ -27,8 +26,8 @@ import {
 } from '../../../api/studentCalendar';
 import { consumeEarlyProviderToken } from '../../../auth/supabaseClient';
 
-const TOTAL_STEPS = 11;
-const AUTH_STEP = 8;
+const TOTAL_STEPS = 10;
+const AUTH_STEP = 2;
 const OAUTH_PENDING_KEY = 'sb_student_onboarding_oauth_pending';
 
 const BUDGET_MIN = 0;
@@ -36,7 +35,19 @@ const BUDGET_MAX = 500;
 const BUDGET_DEFAULT_MIN = 60;
 const BUDGET_DEFAULT_MAX = 250;
 
-const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי'];
+const DAY_TO_INDEX: Record<string, number> = {
+  ראשון: 0,
+  שני: 1,
+  שלישי: 2,
+  רביעי: 3,
+  חמישי: 4,
+  שישי: 5,
+};
+const TIME_RANGE_TO_HOURS: Record<TimeSlot, { start: string; end: string }> = {
+  morning: { start: '08:00', end: '12:00' },
+  afternoon: { start: '12:00', end: '17:00' },
+  evening: { start: '17:00', end: '22:00' },
+};
 const TIME_SLOTS: { value: TimeSlot; label: string }[] = [
   { value: 'morning', label: 'בוקר (08:00–12:00)' },
   { value: 'afternoon', label: 'צהריים (12:00–17:00)' },
@@ -68,7 +79,6 @@ const SOFT_PREFS_PARENT = [
 
 export function MatchingWizardPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const auth = useAuth();
   const {
     step, intake, updateIntake, nextStep, prevStep, setStep,
@@ -92,22 +102,23 @@ export function MatchingWizardPage() {
   const [availMode, setAvailMode] = useState<'sync' | 'manual' | 'synced'>('sync');
   const [calSyncing, setCalSyncing] = useState(false);
   const [calSyncError, setCalSyncError] = useState<string | null>(null);
+  const isParent = intake.accountType === 'parent_for_child';
+  const expectedRole = intake.accountType === 'parent_for_child' ? 'parent' : 'student';
+  const hasRoleConflict =
+    auth.status === 'authenticated' &&
+    !!intake.accountType &&
+    auth.user?.role !== expectedRole;
 
   // ── Initial mount ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    const role = searchParams.get('role');
-    if (role === 'student' || role === 'parent') {
-      useMatchingStore.getState().reset();
-      updateIntake({ userContext: role });
-      setStep(2);
-      return;
-    }
     if (step > TOTAL_STEPS) {
       useMatchingStore.getState().reset();
+      setStep(1);
       return;
     }
     if (step === 0) {
-      restoreFromStorage();
+      const restored = restoreFromStorage();
+      if (!restored) setStep(1);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -138,6 +149,49 @@ export function MatchingWizardPage() {
       setStep(AUTH_STEP);
     }
   }, [auth.status, step, setStep]);
+
+  // ── Authenticated return/session restore: enforce selected account type ───────
+  useEffect(() => {
+    if (step !== AUTH_STEP) return;
+    if (auth.status !== 'authenticated') return;
+    if (!intake.accountType || !auth.session?.access_token) return;
+
+    if (hasRoleConflict) {
+      setAuthError('החשבון המחובר לא מתאים למסלול שנבחר.');
+      return;
+    }
+
+    if (intake.studentId) {
+      setStep(AUTH_STEP + 1);
+      return;
+    }
+
+    if (isParent && !intake.childName.trim()) return;
+
+    setAuthLoading(true);
+    setAuthError(null);
+    void createStudentProfile(
+      {
+        account_type: intake.accountType,
+        full_name: intake.fullName || auth.user?.full_name,
+        grade_level: intake.gradeLevel ?? null,
+        ...(isParent && intake.childName ? { child_name: intake.childName } : {}),
+      },
+      auth.session.access_token,
+    ).then((profileResult) => {
+      if ('error' in profileResult) {
+        setAuthError(toHebrewOnboardingError(profileResult.error));
+        return;
+      }
+      updateIntake({ studentId: profileResult.data.student_id });
+      setStep(AUTH_STEP + 1);
+    }).catch(() => {
+      setAuthError('שגיאה בעיבוד החשבון. נסו שנית.');
+    }).finally(() => {
+      setAuthLoading(false);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.status, step, intake.accountType, intake.studentId]);
 
   // ── Calendar OAuth return: detect return, consume provider token, call backend ─
   useEffect(() => {
@@ -214,35 +268,37 @@ export function MatchingWizardPage() {
   // ── Post-OAuth: set role, create student profile, advance ─────────────────────
   async function handlePostOAuthReturn() {
     if (!auth.session?.access_token) return;
-    const savedRole = intake.userContext;
-    if (!savedRole) return;
+    const savedAccountType = intake.accountType;
+    if (!savedAccountType) return;
 
     setAuthLoading(true);
     setAuthError(null);
     try {
       const oauthResult = await completeOAuthSignup(
-        savedRole,
+        savedAccountType,
         auth.user?.full_name ?? intake.fullName,
         auth.session.access_token,
       );
       if ('error' in oauthResult) {
-        setAuthError(oauthResult.error);
+        setAuthError(toHebrewOnboardingError(oauthResult.error));
         return;
       }
 
       const profileResult = await createStudentProfile(
         {
+          account_type: savedAccountType,
           full_name: auth.user?.full_name ?? intake.fullName,
           grade_level: intake.gradeLevel ?? null,
-          ...(savedRole === 'parent' && intake.childName ? { child_name: intake.childName } : {}),
+          ...(savedAccountType === 'parent_for_child' && intake.childName ? { child_name: intake.childName } : {}),
         },
         auth.session.access_token,
       );
       if ('error' in profileResult) {
-        setAuthError(profileResult.error);
+        setAuthError(toHebrewOnboardingError(profileResult.error));
         return;
       }
 
+      updateIntake({ studentId: profileResult.data.student_id });
       setStep(AUTH_STEP + 1);
     } catch {
       setAuthError('שגיאה בעיבוד החשבון. נסו שנית.');
@@ -254,8 +310,20 @@ export function MatchingWizardPage() {
   // ── Email/password auth ───────────────────────────────────────────────────────
   async function handleEmailAuth() {
     setAuthError(null);
+    if (!intake.accountType) {
+      setAuthError('יש לבחור סוג חשבון לפני ההתחברות.');
+      return;
+    }
+    if (hasRoleConflict) {
+      setAuthError('החשבון המחובר לא מתאים למסלול שנבחר.');
+      return;
+    }
     if (!authEmail.trim() || !authPassword.trim()) {
       setAuthError('נא למלא אימייל וסיסמה');
+      return;
+    }
+    if (authTab === 'signup' && !intake.fullName.trim()) {
+      setAuthError('נא להכניס שם מלא');
       return;
     }
     if (authTab === 'signup' && authPassword.length < 8) {
@@ -273,7 +341,7 @@ export function MatchingWizardPage() {
           email: authEmail,
           full_name: intake.fullName,
           password: authPassword,
-          role: isParent ? 'parent' : 'student',
+          role: expectedRole,
         });
       } else {
         await auth.login({ email: authEmail, password: authPassword });
@@ -284,6 +352,7 @@ export function MatchingWizardPage() {
       if (freshSession?.access_token) {
         const profileResult = await createStudentProfile(
           {
+            account_type: intake.accountType,
             full_name: intake.fullName,
             grade_level: intake.gradeLevel ?? null,
             ...(isParent && intake.childName ? { child_name: intake.childName } : {}),
@@ -291,14 +360,15 @@ export function MatchingWizardPage() {
           freshSession.access_token,
         );
         if ('error' in profileResult) {
-          setAuthError(profileResult.error);
+          setAuthError(toHebrewOnboardingError(profileResult.error));
           return;
         }
+        updateIntake({ studentId: profileResult.data.student_id });
       }
 
       setStep(AUTH_STEP + 1);
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : 'שגיאה. נסו שנית.');
+      setAuthError(toHebrewOnboardingError(err instanceof Error ? err.message : 'שגיאה. נסו שנית.'));
     } finally {
       setAuthLoading(false);
     }
@@ -306,12 +376,24 @@ export function MatchingWizardPage() {
 
   // ── Google OAuth ──────────────────────────────────────────────────────────────
   async function handleGoogleOAuth() {
+    if (!intake.accountType) {
+      setAuthError('יש לבחור סוג חשבון לפני ההתחברות.');
+      return;
+    }
+    if (!intake.fullName.trim()) {
+      setAuthError('נא להכניס שם מלא לפני ההתחברות עם גוגל');
+      return;
+    }
     if (isParent && !intake.childName.trim()) {
       setAuthError('נא להכניס את שם הילד/ה לפני ההתחברות עם גוגל');
       return;
     }
+    if (hasRoleConflict) {
+      setAuthError('החשבון המחובר לא מתאים למסלול שנבחר.');
+      return;
+    }
     try {
-      localStorage.setItem('sb_student_onboarding', JSON.stringify({ step: 7, intake }));
+      localStorage.setItem('sb_student_onboarding', JSON.stringify({ step: AUTH_STEP, intake }));
     } catch { /* ignore */ }
     localStorage.setItem(OAUTH_PENDING_KEY, 'true');
 
@@ -329,8 +411,14 @@ export function MatchingWizardPage() {
       setStep(AUTH_STEP);
       return false;
     }
+    if (!intake.studentId) {
+      setErrors({ submit: 'לא נמצא פרופיל תלמיד משויך לחשבון. חזרו לשלב ההתחברות ונסו שוב.' });
+      setStep(AUTH_STEP);
+      return false;
+    }
     const result = await createStudentIntake(
       {
+        student_id: intake.studentId,
         subject_name: intake.subjectName,
         sub_level: intake.subLevel,
         learning_goal: intake.learningGoal,
@@ -338,35 +426,54 @@ export function MatchingWizardPage() {
         city: intake.city,
         budget_min: intake.budgetMin,
         budget_max: intake.budgetMax,
-        preferred_days: intake.preferredDays,
-        preferred_time_ranges: intake.preferredTimeRanges as string[],
-        learning_style: intake.learningStyle,
+        preferred_days: intake.preferredDays.map((day) => DAY_TO_INDEX[day]).filter((day): day is number => typeof day === 'number'),
+        preferred_time_ranges: intake.preferredTimeRanges.map((range) => TIME_RANGE_TO_HOURS[range]),
+        learning_style: intake.learningStyle[0] ?? null,
       },
       token,
     );
     if ('error' in result) {
-      setErrors({ submit: result.error });
+      setErrors({ submit: toHebrewOnboardingError(result.error) });
       return false;
     }
+    const matchingResult = await runMatching(result.data.intake_id, token);
+    if ('error' in matchingResult) {
+      setErrors({ submit: toHebrewOnboardingError(matchingResult.error) });
+      return false;
+    }
+    setMatchResults(matchingResult.data.matches.map((match) => ({
+      id: match.id,
+      rank: match.rank,
+      matchScore: match.matchScore,
+      reason: match.reason,
+      teacher: {
+        id: match.teacherId,
+        fullName: match.teacherFullName,
+        bio: match.teacherBio ?? undefined,
+        hourlyRate: match.teacherHourlyRate,
+        ratingAvg: match.teacherRatingAvg,
+        ratingCount: match.teacherRatingCount,
+        isVerified: match.teacherIsVerified,
+      },
+    })));
     clearStorage();
     localStorage.removeItem(OAUTH_PENDING_KEY);
     return true;
   }
 
-  const isParent = intake.userContext === 'parent';
   const subjects = subjectsByLevel[intake.gradeLevel ?? 'elementary'] ?? [];
   const filteredSubjects = subjects.filter((s) => s.includes(subjectSearch));
   const grades = gradesByLevel[intake.gradeLevel ?? 'elementary'] ?? [];
 
   function validate(s: number): boolean {
     const e: Record<string, string> = {};
-    if (s === 2 && !intake.fullName.trim()) e.fullName = 'נא להכניס שם';
+    if (s === 1 && !intake.accountType) e.accountType = 'יש לבחור סוג חשבון.';
     if (s === 3 && !intake.learningGoal) e.learningGoal = 'נא לבחור מטרה';
     if (s === 4 && !intake.gradeLevel) e.gradeLevel = 'נא לבחור רמה';
     if (s === 6 && !intake.subjectName) e.subjectName = 'נא לבחור מקצוע';
-    if (s === 9 && intake.preferredDays.length === 0) e.days = 'נא לסמן לפחות יום אחד';
-    if (s === 9 && intake.locationPreference === null) e.location = 'נא לבחור מיקום';
-    if (s === 9 && (intake.locationPreference === 'frontal' || intake.locationPreference === 'both') && !intake.city) e.city = 'נא להכניס עיר';
+    if (s === 8 && intake.preferredDays.length === 0) e.days = 'נא לסמן לפחות יום אחד';
+    if (s === 8 && intake.locationPreference === null) e.location = 'נא לבחור מיקום';
+    if (s === 8 && (intake.locationPreference === 'frontal' || intake.locationPreference === 'both') && !intake.city) e.city = 'נא להכניס עיר';
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -380,8 +487,6 @@ export function MatchingWizardPage() {
         setLoading(false);
         return;
       }
-      await new Promise((r) => setTimeout(r, 1800));
-      setMatchResults(mockMatches);
       setLoading(false);
       navigate('/onboarding/results');
     } else {
@@ -454,56 +559,32 @@ export function MatchingWizardPage() {
     );
   }
 
-  // ── STEP 1: User context ──────────────────────────────────────────────────────
+  // ── STEP 1: Account type ──────────────────────────────────────────────────────
   if (step === 1) {
     return (
       <WizardShell step={step}>
         <WizardProgress current={1} total={TOTAL_STEPS} />
-        <WizardStepHeader title="מי מחפש מורה?" />
+        <WizardStepHeader
+          title="למי מיועד החשבון?"
+          subtitle="השאלון ימשיך בהתאם למסלול שתבחרו."
+        />
         <WizardOptionCard
           icon={<GraduationCap size={20} />}
           label="אני התלמיד/ה"
-          description="אני מחפש/ת מורה לעצמי"
-          selected={intake.userContext === 'student'}
-          onClick={() => { updateIntake({ userContext: 'student' }); nextStep(); }}
+          description="חשבון תלמיד/ה עצמאי למציאת מורה עבורי"
+          selected={intake.accountType === 'independent_student'}
+          onClick={() => updateIntake({ accountType: 'independent_student', childName: '' })}
         />
         <WizardOptionCard
           icon={<Users size={20} />}
-          label="אני הורה"
-          description="אני מחפש/ת מורה לילד/ה שלי"
-          selected={intake.userContext === 'parent'}
-          onClick={() => { updateIntake({ userContext: 'parent' }); nextStep(); }}
+          label="אני הורה / אחראי/ת עבור תלמיד"
+          description="חשבון הורה למציאת מורה לילד/ה"
+          selected={intake.accountType === 'parent_for_child'}
+          onClick={() => updateIntake({ accountType: 'parent_for_child' })}
         />
-      </WizardShell>
-    );
-  }
-
-  // ── STEP 2: Name ──────────────────────────────────────────────────────────────
-  if (step === 2) {
-    return (
-      <WizardShell step={step}>
-        <WizardProgress current={2} total={TOTAL_STEPS} />
-        <WizardStepHeader title={isParent ? 'נעים להכיר! איך לקרוא לך?' : 'היי! נעים להכיר, איך קוראים לך?'} />
-        <input
-          type="text"
-          placeholder={isParent ? 'השם המלא שלך...' : 'השם שלך כאן...'}
-          value={intake.fullName}
-          onChange={(e) => updateIntake({ fullName: e.target.value })}
-          onKeyDown={(e) => e.key === 'Enter' && void handleNext()}
-          className="w-full p-3 rounded-xl mb-2 wizard-input"
-          style={{
-            background: 'var(--surface-2)',
-            border: `1px solid ${errors.fullName ? 'var(--coral)' : 'var(--line-2)'}`,
-            color: 'var(--text)',
-            fontSize: 16,
-            outline: 'none',
-            transition: 'border-color 0.18s ease, box-shadow 0.18s ease',
-          }}
-          autoFocus
-        />
-        {errors.fullName && <div style={{ color: 'var(--coral)', fontSize: 13, marginBottom: 8 }}>{errors.fullName}</div>}
+        {errors.accountType && <div style={{ color: 'var(--coral)', fontSize: 13, marginTop: 8 }}>{errors.accountType}</div>}
         <div className="flex gap-3 mt-4">
-          <button onClick={prevStep} className="py-3 px-5 rounded-xl font-medium" style={ctaBack}>חזור</button>
+          <button onClick={() => setStep(0)} className="py-3 px-5 rounded-xl font-medium" style={ctaBack}>חזור</button>
           <button onClick={() => void handleNext()} className="flex-1 py-3 rounded-xl wizard-cta-primary" style={ctaPrimary}>המשך</button>
         </div>
       </WizardShell>
@@ -723,7 +804,7 @@ export function MatchingWizardPage() {
     );
   }
 
-  // ── STEP 8: Auth checkpoint ───────────────────────────────────────────────────
+  // ── STEP 2: Auth checkpoint ───────────────────────────────────────────────────
   if (step === AUTH_STEP) {
     if (authLoading) {
       return (
@@ -739,8 +820,30 @@ export function MatchingWizardPage() {
         <WizardProgress current={AUTH_STEP} total={TOTAL_STEPS} />
         <WizardStepHeader
           title={isParent ? 'צרו חשבון הורה' : 'צרו חשבון תלמיד/ה'}
-          subtitle="השלב האחרון לפני שנמצא לך מורה"
+          subtitle="נשמור את ההתקדמות ונמשיך לשאלון ההתאמה."
         />
+
+        {hasRoleConflict && (
+          <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: 'color-mix(in oklab, var(--coral) 15%, var(--surface-2))', color: 'var(--coral)', border: '1px solid color-mix(in oklab, var(--coral) 30%, transparent)' }}>
+            החשבון המחובר לא מתאים למסלול שנבחר.
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={() => { void auth.logout().then(() => window.location.reload()); }}
+                className="px-3 py-2 rounded-lg text-sm"
+                style={{ ...ctaPrimary, fontSize: 13 }}
+              >
+                התנתקות
+              </button>
+              <button
+                onClick={() => navigate(`/${auth.user?.role ?? ''}`)}
+                className="px-3 py-2 rounded-lg text-sm"
+                style={ctaBack}
+              >
+                מעבר למסלול הנכון
+              </button>
+            </div>
+          </div>
+        )}
 
         {isParent && (
           <div className="mb-4">
@@ -776,6 +879,18 @@ export function MatchingWizardPage() {
         </div>
 
         <div className="flex flex-col gap-3 mb-4">
+          {authTab === 'signup' && (
+            <div>
+              <input
+                type="text"
+                placeholder="שם מלא"
+                value={intake.fullName}
+                onChange={(e) => updateIntake({ fullName: e.target.value })}
+                className="w-full p-3 rounded-xl wizard-input"
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 15, outline: 'none', transition: 'border-color 0.18s, box-shadow 0.18s' }}
+              />
+            </div>
+          )}
           <div className="relative">
             <Mail size={15} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-3)' }} />
             <input
@@ -845,8 +960,8 @@ export function MatchingWizardPage() {
     );
   }
 
-  // ── STEP 9: Availability — GCal sync or manual grid ───────────────────────────
-  if (step === 9) {
+  // ── STEP 8: Availability — GCal sync or manual grid ───────────────────────────
+  if (step === 8) {
     const locationOptions: { value: LocationPreference; label: string; icon: React.ReactNode }[] = [
       { value: 'online', label: 'אונליין', icon: <Monitor size={15} /> },
       { value: 'frontal', label: 'פרונטלי (פנים אל פנים)', icon: <Home size={15} /> },
@@ -855,7 +970,7 @@ export function MatchingWizardPage() {
 
     return (
       <WizardShell step={step}>
-        <WizardProgress current={9} total={TOTAL_STEPS} />
+        <WizardProgress current={8} total={TOTAL_STEPS} />
         <WizardStepHeader
           title={isParent ? 'מתי הילד/ה פנוי/ה?' : 'מתי הכי נוח לך?'}
           subtitle="נציג רק מורים שפנויים בשעות שלך"
@@ -1043,12 +1158,12 @@ export function MatchingWizardPage() {
     );
   }
 
-  // ── STEP 10: Learning Style + Soft Preferences ────────────────────────────────
-  if (step === 10) {
+  // ── STEP 9: Learning Style + Soft Preferences ────────────────────────────────
+  if (step === 9) {
     const softPrefs = isParent ? SOFT_PREFS_PARENT : SOFT_PREFS_STUDENT;
     return (
       <WizardShell step={step}>
-        <WizardProgress current={10} total={TOTAL_STEPS} />
+        <WizardProgress current={9} total={TOTAL_STEPS} />
         <WizardStepHeader
           title={isParent ? 'האם ישנם דגשים מיוחדים?' : 'בוא/י נדייק את הכימיה. מה חשוב לך במורה?'}
           subtitle={isParent ? 'סמנו קריטריונים שיעזרו לנו למצוא את המורה המתאים.' : 'אופציונלי'}
@@ -1108,7 +1223,7 @@ export function MatchingWizardPage() {
     );
   }
 
-  // ── STEP 11: Review / Summary ─────────────────────────────────────────────────
+  // ── STEP 10: Review / Summary ─────────────────────────────────────────────────
   const levelLabels: Record<string, string> = { elementary: 'יסודי', middle: 'חטיבה', high: 'תיכון', academic: 'אקדמיה' };
   const goalLabels: Record<string, string> = { single_session: 'שיעור חד-פעמי', ongoing: 'מורה קבוע', exam_prep: 'מרתון לבחינה' };
   const locationLabels: Record<string, string> = { online: 'אונליין', frontal: 'פרונטלי', both: 'אונליין + פרונטלי' };
@@ -1119,7 +1234,7 @@ export function MatchingWizardPage() {
 
   return (
     <WizardShell step={step}>
-      <WizardProgress current={11} total={TOTAL_STEPS} />
+      <WizardProgress current={10} total={TOTAL_STEPS} />
       <WizardStepHeader
         title="נראה לך הכל בסדר?"
         subtitle="בדוק/י את הפרטים לפני שנמצא לך מורה"
@@ -1139,7 +1254,7 @@ export function MatchingWizardPage() {
           { label: 'מיקום', value: locationLabels[intake.locationPreference ?? ''] ?? '—' },
           ...(intake.city ? [{ label: 'עיר', value: intake.city }] : []),
         ]}
-        onEdit={() => setStep(2)}
+        onEdit={() => setStep(3)}
       />
 
       {errors.submit && (
@@ -1171,6 +1286,21 @@ function GoogleIcon() {
       <path d="M44.5 20H24v8.5h11.8c-.8 2.3-2.3 4.3-4.3 5.7l6.8 5.6C42.2 36.3 45 30.6 45 24c0-1.3-.2-2.7-.5-4z" fill="#1976D2"/>
     </svg>
   );
+}
+
+function toHebrewOnboardingError(error: string) {
+  const normalized = error.toLowerCase();
+  if (error.includes('החשבון המחובר לא מתאים למסלול שנבחר')) return 'החשבון המחובר לא מתאים למסלול שנבחר.';
+  if (normalized.includes('invalid account_type') || normalized.includes('account_type')) return 'יש לבחור סוג חשבון תקין.';
+  if (normalized.includes('role mismatch') || normalized.includes('role')) return 'החשבון המחובר לא מתאים למסלול שנבחר.';
+  if (normalized.includes('email') && normalized.includes('invalid')) return 'כתובת האימייל אינה תקינה.';
+  if (normalized.includes('password')) return 'הסיסמה אינה תקינה או קצרה מדי.';
+  if (normalized.includes('already') || normalized.includes('registered')) return 'כבר קיים חשבון עם כתובת האימייל הזו.';
+  if (normalized.includes('student') && normalized.includes('access')) return 'אין הרשאה ליצור שאלון עבור התלמיד/ה הזה.';
+  if (normalized.includes('subject')) return 'נא לבחור מקצוע תקין.';
+  if (normalized.includes('network') || normalized.includes('fetch')) return 'לא ניתן להתחבר לשרת כרגע. נסו שוב בעוד רגע.';
+  if (normalized.includes('failed') || normalized.includes('error')) return 'אירעה שגיאה. נסו שוב.';
+  return error && /[א-ת]/.test(error) ? error : 'אירעה שגיאה. נסו שוב.';
 }
 
 function MatchingLoadingScreen({ name }: { name: string }) {

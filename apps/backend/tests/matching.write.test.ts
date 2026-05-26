@@ -111,6 +111,8 @@ function makeCandidate(id: string, overrides: Partial<MatchCandidate> = {}): Mat
   return {
     teacherProfileId: id,
     userId: `user-${id}`,
+    fullName: `Teacher ${id}`,
+    bio: null,
     hourlyRate: 100,
     locationType: 'online',
     city: null,

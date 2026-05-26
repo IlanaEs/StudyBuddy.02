@@ -195,10 +195,24 @@ export async function runMatching(
     await updateIntakeStatus(sql, intakeId, nextStatus);
   });
 
-  const matches: MatchApiEntry[] = insertedRows.map((row) => ({
-    ...row,
-    fallbackPhase: fallbackPhaseUsed,
-  }));
+  const scoredByTeacherId = new Map(scored.map((match) => [match.candidate.teacherProfileId, match]));
+  const matches: MatchApiEntry[] = insertedRows.map((row) => {
+    const scoredMatch = scoredByTeacherId.get(row.teacherId);
+    if (!scoredMatch) {
+      throw new AppError('Failed to enrich matching response', 500);
+    }
+
+    return {
+      ...row,
+      fallbackPhase: fallbackPhaseUsed,
+      teacherFullName: scoredMatch.candidate.fullName,
+      teacherHourlyRate: scoredMatch.candidate.hourlyRate,
+      teacherBio: scoredMatch.candidate.bio,
+      teacherRatingAvg: scoredMatch.candidate.ratingAvg,
+      teacherRatingCount: scoredMatch.candidate.ratingCount,
+      teacherIsVerified: scoredMatch.candidate.isVerified,
+    };
+  });
 
   console.log(
     JSON.stringify({

@@ -53,6 +53,8 @@ export type SubjectMatch = {
 export type MatchCandidate = {
   teacherProfileId: string;
   userId: string;
+  fullName: string;
+  bio: string | null;
   hourlyRate: number;
   locationType: LocationType;
   city: string | null;
@@ -127,6 +129,13 @@ export type MatchApiEntry = {
   matchScore: number;
   reason: string;
   fallbackPhase: FallbackPhase;
+  // Teacher profile details — enriched at response time from the in-memory candidate pool
+  teacherFullName: string;
+  teacherHourlyRate: number;
+  teacherBio: string | null;
+  teacherRatingAvg: number;
+  teacherRatingCount: number;
+  teacherIsVerified: boolean;
 };
 
 // Full result returned by runMatching.
