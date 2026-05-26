@@ -18,19 +18,19 @@ describe('auth foundation routes', () => {
 
     const response = await request(app)
       .post('/api/auth/complete-oauth-signup')
-      .send({ role: 'student', full_name: 'Test User' });
+      .send({ account_type: 'independent_student', full_name: 'Test User' });
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ error: 'Missing authentication token' });
   });
 
-  it('validates complete-oauth-signup: rejects invalid role', async () => {
+  it('validates complete-oauth-signup: rejects invalid account_type', async () => {
     const app = createApp();
 
     const response = await request(app)
       .post('/api/auth/complete-oauth-signup')
       .set('Authorization', 'Bearer fake-token')
-      .send({ role: 'admin', full_name: 'Test User' });
+      .send({ account_type: 'admin_super', full_name: 'Test User' });
 
     expect(response.status).toBe(422);
     expect(response.body).toEqual({ error: 'Request validation failed' });
@@ -55,7 +55,7 @@ describe('auth foundation routes', () => {
 
     const response = await request(app)
       .post('/api/students')
-      .send({ full_name: 'Test Student' });
+      .send({ account_type: 'independent_student', full_name: 'Test Student' });
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ error: 'Missing authentication token' });

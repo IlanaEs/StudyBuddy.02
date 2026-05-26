@@ -15,7 +15,8 @@ const preferredTimeRangeSchema = z
 const bodySchema = z
   .object({
     student_id: z.string().uuid(),
-    subject_id: z.string().uuid(),
+    subject_id: z.string().uuid().optional(),
+    subject_name: z.string().min(1).max(100).optional(),
     level: z.string().max(100).nullable().optional(),
     goal: z.string().nullable().optional(),
     location_preference: z.enum(['online', 'frontal', 'both']),
@@ -26,6 +27,10 @@ const bodySchema = z
     preferred_time_ranges: z.array(preferredTimeRangeSchema).nullable().optional(),
     learning_style: z.string().max(100).nullable().optional(),
     urgency: z.string().max(50).nullable().optional(),
+  })
+  .refine(({ subject_id, subject_name }) => !!subject_id || !!subject_name, {
+    message: 'subject_id or subject_name is required',
+    path: ['subject_id'],
   })
   // Cross-field: frontal location requires a city.
   .refine(
