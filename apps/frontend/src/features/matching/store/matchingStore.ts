@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import type { StudentIntakeState, UserContext, LearningGoal, EducationLevel, LocationPreference, Urgency, TimeSlot, MatchResult } from '../types/matching.types';
+import type { StudentIntakeState, AccountType, UserContext, LearningGoal, EducationLevel, LocationPreference, Urgency, TimeSlot, MatchResult } from '../types/matching.types';
 
 // Suppress unused import warnings — these types are part of the public API surface
-export type { UserContext, LearningGoal, EducationLevel, LocationPreference, Urgency, TimeSlot };
+export type { AccountType, UserContext, LearningGoal, EducationLevel, LocationPreference, Urgency, TimeSlot };
 
 const STORAGE_KEY = 'sb_student_onboarding';
 
@@ -27,7 +27,8 @@ interface MatchingStore {
 }
 
 const defaultIntake: StudentIntakeState = {
-  userContext: null,
+  accountType: null,
+  studentId: null,
   fullName: '',
   childName: '',
   learningGoal: null,
@@ -62,8 +63,8 @@ function readStorage(): { step: number; intake: StudentIntakeState } | null {
 
 function writeStorage(step: number, intake: StudentIntakeState) {
   try {
-    // Only persist anonymous steps (1–7), before auth gate at step 8
-    if (step > 0 && step <= 7) {
+    // Persist only the matching draft; session/auth remains owned by Supabase.
+    if (step > 0) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ step, intake }));
     }
   } catch {
@@ -78,7 +79,11 @@ export const useMatchingStore = create<MatchingStore>((set, get) => ({
   selectedMatchId: null,
   isLoading: false,
 
-  setStep: (step) => set({ step }),
+  setStep: (step) => {
+    set({ step });
+    const { intake } = get();
+    writeStorage(step, intake);
+  },
   nextStep: () => {
     set((s) => ({ step: s.step + 1 }));
     const { step, intake } = get();
@@ -114,6 +119,8 @@ export const useMatchingStore = create<MatchingStore>((set, get) => ({
     const merged: StudentIntakeState = {
       ...defaultIntake,
       ...saved.intake,
+      accountType: saved.intake.accountType ?? null,
+      studentId: saved.intake.studentId ?? null,
       preferredDays: saved.intake.preferredDays ?? [],
       preferredTimeRanges: saved.intake.preferredTimeRanges ?? [],
       learningStyle: saved.intake.learningStyle ?? [],

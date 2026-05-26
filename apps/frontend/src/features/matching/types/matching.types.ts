@@ -1,3 +1,4 @@
+export type AccountType = 'independent_student' | 'parent_for_child';
 export type UserContext = 'student' | 'parent';
 export type LearningGoal = 'single_session' | 'ongoing' | 'exam_prep';
 export type EducationLevel = 'elementary' | 'middle' | 'high' | 'academic';
@@ -6,7 +7,8 @@ export type Urgency = 'urgent' | 'this_week' | 'flexible';
 export type TimeSlot = 'morning' | 'afternoon' | 'evening';
 
 export interface StudentIntakeState {
-  userContext: UserContext | null;
+  accountType: AccountType | null;
+  studentId: string | null;
   fullName: string;
   childName: string;
   learningGoal: LearningGoal | null;
