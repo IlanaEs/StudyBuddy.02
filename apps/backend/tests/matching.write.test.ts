@@ -14,14 +14,7 @@ vi.mock('../src/auth/ownership.js', () => ({
 vi.mock('../src/matching/matching.repository.js', () => ({
   getStudentIntakeById: vi.fn(),
   findInitialTeacherCandidates: vi.fn(),
-  lockIntakeForUpdate: vi.fn(),
-  deleteMatchResults: vi.fn(),
-  insertMatchResults: vi.fn(),
-  updateIntakeStatus: vi.fn(),
-}));
-
-vi.mock('../src/db/transaction.js', () => ({
-  withTransaction: vi.fn((fn: (sql: unknown) => Promise<unknown>) => fn({})),
+  replaceMatchResults: vi.fn(),
 }));
 
 import { createApp } from '../src/app.js';
@@ -29,14 +22,10 @@ import { verifyAccessToken } from '../src/auth/authService.js';
 import { assertStudentAccess } from '../src/auth/ownership.js';
 import { AppError } from '../src/errors/AppError.js';
 import {
-  deleteMatchResults,
   findInitialTeacherCandidates,
   getStudentIntakeById,
-  insertMatchResults,
-  lockIntakeForUpdate,
-  updateIntakeStatus,
+  replaceMatchResults,
 } from '../src/matching/matching.repository.js';
-import { withTransaction } from '../src/db/transaction.js';
 import type { IntakeWithContext, MatchCandidate } from '../src/matching/matching.types.js';
 
 // ── Auth fixtures ──────────────────────────────────────────────────────────────
@@ -145,11 +134,7 @@ const vi_verifyAccessToken = vi.mocked(verifyAccessToken);
 const vi_assertStudentAccess = vi.mocked(assertStudentAccess);
 const vi_getStudentIntakeById = vi.mocked(getStudentIntakeById);
 const vi_findInitialTeacherCandidates = vi.mocked(findInitialTeacherCandidates);
-const vi_lockIntakeForUpdate = vi.mocked(lockIntakeForUpdate);
-const vi_deleteMatchResults = vi.mocked(deleteMatchResults);
-const vi_insertMatchResults = vi.mocked(insertMatchResults);
-const vi_updateIntakeStatus = vi.mocked(updateIntakeStatus);
-const vi_withTransaction = vi.mocked(withTransaction);
+const vi_replaceMatchResults = vi.mocked(replaceMatchResults);
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -159,10 +144,7 @@ describe('POST /api/matching/:intakeId/run', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi_assertStudentAccess.mockResolvedValue(undefined);
-    vi_deleteMatchResults.mockResolvedValue(undefined);
-    vi_updateIntakeStatus.mockResolvedValue(undefined);
-    // withTransaction executes callback inline with a mock sql placeholder
-    vi_withTransaction.mockImplementation((fn) => fn({}));
+    vi_replaceMatchResults.mockResolvedValue([]);
   });
 
   // ── Auth & role guards ─────────────────────────────────────────────────────
@@ -188,8 +170,6 @@ describe('POST /api/matching/:intakeId/run', () => {
     vi_verifyAccessToken.mockResolvedValue(STUDENT_AUTH);
     vi_getStudentIntakeById.mockResolvedValue(makeIntake());
     vi_findInitialTeacherCandidates.mockResolvedValue([]);
-    vi_lockIntakeForUpdate.mockResolvedValue({ id: INTAKE_ID, status: 'open' });
-    vi_insertMatchResults.mockResolvedValue([]);
 
     const res = await request(app)
       .post(`/api/matching/${INTAKE_ID}/run`)
@@ -202,8 +182,6 @@ describe('POST /api/matching/:intakeId/run', () => {
     vi_verifyAccessToken.mockResolvedValue(PARENT_AUTH);
     vi_getStudentIntakeById.mockResolvedValue(makeIntake());
     vi_findInitialTeacherCandidates.mockResolvedValue([]);
-    vi_lockIntakeForUpdate.mockResolvedValue({ id: INTAKE_ID, status: 'open' });
-    vi_insertMatchResults.mockResolvedValue([]);
 
     const res = await request(app)
       .post(`/api/matching/${INTAKE_ID}/run`)
@@ -224,8 +202,7 @@ describe('POST /api/matching/:intakeId/run', () => {
       makeCandidate('teacher-3'),
     ];
     vi_findInitialTeacherCandidates.mockResolvedValue(candidates);
-    vi_lockIntakeForUpdate.mockResolvedValue({ id: INTAKE_ID, status: 'open' });
-    vi_insertMatchResults.mockResolvedValue([
+    vi_replaceMatchResults.mockResolvedValue([
       makeInsertedRow('teacher-1', 1),
       makeInsertedRow('teacher-2', 2),
       makeInsertedRow('teacher-3', 3),
@@ -244,9 +221,11 @@ describe('POST /api/matching/:intakeId/run', () => {
       rank: 1,
       teacherId: 'teacher-1',
     });
-
-    // status updated to 'matched' since we have results
-    expect(vi_updateIntakeStatus).toHaveBeenCalledWith({}, INTAKE_ID, 'matched');
+    // replaceMatchResults persists rows and updates status internally
+    expect(vi_replaceMatchResults).toHaveBeenCalledWith(
+      INTAKE_ID,
+      expect.arrayContaining([expect.objectContaining({ rank: 1, teacherId: 'teacher-1' })]),
+    );
     expect(res.body).not.toHaveProperty('success');
   });
 
@@ -258,8 +237,7 @@ describe('POST /api/matching/:intakeId/run', () => {
       makeCandidate('teacher-2'),
       makeCandidate('teacher-3'),
     ]);
-    vi_lockIntakeForUpdate.mockResolvedValue({ id: INTAKE_ID, status: 'open' });
-    vi_insertMatchResults.mockResolvedValue([
+    vi_replaceMatchResults.mockResolvedValue([
       makeInsertedRow('teacher-1', 1),
       makeInsertedRow('teacher-2', 2),
       makeInsertedRow('teacher-3', 3),
@@ -283,8 +261,7 @@ describe('POST /api/matching/:intakeId/run', () => {
     vi_verifyAccessToken.mockResolvedValue(STUDENT_AUTH);
     vi_getStudentIntakeById.mockResolvedValue(makeIntake());
     vi_findInitialTeacherCandidates.mockResolvedValue([makeCandidate('teacher-1')]);
-    vi_lockIntakeForUpdate.mockResolvedValue({ id: INTAKE_ID, status: 'open' });
-    vi_insertMatchResults.mockResolvedValue([makeInsertedRow('teacher-1', 1)]);
+    vi_replaceMatchResults.mockResolvedValue([makeInsertedRow('teacher-1', 1)]);
 
     const res = await request(app)
       .post(`/api/matching/${INTAKE_ID}/run`)
@@ -292,7 +269,11 @@ describe('POST /api/matching/:intakeId/run', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.matches).toHaveLength(1);
-    expect(vi_updateIntakeStatus).toHaveBeenCalledWith({}, INTAKE_ID, 'matched');
+    // replaceMatchResults is called with 1 row → it sets status to 'matched' internally
+    expect(vi_replaceMatchResults).toHaveBeenCalledWith(
+      INTAKE_ID,
+      expect.arrayContaining([expect.objectContaining({ rank: 1, teacherId: 'teacher-1' })]),
+    );
   });
 
   // ── No matches ─────────────────────────────────────────────────────────────
@@ -301,7 +282,7 @@ describe('POST /api/matching/:intakeId/run', () => {
     vi_verifyAccessToken.mockResolvedValue(STUDENT_AUTH);
     vi_getStudentIntakeById.mockResolvedValue(makeIntake());
     vi_findInitialTeacherCandidates.mockResolvedValue([]);
-    vi_lockIntakeForUpdate.mockResolvedValue({ id: INTAKE_ID, status: 'open' });
+    // replaceMatchResults default mock returns [] (set in beforeEach)
 
     const res = await request(app)
       .post(`/api/matching/${INTAKE_ID}/run`)
@@ -309,10 +290,8 @@ describe('POST /api/matching/:intakeId/run', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.matches).toHaveLength(0);
-    // no rows → intake stays 'open'
-    expect(vi_updateIntakeStatus).toHaveBeenCalledWith({}, INTAKE_ID, 'open');
-    // insertMatchResults must NOT be called when there are no rows
-    expect(vi_insertMatchResults).not.toHaveBeenCalled();
+    // replaceMatchResults is called with empty rows → it sets status to 'open' internally
+    expect(vi_replaceMatchResults).toHaveBeenCalledWith(INTAKE_ID, []);
   });
 
   // ── Not found ──────────────────────────────────────────────────────────────
@@ -329,11 +308,11 @@ describe('POST /api/matching/:intakeId/run', () => {
     expect(res.body).toMatchObject({ error: 'Student intake not found' });
   });
 
-  it('returns 404 when intake disappears between pre-transaction check and lock', async () => {
+  it('returns 404 when intake disappears between pre-transaction check and persist', async () => {
     vi_verifyAccessToken.mockResolvedValue(STUDENT_AUTH);
     vi_getStudentIntakeById.mockResolvedValue(makeIntake());
     vi_findInitialTeacherCandidates.mockResolvedValue([]);
-    vi_lockIntakeForUpdate.mockResolvedValue(null);
+    vi_replaceMatchResults.mockRejectedValue(new AppError('Student intake not found', 404));
 
     const res = await request(app)
       .post(`/api/matching/${INTAKE_ID}/run`)
@@ -349,7 +328,9 @@ describe('POST /api/matching/:intakeId/run', () => {
     vi_verifyAccessToken.mockResolvedValue(STUDENT_AUTH);
     vi_getStudentIntakeById.mockResolvedValue(makeIntake());
     vi_findInitialTeacherCandidates.mockResolvedValue([]);
-    vi_lockIntakeForUpdate.mockResolvedValue({ id: INTAKE_ID, status: 'closed' });
+    vi_replaceMatchResults.mockRejectedValue(
+      new AppError('Cannot run matching on a closed intake', 422),
+    );
 
     const res = await request(app)
       .post(`/api/matching/${INTAKE_ID}/run`)
@@ -363,11 +344,9 @@ describe('POST /api/matching/:intakeId/run', () => {
 
   it('allows re-running matching on a matched intake (idempotent)', async () => {
     vi_verifyAccessToken.mockResolvedValue(STUDENT_AUTH);
-    // pre-transaction intake has status 'open' (from first run); lock sees 'matched' (updated by prior run)
     vi_getStudentIntakeById.mockResolvedValue(makeIntake({ status: 'matched' }));
     vi_findInitialTeacherCandidates.mockResolvedValue([makeCandidate('teacher-1')]);
-    vi_lockIntakeForUpdate.mockResolvedValue({ id: INTAKE_ID, status: 'matched' });
-    vi_insertMatchResults.mockResolvedValue([makeInsertedRow('teacher-1', 1)]);
+    vi_replaceMatchResults.mockResolvedValue([makeInsertedRow('teacher-1', 1)]);
 
     const res = await request(app)
       .post(`/api/matching/${INTAKE_ID}/run`)
@@ -377,27 +356,23 @@ describe('POST /api/matching/:intakeId/run', () => {
     expect(res.body.data.matches).toHaveLength(1);
   });
 
-  // ── Delete-before-insert (idempotency) ────────────────────────────────────
+  // ── replaceMatchResults is called exactly once per run ────────────────────
 
-  it('always calls deleteMatchResults before insertMatchResults', async () => {
+  it('calls replaceMatchResults exactly once per matching run', async () => {
     vi_verifyAccessToken.mockResolvedValue(STUDENT_AUTH);
     vi_getStudentIntakeById.mockResolvedValue(makeIntake());
     vi_findInitialTeacherCandidates.mockResolvedValue([makeCandidate('teacher-1')]);
-    vi_lockIntakeForUpdate.mockResolvedValue({ id: INTAKE_ID, status: 'open' });
-    vi_insertMatchResults.mockResolvedValue([makeInsertedRow('teacher-1', 1)]);
-
-    const callOrder: string[] = [];
-    vi_deleteMatchResults.mockImplementation(async () => { callOrder.push('delete'); });
-    vi_insertMatchResults.mockImplementation(async () => {
-      callOrder.push('insert');
-      return [makeInsertedRow('teacher-1', 1)];
-    });
+    vi_replaceMatchResults.mockResolvedValue([makeInsertedRow('teacher-1', 1)]);
 
     await request(app)
       .post(`/api/matching/${INTAKE_ID}/run`)
       .set('Authorization', 'Bearer student-token');
 
-    expect(callOrder).toEqual(['delete', 'insert']);
+    expect(vi_replaceMatchResults).toHaveBeenCalledTimes(1);
+    expect(vi_replaceMatchResults).toHaveBeenCalledWith(
+      INTAKE_ID,
+      expect.arrayContaining([expect.objectContaining({ teacherId: 'teacher-1' })]),
+    );
   });
 
   // ── Ownership enforcement ──────────────────────────────────────────────────
@@ -414,21 +389,21 @@ describe('POST /api/matching/:intakeId/run', () => {
     expect(res.status).toBe(403);
   });
 
-  // ── Transaction rollback ───────────────────────────────────────────────────
+  // ── Persist failure ───────────────────────────────────────────────────────
 
-  it('does not call updateIntakeStatus when insertMatchResults throws', async () => {
+  it('returns 500 and does not partially succeed when replaceMatchResults throws', async () => {
     vi_verifyAccessToken.mockResolvedValue(STUDENT_AUTH);
     vi_getStudentIntakeById.mockResolvedValue(makeIntake());
     vi_findInitialTeacherCandidates.mockResolvedValue([makeCandidate('teacher-1')]);
-    vi_lockIntakeForUpdate.mockResolvedValue({ id: INTAKE_ID, status: 'open' });
-    vi_insertMatchResults.mockRejectedValue(new Error('DB insert failed'));
+    vi_replaceMatchResults.mockRejectedValue(new Error('DB insert failed'));
 
     const res = await request(app)
       .post(`/api/matching/${INTAKE_ID}/run`)
       .set('Authorization', 'Bearer student-token');
 
     expect(res.status).toBe(500);
-    expect(vi_updateIntakeStatus).not.toHaveBeenCalled();
+    // replaceMatchResults is atomic — called once, then threw
+    expect(vi_replaceMatchResults).toHaveBeenCalledTimes(1);
   });
 
   // ── Response shape ─────────────────────────────────────────────────────────
@@ -437,7 +412,6 @@ describe('POST /api/matching/:intakeId/run', () => {
     vi_verifyAccessToken.mockResolvedValue(STUDENT_AUTH);
     vi_getStudentIntakeById.mockResolvedValue(makeIntake());
     vi_findInitialTeacherCandidates.mockResolvedValue([]);
-    vi_lockIntakeForUpdate.mockResolvedValue({ id: INTAKE_ID, status: 'open' });
 
     const res = await request(app)
       .post(`/api/matching/${INTAKE_ID}/run`)
