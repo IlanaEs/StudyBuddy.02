@@ -50,15 +50,41 @@ function requireEnv(env, key) {
 }
 
 function assertDevTarget(supabaseUrl) {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('Refusing to seed while NODE_ENV=production');
-  }
   const isLocal = /localhost|127\.0\.0\.1/.test(supabaseUrl);
+  const explicitEnv = (
+    process.env.STUDYBUDDY_ENV ??
+    process.env.APP_ENV ??
+    process.env.ENVIRONMENT ??
+    process.env.VERCEL_ENV ??
+    process.env.NODE_ENV ??
+    ''
+  ).toLowerCase();
+
+  if (explicitEnv === 'production' || explicitEnv === 'prod') {
+    throw new Error('Refusing to run demo seed against production environment.');
+  }
+
+  if (!isLocal && !['development', 'dev', 'staging', 'preview'].includes(explicitEnv)) {
+    throw new Error(
+      'Refusing to seed an ambiguous remote environment. ' +
+        'Set STUDYBUDDY_ENV=development or STUDYBUDDY_ENV=staging.',
+    );
+  }
+
   if (!isLocal && !allowRemoteDevSeed) {
     throw new Error(
       'Refusing to seed a remote Supabase project without --allow-remote-dev-seed.\n' +
         'This script creates clearly marked QA/dev seed data.',
     );
+  }
+
+  if (!isLocal) {
+    console.error('\n============================================================');
+    console.error('WARNING: db:seed:parent-dashboard is targeting a remote Supabase project.');
+    console.error(`Environment: ${explicitEnv}`);
+    console.error(`Target: ${supabaseUrl}`);
+    console.error('This seed creates demo dashboard data and is not production-safe.');
+    console.error('============================================================\n');
   }
 }
 
@@ -68,6 +94,11 @@ async function must(label, query) {
   const { data, error } = await query;
   if (error) throw new Error(`${label} failed: ${error.message}`);
   return data;
+}
+
+async function hasColumn(table, column) {
+  const { error } = await supabase.from(table).select(column).limit(1);
+  return !error;
 }
 
 async function findAuthUserByEmail(supabase, email) {
@@ -94,6 +125,8 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+const usersHasIsDemo = await hasColumn('users', 'is_demo');
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const PARENT_EMAIL = 'parent.qa+studybuddy@example.com';
@@ -119,7 +152,7 @@ async function resolveTeacherAndSubjects() {
   if (pErr) throw new Error(`teacher_profiles query failed: ${pErr.message}`);
   if (!profiles || profiles.length === 0) {
     throw new Error(
-      'No active verified teacher found. Run `npm run db:seed` (matching MVP seed) first.',
+      'No active verified teacher found. Run `npm run db:seed:demo` (matching MVP demo seed) first.',
     );
   }
 
@@ -212,6 +245,7 @@ async function ensureParent() {
           role: 'parent',
           full_name: PARENT_NAME,
           status: 'active',
+          ...(usersHasIsDemo ? { is_demo: true } : {}),
         },
         { onConflict: 'email' },
       )
