@@ -219,6 +219,9 @@ function toISOString(val: unknown): string {
 }
 
 // Marks the lesson completed within an open transaction.
+// The WHERE clause includes AND status = 'scheduled' so a concurrent status
+// change that slips past the pre-check cannot be silently overwritten.
+// If zero rows are updated the transaction is rolled back by the caller throwing.
 export async function completeLessonTx(
   sql: TransactionSql,
   lessonId: string,
@@ -229,13 +232,22 @@ export async function completeLessonTx(
     UPDATE lessons
     SET status       = 'completed',
         completed_at = ${completedAt}
-    WHERE id = ${lessonId}
+    WHERE id        = ${lessonId}
+      AND status    = 'scheduled'
     RETURNING
       id, booking_request_id, teacher_id, student_id, subject_id,
       scheduled_start_at, scheduled_end_at, duration_minutes,
       status, location_type, meeting_link, cancellation_reason,
       completed_at, created_at, updated_at
   `) as any[];
+
+  if (rows.length === 0) {
+    // Lesson was concurrently modified — throw so the transaction rolls back.
+    throw new AppError(
+      'Lesson could not be completed: it is no longer in scheduled status',
+      409,
+    );
+  }
 
   const row = rows[0];
   return {

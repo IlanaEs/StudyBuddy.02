@@ -7,8 +7,16 @@ const paramsSchema = z.object({
 // ── PATCH /api/lessons/:id/status ─────────────────────────────────────────────
 
 const updateStatusBodySchema = z.object({
-  // 'scheduled' is intentionally excluded: lessons start as scheduled automatically.
-  status: z.enum(['completed', 'cancelled', 'no_show']),
+  // 'completed' is intentionally excluded: use POST /:id/complete for the full
+  // atomic completion flow (creates lesson_confirmation, lesson_note, homework).
+  // 'scheduled' is also excluded: lessons start as scheduled automatically.
+  status: z.enum(['cancelled', 'no_show'], {
+    errorMap: () => ({
+      message:
+        "Use POST /api/lessons/:id/complete to complete lessons. " +
+        "This endpoint only accepts 'cancelled' or 'no_show'.",
+    }),
+  }),
 });
 
 export const updateLessonStatusSchema = z.object({
