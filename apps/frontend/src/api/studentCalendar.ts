@@ -1,3 +1,4 @@
+import { ensureActiveSupabaseSession } from '../auth/ensureActiveSession';
 import { getSupabaseBrowserClient } from '../auth/supabaseClient';
 
 const API = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
@@ -54,6 +55,7 @@ export async function syncStudentCalendarAvailability(
  */
 export async function initiateCalendarOAuth(): Promise<void> {
   const supabase = getSupabaseBrowserClient();
+  await ensureActiveSupabaseSession();
   const { error } = await supabase.auth.linkIdentity({
     provider: 'google',
     options: {

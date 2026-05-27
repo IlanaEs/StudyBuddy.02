@@ -1,5 +1,12 @@
 import type { PropsWithChildren } from 'react';
 
+import { SessionControls } from '../auth/SessionControls';
+
 export function AppShell({ children }: PropsWithChildren) {
-  return <>{children}</>;
+  return (
+    <>
+      <SessionControls />
+      {children}
+    </>
+  );
 }

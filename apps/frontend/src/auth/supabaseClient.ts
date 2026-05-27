@@ -34,14 +34,7 @@ export function getSupabaseBrowserClient() {
 
     // Subscribe immediately — before any component mounts — so we catch the
     // SIGNED_IN event that fires during the OAuth code exchange.
-    browserClient.auth.onAuthStateChange((event, session) => {
-      if (import.meta.env.DEV) {
-        console.debug('[supabaseClient] early onAuthStateChange', {
-          event,
-          hasProviderToken: !!session?.provider_token,
-          providerTokenLength: session?.provider_token?.length ?? 0,
-        });
-      }
+    browserClient.auth.onAuthStateChange((_event, session) => {
       if (session?.provider_token) {
         _earlyProviderToken = session.provider_token;
       }
