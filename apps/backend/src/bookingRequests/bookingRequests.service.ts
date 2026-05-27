@@ -251,8 +251,15 @@ export async function respondToBookingRequest(
       lessonSnapshot.scheduledEndAt,
     );
     if (meetUrl) {
-      await updateLessonMeetingLink(lessonSnapshot.id, meetUrl);
-      createdLesson = { ...lessonSnapshot, meetingLink: meetUrl };
+      try {
+        await updateLessonMeetingLink(lessonSnapshot.id, meetUrl);
+        createdLesson = { ...lessonSnapshot, meetingLink: meetUrl };
+      } catch (err) {
+        // Persist failure is non-fatal: the lesson is already approved and
+        // created. Log and continue — the response will omit the Meet link
+        // rather than returning a spurious 500.
+        console.error('[respondToBookingRequest] Failed to persist meeting link', err);
+      }
     }
   }
 

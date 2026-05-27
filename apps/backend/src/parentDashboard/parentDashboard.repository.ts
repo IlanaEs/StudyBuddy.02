@@ -114,7 +114,7 @@ export async function getNextLesson(
     .select('id,subject_id,teacher_id,scheduled_start_at,scheduled_end_at,meeting_link,status')
     .eq('student_id', studentId)
     .eq('status', 'scheduled')
-    .gt('scheduled_start_at', new Date().toISOString())
+    .gt('scheduled_end_at', new Date().toISOString())
     .order('scheduled_start_at', { ascending: true })
     .limit(1)
     .maybeSingle();
