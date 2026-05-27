@@ -2,6 +2,11 @@
 
 import { AppError } from '../errors/AppError.js';
 import type { LocalUser } from '../auth/authTypes.js';
+import {
+  academicFieldExists,
+  academicInstitutionExists,
+  pendingRepositoryRequestExists,
+} from '../academicRepositories/academicRepositories.repository.js';
 import type { SaveOnboardingBody, CompleteOnboardingBody } from './teacherOnboarding.validation.js';
 import type { OnboardingDraftRow } from './teacherOnboarding.types.js';
 import {
@@ -10,6 +15,72 @@ import {
   upsertTeacherProfile,
   updateUserFullName,
 } from './teacherOnboarding.repository.js';
+
+const ACADEMIC_PATH_STATUSES = new Set([
+  'student_instructor',
+  'certified_teacher',
+  'academic_assistant',
+  'excellent_courses',
+]);
+
+function readString(draft: Record<string, unknown> | null | undefined, key: string): string | null {
+  const value = draft?.[key];
+  return typeof value === 'string' && value.trim() ? value : null;
+}
+
+async function validateAcademicRepositoryRefs(
+  draft: Record<string, unknown> | null | undefined,
+  currentUser: LocalUser,
+  professionalStatus?: string | null,
+) {
+  const institutionId = readString(draft, 'academicInstitutionId');
+  const institutionRequestId = readString(draft, 'academicInstitutionRequestId');
+  const fieldId = readString(draft, 'academicFieldId');
+  const fieldRequestId = readString(draft, 'academicFieldRequestId');
+  const legacyInstitution = readString(draft, 'institution');
+  const legacyDegree = readString(draft, 'degree');
+  const requiresAcademicRefs = professionalStatus ? ACADEMIC_PATH_STATUSES.has(professionalStatus) : false;
+
+  if (requiresAcademicRefs && !institutionId && !institutionRequestId) {
+    throw new AppError('יש לבחור מוסד לימודים מתוך הרשימה או לשלוח בקשת הוספה.', 400);
+  }
+
+  if (requiresAcademicRefs && !fieldId && !fieldRequestId) {
+    throw new AppError('יש לבחור תחום לימוד מתוך הרשימה או לשלוח בקשת הוספה.', 400);
+  }
+
+  if (legacyInstitution && !institutionId && !institutionRequestId) {
+    throw new AppError('יש לבחור מוסד לימודים מתוך הרשימה או בקשת הוספה מאושרת לשמירה.', 400);
+  }
+
+  if (legacyDegree && !fieldId && !fieldRequestId) {
+    throw new AppError('יש לבחור תחום לימוד מתוך הרשימה או בקשת הוספה מאושרת לשמירה.', 400);
+  }
+
+  if (institutionId && !(await academicInstitutionExists(institutionId))) {
+    throw new AppError('מוסד הלימודים שנבחר אינו קיים במאגר.', 400);
+  }
+
+  if (institutionRequestId && !(await pendingRepositoryRequestExists({
+    id: institutionRequestId,
+    repositoryType: 'institution',
+    userId: currentUser.id,
+  }))) {
+    throw new AppError('בקשת מוסד הלימודים אינה תקפה או אינה ממתינה לאישור.', 400);
+  }
+
+  if (fieldId && !(await academicFieldExists(fieldId))) {
+    throw new AppError('תחום הלימוד שנבחר אינו קיים במאגר.', 400);
+  }
+
+  if (fieldRequestId && !(await pendingRepositoryRequestExists({
+    id: fieldRequestId,
+    repositoryType: 'field',
+    userId: currentUser.id,
+  }))) {
+    throw new AppError('בקשת תחום הלימוד אינה תקפה או אינה ממתינה לאישור.', 400);
+  }
+}
 
 // ── Response shape — matches OnboardingStateRemote on the frontend ─────────────
 
@@ -54,6 +125,8 @@ export async function saveMyOnboarding(
     throw new AppError('Forbidden', 403);
   }
 
+  await validateAcademicRepositoryRefs(body.draft, currentUser, body.professionalStatus);
+
   const row = await upsertOnboardingDraft(currentUser.id, {
     onboardingStep: body.onboardingStep,
     fullName: body.fullName,
@@ -78,6 +151,8 @@ export async function completeMyOnboarding(
   if (currentUser.role !== 'teacher') {
     throw new AppError('Forbidden', 403);
   }
+
+  await validateAcademicRepositoryRefs(body.draft, currentUser, body.professionalStatus);
 
   // Persist final form state and mark complete
   await upsertOnboardingDraft(currentUser.id, {

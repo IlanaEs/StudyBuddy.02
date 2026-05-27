@@ -1,6 +1,7 @@
 import cors from 'cors';
 import express from 'express';
 
+import { academicRepositoriesRouter } from './academicRepositories/academicRepositories.routes.js';
 import { env } from './config/env.js';
 import { errorHandler } from './errors/errorHandler.js';
 import { authRouter } from './auth/authRoutes.js';
@@ -28,7 +29,9 @@ export function createApp() {
   app.use(express.json());
 
   app.use('/api/auth', authRouter);
+  app.use('/api', academicRepositoriesRouter);
   app.use('/health', healthRouter);
+  app.use('/api/health', healthRouter);
   app.use('/api/booking-requests', bookingRequestsRouter);
   app.use('/api/lessons', lessonsRouter);
   app.use('/api/matching', matchingRouter);
