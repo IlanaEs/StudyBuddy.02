@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, CreditCard, Sun, BookOpen, ChevronLeft, CalendarDays } from 'lucide-react';
+import { Calendar, CreditCard, Sun, BookOpen, ChevronLeft, CalendarDays, Video } from 'lucide-react';
 
 import { useAuth } from '../auth/AuthProvider';
 import { useParentDashboard } from '../features/parent/hooks/useParentDashboard';
@@ -54,6 +54,9 @@ type UpcomingLessonData = {
   day: string;
   date: string;
   time: string;
+  startsAt: string;   // ISO — used to compute unlock window
+  endsAt: string;     // ISO — used to compute end of unlock window
+  meetingLink: string | null;
 } | null;
 
 type PendingApprovalData = {
@@ -99,6 +102,9 @@ function transformPayload(payload: ParentDashboardPayload) {
         ...formatLessonTime(payload.next_lesson.starts_at),
         subject: payload.next_lesson.subject_name ?? 'שיעור',
         teacherName: payload.next_lesson.teacher_name,
+        startsAt: payload.next_lesson.starts_at,
+        endsAt: payload.next_lesson.ends_at,
+        meetingLink: payload.next_lesson.meeting_link,
       }
     : null;
 
@@ -380,6 +386,14 @@ function NoChildrenState() {
 
 // ── Card 1: Upcoming Lesson ────────────────────────────────────────────────────
 
+// Returns true when the current time is within [startsAt - 2 min, endsAt].
+function isLessonLive(startsAt: string, endsAt: string): boolean {
+  const now = Date.now();
+  const unlockAt = new Date(startsAt).getTime() - 2 * 60 * 1000;
+  const closesAt = new Date(endsAt).getTime();
+  return now >= unlockAt && now <= closesAt;
+}
+
 function UpcomingLessonCard({
   childName,
   data,
@@ -389,20 +403,64 @@ function UpcomingLessonCard({
   data: UpcomingLessonData;
   className?: string;
 }) {
+  // Re-evaluate the live window every 30 seconds so the button appears without a reload.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!data?.meetingLink) return;
+    const id = setInterval(() => setTick((t) => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, [data?.meetingLink]);
+
+  const live = data ? isLessonLive(data.startsAt, data.endsAt) : false;
+
   return (
     <div
       className={className}
-      style={{ ...CARD_BASE, padding: '20px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+      style={{ ...CARD_BASE, padding: '20px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 14 }}
     >
       <CardHeader icon={<Calendar size={16} />} title='הלו"ז הקרוב' accentColor={SB_NEON} />
       {data ? (
-        <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--text)', lineHeight: 1.65 }}>
-          השיעור הבא של {childName}:{' '}
-          <span style={{ color: SB_NEON, fontWeight: 700 }}>{data.subject}</span> עם{' '}
-          <span style={{ color: 'var(--text)' }}>{data.teacherName}</span> ביום {data.day},{' '}
-          {data.date} בשעה{' '}
-          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{data.time}</span>.
-        </p>
+        <>
+          <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--text)', lineHeight: 1.65 }}>
+            השיעור הבא של {childName}:{' '}
+            <span style={{ color: SB_NEON, fontWeight: 700 }}>{data.subject}</span> עם{' '}
+            <span style={{ color: 'var(--text)' }}>{data.teacherName}</span> ביום {data.day},{' '}
+            {data.date} בשעה{' '}
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{data.time}</span>.
+          </p>
+          {data.meetingLink && (
+            <a
+              href={live ? data.meetingLink : undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-disabled={!live}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 7,
+                alignSelf: 'flex-start',
+                padding: '10px 18px',
+                borderRadius: 'var(--radius-sm)',
+                border: 'none',
+                background: live ? SB_NEON : 'rgba(0,246,255,0.15)',
+                color: live ? '#042a2a' : SB_NEON,
+                fontSize: 13,
+                fontWeight: 800,
+                fontFamily: 'var(--font-display)',
+                cursor: live ? 'pointer' : 'not-allowed',
+                opacity: live ? 1 : 0.55,
+                pointerEvents: live ? 'auto' : 'none',
+                textDecoration: 'none',
+                boxShadow: live ? `0 0 20px -4px color-mix(in oklab, ${SB_NEON} 40%, transparent)` : 'none',
+                transition: 'opacity 0.2s ease, background 0.2s ease',
+              }}
+            >
+              <Video size={14} />
+              {live ? 'הצטרף לשיעור' : 'כניסה תתאפשר 2 דקות לפני השיעור'}
+            </a>
+          )}
+        </>
       ) : (
         <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--text-3)', lineHeight: 1.65 }}>
           אין ל{childName} שיעורים מתוזמנים לימים הקרובים.

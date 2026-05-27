@@ -51,6 +51,8 @@ export type ParentDashboardPayload = {
     subject_name: string | null;
     teacher_name: string;
     starts_at: string;
+    ends_at: string;
+    meeting_link: string | null;
     status: string;
   } | null;
 

@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/asyncHandler.js';
 import { requireAuth, requireAnyRole } from '../middleware/authMiddleware.js';
 import { validateRequest } from '../validation/requestValidation.js';
 import {
+  getMyBookingRequestsController,
   createBookingRequestController,
   respondToBookingRequestController,
 } from './bookingRequests.controller.js';
@@ -15,6 +16,14 @@ import {
 export const bookingRequestsRouter = Router();
 
 bookingRequestsRouter.use(requireAuth);
+
+// GET /api/booking-requests
+// Returns pending booking requests for the authenticated teacher (or admin).
+bookingRequestsRouter.get(
+  '/',
+  requireAnyRole(['teacher', 'admin']),
+  asyncHandler(getMyBookingRequestsController),
+);
 
 // POST /api/booking-requests
 // Allowed: student (own intake), parent (linked child's intake), admin (any).

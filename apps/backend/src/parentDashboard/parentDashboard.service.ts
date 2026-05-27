@@ -122,6 +122,8 @@ export async function getParentDashboardService(
             : null,
           teacher_name: teacherProfileNames.get(nextLessonRaw.teacherProfileId) ?? 'מורה לא ידוע',
           starts_at: nextLessonRaw.startsAt,
+          ends_at: nextLessonRaw.endsAt,
+          meeting_link: nextLessonRaw.meetingLink,
           status: nextLessonRaw.status,
         }
       : null,

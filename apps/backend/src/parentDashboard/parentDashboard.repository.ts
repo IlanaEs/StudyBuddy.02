@@ -108,10 +108,10 @@ export async function getStudentByIdAndParent(
 
 export async function getNextLesson(
   studentId: string,
-): Promise<{ id: string; subjectId: string | null; teacherProfileId: string; startsAt: string; status: string } | null> {
+): Promise<{ id: string; subjectId: string | null; teacherProfileId: string; startsAt: string; endsAt: string; meetingLink: string | null; status: string } | null> {
   const { data, error } = await adminClient()
     .from('lessons')
-    .select('id,subject_id,teacher_id,scheduled_start_at,status')
+    .select('id,subject_id,teacher_id,scheduled_start_at,scheduled_end_at,meeting_link,status')
     .eq('student_id', studentId)
     .eq('status', 'scheduled')
     .gt('scheduled_start_at', new Date().toISOString())
@@ -129,6 +129,8 @@ export async function getNextLesson(
     subjectId: row.subject_id as string | null,
     teacherProfileId: row.teacher_id as string,
     startsAt: row.scheduled_start_at as string,
+    endsAt: row.scheduled_end_at as string,
+    meetingLink: row.meeting_link as string | null,
     status: row.status as string,
   };
 }

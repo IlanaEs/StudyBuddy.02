@@ -6,7 +6,8 @@ if (!API) {
   throw new Error('VITE_API_BASE_URL is not set — calendar API calls will fail');
 }
 
-const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+// Full calendar scope — required for both read (freeBusy) and write (event/Meet creation).
+const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar';
 export const TEACHER_CALENDAR_REDIRECT_TO = 'http://localhost:3000/teacher-onboarding';
 
 export type GCalStatus = 'not_connected' | 'connecting' | 'connected' | 'syncing' | 'sync_failed' | 'manual_mode';
