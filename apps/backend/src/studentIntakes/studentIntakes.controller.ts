@@ -9,5 +9,12 @@ export async function createIntakeController(request: Request, response: Respons
 
   const intake = await createIntake(body, currentUser);
 
-  response.status(201).json({ data: intake });
+  response.status(201).json({
+    data: {
+      intake_id: intake.id,
+      student_id: intake.studentId,
+      subject_id: intake.subjectId,
+      status: intake.status,
+    },
+  });
 }
