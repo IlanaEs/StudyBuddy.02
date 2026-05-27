@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { BookOpen, Check, ChevronDown, ChevronUp, Plus, Trash2, Clock } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
 import { getTeacherLessons, completeLesson } from '../api/lessons';
@@ -442,6 +443,37 @@ export function TeacherLessonManagePage() {
         >
           ניהול שיעורים
         </span>
+        <nav style={{ marginRight: 'auto', display: 'flex', gap: 8 }}>
+          <Link
+            to="/teacher/inbox"
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: 'var(--text-2)',
+              textDecoration: 'none',
+              padding: '5px 10px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--line)',
+            }}
+          >
+            תיבת דואר
+          </Link>
+          <Link
+            to="/teacher/lessons"
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: SB_NEON,
+              textDecoration: 'none',
+              padding: '5px 10px',
+              borderRadius: 'var(--radius-sm)',
+              border: `1px solid color-mix(in oklab, ${SB_NEON} 30%, transparent)`,
+              background: `color-mix(in oklab, ${SB_NEON} 8%, transparent)`,
+            }}
+          >
+            שיעורים שלי
+          </Link>
+        </nav>
       </header>
 
       {/* Main */}

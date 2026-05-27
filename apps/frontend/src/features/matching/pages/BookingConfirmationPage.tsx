@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CheckCircle2, Mail, Check, Calendar, Clock } from 'lucide-react';
+import { useAuth } from '../../../auth/AuthProvider';
 
 type ConfirmationState = {
   bookingId: string;
@@ -16,18 +17,25 @@ function isConfirmationState(value: unknown): value is ConfirmationState {
   );
 }
 
+function useDashboardRoute() {
+  const auth = useAuth();
+  if (auth.user?.role === 'parent') return '/parent/dashboard';
+  return '/dashboard';
+}
+
 export function BookingConfirmationPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const state = isConfirmationState(location.state) ? location.state : null;
+  const dashboardRoute = useDashboardRoute();
 
   // No real booking state means the user landed here without submitting
   // (e.g. direct URL or page refresh). Redirect to dashboard silently.
   useEffect(() => {
     if (!state) {
-      navigate('/dashboard', { replace: true });
+      navigate(dashboardRoute, { replace: true });
     }
-  }, [state, navigate]);
+  }, [state, navigate, dashboardRoute]);
 
   if (!state) return null;
 
@@ -64,7 +72,7 @@ export function BookingConfirmationPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <button onClick={() => navigate('/dashboard')} className="w-full py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>
+          <button onClick={() => navigate(dashboardRoute)} className="w-full py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>
             לדשבורד שלי
           </button>
           <button onClick={() => navigate('/onboarding/matching')} className="w-full py-3 rounded-xl font-medium text-sm" style={{ background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--text-3)', cursor: 'pointer' }}>

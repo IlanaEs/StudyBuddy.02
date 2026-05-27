@@ -5,6 +5,11 @@ import { useAuth } from '../auth/AuthProvider';
 export function DashboardPlaceholderRoute() {
   const auth = useAuth();
 
+  // Authenticated parents always go to the real parent dashboard.
+  if (auth.status === 'authenticated' && auth.user?.role === 'parent') {
+    return <Navigate replace to="/parent/dashboard" />;
+  }
+
   // Profile is resolved from /api/auth/me after login. Wait for it before
   // deciding on routing — avoids a flicker to the wrong screen.
   if (auth.status === 'authenticated' && auth.user?.role === 'teacher' && auth.profile === null) {

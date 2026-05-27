@@ -5,11 +5,14 @@ export const APP_LOCAL_STORAGE_KEYS = [
   'sb_student_onboarding_oauth_pending',
 ] as const;
 
+export const GCAL_PROVIDER_TOKEN_KEY = 'sb_gcal_provider_token';
+
 export const APP_SESSION_STORAGE_KEYS = [
   'sb_gcal_connecting',
   'sb_gcal_return_step',
   'sb_gcal_return_route',
-  'sb_gcal_provider_token',
+  GCAL_PROVIDER_TOKEN_KEY,
+  'sb_provider_token',
 ] as const;
 
 export function clearAppSessionStorage() {

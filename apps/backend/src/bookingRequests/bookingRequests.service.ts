@@ -92,6 +92,14 @@ export async function createBookingRequest(
     throw new AppError('Teacher not found', 404);
   }
 
+  // ── MVP: parent-managed students only ────────────────────────────────────
+  if (student.parentUserId === null) {
+    throw new AppError(
+      'MVP supports parent-managed students only. Standalone student booking is not yet available.',
+      422,
+    );
+  }
+
   // ── Ownership check ───────────────────────────────────────────────────────
   if (currentUser.role === 'student') {
     if (student.userId !== currentUser.id) {
