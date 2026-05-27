@@ -18,7 +18,7 @@ describe('auth foundation routes', () => {
 
     const response = await request(app)
       .post('/api/auth/complete-oauth-signup')
-      .send({ role: 'student', full_name: 'Test User' });
+      .send({ account_type: 'independent_student', full_name: 'Test User' });
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ error: 'Missing authentication token' });
@@ -55,7 +55,7 @@ describe('auth foundation routes', () => {
 
     const response = await request(app)
       .post('/api/students')
-      .send({ full_name: 'Test Student' });
+      .send({ account_type: 'independent_student', full_name: 'Test Student' });
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ error: 'Missing authentication token' });

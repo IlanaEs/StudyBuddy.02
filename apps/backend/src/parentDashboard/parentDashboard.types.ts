@@ -86,4 +86,18 @@ export type ParentDashboardPayload = {
   quick_actions: {
     can_find_teacher: boolean;
   };
+
+  /** All scheduled/completed lessons across ALL children for the current week
+   *  (Asia/Jerusalem timezone, Sunday–Saturday). Global — not filtered by
+   *  selected_student. */
+  weekly_family_schedule: Array<{
+    id: string;
+    student_id: string;
+    student_name: string;
+    subject_name: string | null;
+    teacher_name: string;
+    starts_at: string;
+    ends_at: string;
+    status: string;
+  }>;
 };

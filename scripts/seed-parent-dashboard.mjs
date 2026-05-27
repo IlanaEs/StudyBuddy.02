@@ -271,6 +271,20 @@ function daysFromNow(n) {
   return d.toISOString();
 }
 
+/**
+ * Returns an ISO timestamp for this calendar week's specific day of week
+ * (0 = Sunday … 6 = Saturday) at the given local hour.
+ * Always stays within the current Sun–Sat week, regardless of today's date.
+ */
+function thisWeekDay(dowIndex, hour) {
+  const today = new Date();
+  const currentDow = today.getDay(); // 0 = Sun
+  const diff = dowIndex - currentDow; // may be negative for past days of this week
+  const target = new Date(today.getFullYear(), today.getMonth(), today.getDate() + diff);
+  target.setHours(hour, 0, 0, 0);
+  return target.toISOString();
+}
+
 function endTime(isoStart, minutes = 60) {
   return new Date(new Date(isoStart).getTime() + minutes * 60_000).toISOString();
 }
@@ -449,7 +463,7 @@ async function seedOmer(studentId, parentUserId, teacherProfileId, hourlyRate, m
     console.error(`    confirmation [${isPending ? 'pending' : 'approved'}]: ${confId}`);
   }
 
-  // ── 1 upcoming scheduled lesson ───────────────────────────────────────────
+  // ── 1 upcoming scheduled lesson (next occurrence, ~3 days out) ──────────
   const upcomingStart = daysFromNow(3);
   const upcomingId = await upsertLesson({
     teacher_id: teacherProfileId,
@@ -463,7 +477,21 @@ async function seedOmer(studentId, parentUserId, teacherProfileId, hourlyRate, m
   });
   console.error(`    upcoming lesson: ${upcomingId} (${upcomingStart.slice(0, 10)})`);
 
-  return { completedIds, noteId, upcomingId };
+  // ── This-week lesson (Tuesday 16:00) — always visible in weekly schedule ─
+  const weeklyStart = thisWeekDay(2, 16); // 2 = Tuesday
+  const weeklyId = await upsertLesson({
+    teacher_id: teacherProfileId,
+    student_id: studentId,
+    subject_id: mathSubjectId,
+    status: 'scheduled',
+    scheduled_start_at: weeklyStart,
+    scheduled_end_at: endTime(weeklyStart, 90),
+    duration_minutes: 90,
+    location_type: 'online',
+  });
+  console.error(`    this-week lesson (Tue): ${weeklyId} (${weeklyStart.slice(0, 10)})`);
+
+  return { completedIds, noteId, upcomingId, weeklyId };
 }
 
 // ── Step 6: Seed דניאל (minimal / all-quiet scenario) ────────────────────────
@@ -512,7 +540,21 @@ async function seedDaniel(studentId, parentUserId, teacherProfileId, hourlyRate,
   });
   console.error(`    homework_task (completed): ${taskDone}`);
 
-  return { completedIds, noteId };
+  // ── This-week lesson (Thursday 15:00) — always visible in weekly schedule ─
+  const weeklyStart = thisWeekDay(4, 15); // 4 = Thursday
+  const weeklyId = await upsertLesson({
+    teacher_id: teacherProfileId,
+    student_id: studentId,
+    subject_id: mathSubjectId,
+    status: 'scheduled',
+    scheduled_start_at: weeklyStart,
+    scheduled_end_at: endTime(weeklyStart),
+    duration_minutes: 60,
+    location_type: 'online',
+  });
+  console.error(`    this-week lesson (Thu): ${weeklyId} (${weeklyStart.slice(0, 10)})`);
+
+  return { completedIds, noteId, weeklyId };
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────

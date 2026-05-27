@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, CreditCard, Sun, BookOpen, ChevronLeft } from 'lucide-react';
+import { Calendar, CreditCard, Sun, BookOpen, ChevronLeft, CalendarDays } from 'lucide-react';
 
 import { useAuth } from '../auth/AuthProvider';
 import { useParentDashboard } from '../features/parent/hooks/useParentDashboard';
@@ -11,6 +11,7 @@ import type { ParentDashboardPayload, HomeworkTaskStatus } from '../features/par
 const SB_NEON = '#00f6ff';
 const SB_ORANGE = '#fc6d17';
 const SB_SUCCESS = '#bbe341';
+const SB_PURPLE = '#b085f5';
 
 const CARD_BASE: React.CSSProperties = {
   background: 'rgba(63, 126, 118, 0.55)',
@@ -40,6 +41,11 @@ function formatLessonTime(iso: string): { day: string; date: string; time: strin
   };
 }
 
+function formatTimeOnly(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 // ── Data transformation ───────────────────────────────────────────────────────
 
 type UpcomingLessonData = {
@@ -64,6 +70,7 @@ type LatestLessonData = {
   teacherNote: string;
   homework: HomeworkState;
   taskStatus: HomeworkTaskStatus | null;
+  rawTasks: Array<{ id: string; title: string; status: HomeworkTaskStatus }>;
 } | null;
 
 type PreviousLessonItem = {
@@ -71,6 +78,19 @@ type PreviousLessonItem = {
   teacherName: string;
   subject: string;
   status: 'closed' | 'pending_approval';
+};
+
+type WeeklyGroup = {
+  dayLabel: string;      // e.g. "ראשון 25.05"
+  dayIndex: number;      // 0=Sun…6=Sat for ordering
+  lessons: Array<{
+    studentName: string;
+    subject: string;
+    teacherName: string;
+    timeStart: string;
+    timeEnd: string;
+    status: string;
+  }>;
 };
 
 function transformPayload(payload: ParentDashboardPayload) {
@@ -105,6 +125,7 @@ function transformPayload(payload: ParentDashboardPayload) {
             ? 'none'
             : { description: payload.latest_lesson_update.homework.map((h) => h.title).join(' | ') },
         taskStatus: payload.latest_lesson_update.task_status,
+        rawTasks: payload.latest_lesson_update.homework,
       }
     : null;
 
@@ -115,7 +136,36 @@ function transformPayload(payload: ParentDashboardPayload) {
     status: l.confirmation_status === 'approved' ? 'closed' : 'pending_approval',
   }));
 
-  return { upcomingLesson, pendingApproval, latestLessonUpdate, previousLessons };
+  // Weekly schedule — group by day
+  const weeklyGroups: WeeklyGroup[] = [];
+  const dayMap = new Map<number, WeeklyGroup>();
+
+  for (const lesson of payload.weekly_family_schedule) {
+    const d = new Date(lesson.starts_at);
+    const dow = d.getDay();
+    const dateStr = formatDate(lesson.starts_at);
+    const dayLabel = `יום ${HEBREW_DAYS[dow]} ${dateStr}`;
+
+    if (!dayMap.has(dow)) {
+      const group: WeeklyGroup = { dayLabel, dayIndex: dow, lessons: [] };
+      dayMap.set(dow, group);
+      weeklyGroups.push(group);
+    }
+
+    dayMap.get(dow)!.lessons.push({
+      studentName: lesson.student_name,
+      subject: lesson.subject_name ?? 'שיעור',
+      teacherName: lesson.teacher_name,
+      timeStart: formatTimeOnly(lesson.starts_at),
+      timeEnd: formatTimeOnly(lesson.ends_at),
+      status: lesson.status,
+    });
+  }
+
+  // Sort groups by day index
+  weeklyGroups.sort((a, b) => a.dayIndex - b.dayIndex);
+
+  return { upcomingLesson, pendingApproval, latestLessonUpdate, previousLessons, weeklyGroups };
 }
 
 // ── Shared sub-components ──────────────────────────────────────────────────────
@@ -184,6 +234,35 @@ function SectionLabel({ children }: { children: string }) {
   );
 }
 
+function StatusBadge({
+  label,
+  color,
+}: {
+  label: string;
+  color: string;
+}) {
+  return (
+    <span
+      style={{
+        flexShrink: 0,
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: '3px 9px',
+        borderRadius: 999,
+        fontSize: 11,
+        fontWeight: 700,
+        fontFamily: 'var(--font-mono)',
+        background: `color-mix(in oklab, ${color} 18%, transparent)`,
+        border: `1px solid color-mix(in oklab, ${color} 35%, transparent)`,
+        color,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 
 function SkeletonBlock({ w, h }: { w?: string | number; h?: string | number }) {
@@ -235,7 +314,7 @@ function FullPageSkeleton() {
         <SkeletonBlock w={32} h={32} />
         <SkeletonBlock w={120} h={16} />
       </header>
-      <main style={{ flex: 1, maxWidth: 1100, width: '100%', margin: '0 auto', padding: '32px 24px 64px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <main style={{ flex: 1, maxWidth: 1200, width: '100%', margin: '0 auto', padding: '32px 24px 64px', display: 'flex', flexDirection: 'column', gap: 24 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <SkeletonBlock w={280} h={28} />
           <SkeletonBlock w={200} h={16} />
@@ -245,12 +324,13 @@ function FullPageSkeleton() {
             <div key={i} className="animate-pulse" style={{ width: 54, height: 54, borderRadius: '50%', background: 'rgba(220,245,240,0.1)' }} />
           ))}
         </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-4 lg:gap-5">
-          <SkeletonCard className="order-1 lg:order-3" />
-          <SkeletonCard className="order-2 lg:order-1 md:col-span-2 lg:col-span-2" />
-          <SkeletonCard className="order-3 lg:order-2 md:col-span-2 lg:col-span-2 lg:row-span-2" tall />
-          <SkeletonCard className="order-4 lg:order-4" />
-          <SkeletonCard className="order-5 lg:order-5" />
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-6 lg:gap-5">
+          <SkeletonCard className="order-1 lg:col-span-2" />
+          <SkeletonCard className="order-2 lg:col-span-4" />
+          <SkeletonCard className="order-3 lg:col-span-4 lg:row-span-2" tall />
+          <SkeletonCard className="order-4 lg:col-span-2" />
+          <SkeletonCard className="order-5 lg:col-span-2" />
+          <SkeletonCard className="order-6 lg:col-span-2" />
         </div>
       </main>
     </div>
@@ -380,7 +460,7 @@ function PendingApprovalCard({
               justifyContent: 'center',
               gap: 7,
               width: '100%',
-              padding: '10px 16px',
+              padding: '11px 16px',
               borderRadius: 'var(--radius-sm)',
               border: 'none',
               background: SB_SUCCESS,
@@ -390,9 +470,10 @@ function PendingApprovalCard({
               fontFamily: 'var(--font-display)',
               cursor: 'pointer',
               transition: 'transform 0.15s ease, filter 0.15s ease',
+              boxShadow: `0 0 16px -4px color-mix(in oklab, ${SB_SUCCESS} 40%, transparent)`,
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.08)';
+              (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)';
               (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
             }}
             onMouseLeave={(e) => {
@@ -478,9 +559,31 @@ function LatestLessonCard({
                 </span>
               </div>
             ) : (
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--text)', lineHeight: 1.65 }}>
-                {data.homework.description}
-              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {data.rawTasks.map((t) => (
+                  <div
+                    key={t.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'rgba(220,245,240,0.05)',
+                      border: '1px solid rgba(220,245,240,0.08)',
+                    }}
+                  >
+                    <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', flex: 1 }}>
+                      {t.title}
+                    </span>
+                    <StatusBadge
+                      label={t.status === 'completed' ? 'הושלם' : t.status === 'in_progress' ? 'בתהליך' : 'פתוח'}
+                      color={t.status === 'completed' ? SB_SUCCESS : t.status === 'in_progress' ? SB_NEON : SB_ORANGE}
+                    />
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
@@ -500,22 +603,7 @@ function LatestLessonCard({
                 >
                   סטטוס המשימה אצל הילד:
                 </span>
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    padding: '4px 12px',
-                    borderRadius: 999,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    fontFamily: 'var(--font-mono)',
-                    background: `color-mix(in oklab, ${taskStatusColor} 12%, transparent)`,
-                    border: `1px solid color-mix(in oklab, ${taskStatusColor} 28%, transparent)`,
-                    color: taskStatusColor,
-                  }}
-                >
-                  {taskStatusLabel}
-                </span>
+                <StatusBadge label={taskStatusLabel} color={taskStatusColor} />
               </div>
             </>
           )}
@@ -578,9 +666,10 @@ function FindTeacherCard({
           cursor: 'pointer',
           transition: 'transform 0.15s ease, filter 0.15s ease',
           lineHeight: 1,
+          boxShadow: `0 0 20px -4px color-mix(in oklab, ${SB_NEON} 40%, transparent)`,
         }}
         onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.08)';
+          (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)';
           (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
         }}
         onMouseLeave={(e) => {
@@ -605,6 +694,11 @@ function PreviousLessonsCard({
   lessons: PreviousLessonItem[];
   className?: string;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
+  // Desktop: up to 6; Mobile: up to 3 (toggled by `expanded`)
+  const visibleLessons = expanded ? lessons : lessons.slice(0, 3);
+
   return (
     <div
       className={className}
@@ -622,52 +716,59 @@ function PreviousLessonsCard({
         </p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-          {lessons.slice(0, 3).map((lesson, i) => (
-            <div key={i}>
-              {i > 0 && <Divider />}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>
-                    {lesson.date}
-                  </span>
-                  <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {lesson.teacherName} · {lesson.subject}
-                  </span>
-                </div>
-                <span
-                  style={{
-                    flexShrink: 0,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    padding: '3px 9px',
-                    borderRadius: 999,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    fontFamily: 'var(--font-mono)',
-                    background:
-                      lesson.status === 'closed'
-                        ? `color-mix(in oklab, ${SB_SUCCESS} 12%, transparent)`
-                        : `color-mix(in oklab, ${SB_ORANGE} 12%, transparent)`,
-                    border:
-                      lesson.status === 'closed'
-                        ? `1px solid color-mix(in oklab, ${SB_SUCCESS} 28%, transparent)`
-                        : `1px solid color-mix(in oklab, ${SB_ORANGE} 28%, transparent)`,
-                    color: lesson.status === 'closed' ? SB_SUCCESS : SB_ORANGE,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {lesson.status === 'closed' ? 'סגור' : 'ממתין לאישור'}
-                </span>
+          {/* On desktop show up to 6 always; on mobile use 3/all toggle */}
+          <div className="hidden lg:flex" style={{ flexDirection: 'column' }}>
+            {lessons.slice(0, 6).map((lesson, i) => (
+              <div key={i}>
+                {i > 0 && <Divider />}
+                <LessonRow lesson={lesson} />
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+          <div className="flex lg:hidden" style={{ flexDirection: 'column' }}>
+            {visibleLessons.map((lesson, i) => (
+              <div key={i}>
+                {i > 0 && <Divider />}
+                <LessonRow lesson={lesson} />
+              </div>
+            ))}
+          </div>
         </div>
+      )}
+
+      {lessons.length > 3 && (
+        <button
+          type="button"
+          className="lg:hidden"
+          onClick={() => setExpanded((v) => !v)}
+          style={{
+            marginTop: 14,
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            color: 'var(--text-3)',
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: 'pointer',
+            textAlign: 'right',
+            fontFamily: 'var(--font-body)',
+            transition: 'color 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color = SB_NEON;
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)';
+          }}
+        >
+          {expanded ? 'הצג פחות' : `הצג הכל (${lessons.length})`}
+        </button>
       )}
 
       <button
         type="button"
         style={{
-          marginTop: 18,
+          marginTop: 14,
           background: 'none',
           border: 'none',
           padding: 0,
@@ -690,6 +791,146 @@ function PreviousLessonsCard({
       >
         לצפייה בהיסטוריית הלמידה המלאה
       </button>
+    </div>
+  );
+}
+
+function LessonRow({ lesson }: { lesson: PreviousLessonItem }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>
+          {lesson.date}
+        </span>
+        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {lesson.teacherName} · {lesson.subject}
+        </span>
+      </div>
+      <StatusBadge
+        label={lesson.status === 'closed' ? 'סגור' : 'ממתין לאישור'}
+        color={lesson.status === 'closed' ? SB_SUCCESS : SB_ORANGE}
+      />
+    </div>
+  );
+}
+
+// ── Card 6: Weekly Family Schedule ────────────────────────────────────────────
+
+function WeeklyScheduleCard({
+  groups,
+  className,
+}: {
+  groups: WeeklyGroup[];
+  className?: string;
+}) {
+  return (
+    <div
+      className={className}
+      style={{ ...CARD_BASE, padding: '22px', display: 'flex', flexDirection: 'column' }}
+    >
+      <CardHeader
+        icon={<CalendarDays size={16} />}
+        title="לוח שבועי משפחתי"
+        accentColor={SB_PURPLE}
+      />
+
+      {groups.length === 0 ? (
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: 'var(--text-3)', textAlign: 'center', lineHeight: 1.65 }}>
+            אין שיעורים מתוזמנים השבוע.
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {groups.map((group) => (
+            <div key={group.dayIndex}>
+              {/* Day header */}
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: SB_PURPLE,
+                  fontFamily: 'var(--font-mono)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  marginBottom: 8,
+                }}
+              >
+                {group.dayLabel}
+              </div>
+              {/* Lesson capsules */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {group.lessons.map((lesson, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '7px 10px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: `color-mix(in oklab, ${SB_PURPLE} 8%, transparent)`,
+                      border: `1px solid color-mix(in oklab, ${SB_PURPLE} 18%, transparent)`,
+                    }}
+                  >
+                    {/* Time */}
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: SB_PURPLE,
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {lesson.timeStart}
+                    </span>
+                    <span style={{ color: 'rgba(176,133,245,0.4)', fontSize: 11, flexShrink: 0 }}>|</span>
+                    {/* Student name */}
+                    <span
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: 'var(--text)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {lesson.studentName}
+                    </span>
+                    <span style={{ color: 'rgba(176,133,245,0.4)', fontSize: 11, flexShrink: 0 }}>|</span>
+                    {/* Subject */}
+                    <span
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 500,
+                        color: 'var(--text-2)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        flex: 1,
+                      }}
+                    >
+                      {lesson.subject}
+                    </span>
+                    {/* Status dot */}
+                    <span
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: '50%',
+                        background: lesson.status === 'completed' ? SB_SUCCESS : SB_PURPLE,
+                        flexShrink: 0,
+                        boxShadow: `0 0 6px ${lesson.status === 'completed' ? SB_SUCCESS : SB_PURPLE}`,
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -820,7 +1061,7 @@ export function ParentDashboardPage() {
   const currentStudentId = selectedStudentId ?? children[0]!.id;
   const selectedChild = children.find((c) => c.id === currentStudentId) ?? children[0]!;
 
-  const { upcomingLesson, pendingApproval, latestLessonUpdate, previousLessons } =
+  const { upcomingLesson, pendingApproval, latestLessonUpdate, previousLessons, weeklyGroups } =
     transformPayload(data);
 
   return (
@@ -888,10 +1129,10 @@ export function ParentDashboardPage() {
       <main
         style={{
           flex: 1,
-          maxWidth: 1100,
+          maxWidth: 1200,
           width: '100%',
           margin: '0 auto',
-          padding: '32px 24px 64px',
+          padding: '32px 20px 64px',
           display: 'flex',
           flexDirection: 'column',
           gap: 24,
@@ -902,7 +1143,7 @@ export function ParentDashboardPage() {
           <h1
             style={{
               margin: '0 0 4px',
-              fontSize: 26,
+              fontSize: 'clamp(20px, 4vw, 28px)',
               fontWeight: 900,
               color: 'var(--text)',
               fontFamily: 'var(--font-display)',
@@ -921,36 +1162,53 @@ export function ParentDashboardPage() {
 
         {/* Bento grid — fades on child switch */}
         <div style={{ opacity: childSwitching ? 0 : 1, transition: 'opacity 0.2s ease' }}>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-4 lg:gap-5">
+          {/*
+            6-column Bento grid:
+            Mobile:  1 col, cards appear in order-1..order-6
+            Tablet:  2 col
+            Desktop: 6 col
+              - Upcoming:       col-span-4 (row 1 right zone)
+              - Pending:        col-span-2 (row 1 left zone)
+              - Latest lesson:  col-span-4, row-span-2 (rows 2–3, right zone)
+              - Weekly sched:   col-span-2 (row 2, left zone)
+              - Find teacher:   col-span-2 (row 3 left top)
+              - Previous:       col-span-2 (row 3 left bottom — rendered as row 4 mobile)
+          */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-4 lg:grid-cols-6 lg:gap-5">
+            {/* Row 1 */}
+            <UpcomingLessonCard
+              childName={selectedChild.name}
+              data={upcomingLesson}
+              className="order-1 lg:col-span-4 lg:order-1"
+            />
             <PendingApprovalCard
               data={pendingApproval}
               onApprove={() => {
                 if (pendingApproval) void approveConfirmation(pendingApproval.id);
               }}
-              className="order-1 lg:order-3"
+              className="order-2 lg:col-span-2 lg:order-2"
             />
 
-            <UpcomingLessonCard
-              childName={selectedChild.name}
-              data={upcomingLesson}
-              className="order-2 lg:order-1 md:col-span-2 lg:col-span-2"
-            />
-
+            {/* Row 2–3: Latest lesson (tall) + Weekly + Find teacher */}
             <LatestLessonCard
               childName={selectedChild.name}
               data={latestLessonUpdate}
-              className="order-3 lg:order-2 md:col-span-2 lg:col-span-2 lg:row-span-2"
+              className="order-3 md:col-span-2 lg:col-span-4 lg:row-span-2 lg:order-3"
             />
-
+            <WeeklyScheduleCard
+              groups={weeklyGroups}
+              className="order-4 lg:col-span-2 lg:order-4"
+            />
             <FindTeacherCard
               childName={selectedChild.name}
-              className="order-4 lg:order-4"
+              className="order-5 lg:col-span-2 lg:order-5"
             />
 
+            {/* Row 4 */}
             <PreviousLessonsCard
               childName={selectedChild.name}
               lessons={previousLessons}
-              className="order-5 lg:order-5"
+              className="order-6 md:col-span-2 lg:col-span-6 lg:order-6"
             />
           </div>
         </div>

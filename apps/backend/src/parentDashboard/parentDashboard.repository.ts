@@ -329,6 +329,109 @@ export async function batchGetSubjectNamesByIds(
   return new Map((data as any[]).map((s) => [s.id as string, s.name as string]));
 }
 
+// ── Weekly family schedule ────────────────────────────────────────────────────
+
+/**
+ * Returns the UTC ISO boundaries for the current week (Sun–Sat) in the
+ * Asia/Jerusalem timezone.
+ */
+function getJerusalemWeekBounds(): { weekStart: string; weekEnd: string } {
+  const TZ = 'Asia/Jerusalem';
+  const now = new Date();
+
+  // Today as "YYYY-MM-DD" in Jerusalem time (sv-SE locale gives ISO date format)
+  const todayJerusalem = now.toLocaleDateString('sv-SE', { timeZone: TZ });
+  const [yr, mo, da] = todayJerusalem.split('-').map(Number) as [number, number, number];
+
+  // Day of week (0 = Sunday … 6 = Saturday) – use a local Date so the
+  // JS engine's getDay() gives us the correct value for that calendar date.
+  const dow = new Date(yr, mo - 1, da).getDay();
+
+  const toISO = (d: Date): string =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  const sundayLocal = new Date(yr, mo - 1, da - dow);
+  const saturdayLocal = new Date(yr, mo - 1, da - dow + 6);
+
+  /**
+   * Converts a YYYY-MM-DD date string to the UTC Date that represents
+   * 00:00:00 on that calendar day in the Jerusalem timezone.
+   *
+   * Trick: start from noon UTC (which is always "today" in Jerusalem for
+   * any plausible timezone offset), read back the Jerusalem wall-clock
+   * time, then subtract those elapsed hours/minutes/seconds to land at
+   * Jerusalem midnight.
+   */
+  function midnightJerusalemToUTC(dateStr: string): Date {
+    const noonUTC = new Date(`${dateStr}T12:00:00Z`);
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: TZ,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).formatToParts(noonUTC);
+
+    const h = parseInt(parts.find((p) => p.type === 'hour')!.value, 10);
+    const m = parseInt(parts.find((p) => p.type === 'minute')!.value, 10);
+    const s = parseInt(parts.find((p) => p.type === 'second')!.value, 10);
+
+    return new Date(noonUTC.getTime() - (h * 3_600_000 + m * 60_000 + s * 1_000));
+  }
+
+  const weekStartDate = midnightJerusalemToUTC(toISO(sundayLocal));
+  const saturdayMidnight = midnightJerusalemToUTC(toISO(saturdayLocal));
+  // End of week = Saturday 23:59:59.999 Jerusalem
+  const weekEndDate = new Date(saturdayMidnight.getTime() + 24 * 3_600_000 - 1);
+
+  return { weekStart: weekStartDate.toISOString(), weekEnd: weekEndDate.toISOString() };
+}
+
+export type WeeklyScheduleRow = {
+  id: string;
+  studentId: string;
+  subjectId: string | null;
+  teacherProfileId: string;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+};
+
+/**
+ * Returns all scheduled/completed lessons for the given student IDs that
+ * fall within the current week (Asia/Jerusalem timezone, Sun–Sat).
+ */
+export async function getWeeklyFamilySchedule(
+  childIds: string[],
+): Promise<WeeklyScheduleRow[]> {
+  if (childIds.length === 0) return [];
+
+  const { weekStart, weekEnd } = getJerusalemWeekBounds();
+
+  const { data, error } = await adminClient()
+    .from('lessons')
+    .select('id,student_id,subject_id,teacher_id,scheduled_start_at,scheduled_end_at,status')
+    .in('student_id', childIds)
+    .gte('scheduled_start_at', weekStart)
+    .lte('scheduled_start_at', weekEnd)
+    .in('status', ['scheduled', 'completed'])
+    .order('scheduled_start_at', { ascending: true });
+
+  if (error) throw new AppError('Failed to load weekly schedule', 500);
+  if (!data) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data as any[]).map((row) => ({
+    id: row.id as string,
+    studentId: row.student_id as string,
+    subjectId: row.subject_id as string | null,
+    teacherProfileId: row.teacher_id as string,
+    startsAt: row.scheduled_start_at as string,
+    endsAt: row.scheduled_end_at as string,
+    status: row.status as string,
+  }));
+}
+
 // ── Approval flow ─────────────────────────────────────────────────────────────
 
 export async function getLessonConfirmationById(
