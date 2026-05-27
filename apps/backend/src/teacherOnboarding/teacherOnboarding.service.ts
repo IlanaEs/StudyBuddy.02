@@ -14,6 +14,9 @@ import {
   upsertOnboardingDraft,
   upsertTeacherProfile,
   updateUserFullName,
+  activateTeacherProfile,
+  replaceTeacherSubjects,
+  replaceTeacherAvailability,
 } from './teacherOnboarding.repository.js';
 
 const ACADEMIC_PATH_STATUSES = new Set([
@@ -171,8 +174,27 @@ export async function completeMyOnboarding(
   // Keep the users.full_name in sync with what the teacher entered
   await updateUserFullName(currentUser.id, body.fullName);
 
-  // Create or update the teacher profile
+  // Create profile row if it doesn't exist yet (sets hourly_rate, location_type)
   const teacherProfileId = await upsertTeacherProfile(currentUser.id, body.hourlyRate);
+
+  // Extract draft arrays — draft blob is Record<string, unknown>
+  const draft = body.draft ?? {};
+  const selectedSubjects = Array.isArray(draft['selectedSubjects']) ? (draft['selectedSubjects'] as string[]) : [];
+  const teachingLevels = Array.isArray(draft['teachingLevels']) ? (draft['teachingLevels'] as string[]) : [];
+  const weeklyTimeBlocks = Array.isArray(draft['weeklyTimeBlocks']) ? (draft['weeklyTimeBlocks'] as string[]) : [];
+  const weeklyAvailability = Array.isArray(draft['weeklyAvailability']) ? (draft['weeklyAvailability'] as string[]) : [];
+
+  // Write availability_slots (replace strategy; errors are fatal so the profile is not activated on partial write)
+  await replaceTeacherAvailability(teacherProfileId, weeklyTimeBlocks, weeklyAvailability);
+
+  // Write teacher_subjects — best-effort: requires subjects table to be seeded
+  await replaceTeacherSubjects(teacherProfileId, selectedSubjects, teachingLevels[0] ?? null);
+
+  // Activate last — only after all relations are written
+  await activateTeacherProfile(teacherProfileId, {
+    hourlyRate: body.hourlyRate,
+    professionalStatus: body.professionalStatus,
+  });
 
   return {
     teacherProfileId,
