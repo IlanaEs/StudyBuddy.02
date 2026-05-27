@@ -12,7 +12,12 @@ export async function ensureStudentProfile(
   body: CreateStudentProfileBody,
 ): Promise<CreateStudentProfileResult> {
   if (role !== 'student' && role !== 'parent') {
-    throw new AppError('Student profiles are only created for student and parent accounts', 403);
+    throw new AppError('החשבון המחובר לא מתאים למסלול שנבחר.', 403);
+  }
+
+  const expectedRole = body.account_type === 'parent_for_child' ? 'parent' : 'student';
+  if (role !== expectedRole) {
+    throw new AppError('החשבון המחובר לא מתאים למסלול שנבחר.', 403);
   }
 
   // Idempotent: return existing profile if one already exists for this user
@@ -26,7 +31,7 @@ export async function ensureStudentProfile(
     }
     studentId = await insertChildProfile(userId, body.child_name, body.grade_level ?? null);
   } else {
-    studentId = await insertStudentProfile(userId, body.full_name, body.grade_level ?? null);
+    studentId = await insertStudentProfile(userId, body.full_name ?? '', body.grade_level ?? null);
   }
 
   return { student_id: studentId };
