@@ -2,7 +2,6 @@
 
 import { AppError } from '../errors/AppError.js';
 import { assertStudentAccess } from '../auth/ownership.js';
-import { withTransaction } from '../db/transaction.js';
 import type { LocalUser } from '../auth/authTypes.js';
 import type {
   FallbackPhase,
@@ -14,12 +13,9 @@ import type {
   ScoredMatch,
 } from './matching.types.js';
 import {
-  deleteMatchResults,
   findInitialTeacherCandidates,
   getStudentIntakeById,
-  insertMatchResults,
-  lockIntakeForUpdate,
-  updateIntakeStatus,
+  replaceMatchResults,
 } from './matching.repository.js';
 import { applyHardFilters, type FilterContext } from './matching.filters.js';
 import { scoreAndRankCandidates } from './matching.scoring.js';
@@ -33,7 +29,7 @@ const MATCHING_VERSION = 'v1';
 // Ordered from most-strict to most-permissive.
 // The service runs all phases in-memory and stops at the first phase that
 // produces enough results. No results are written to the DB here — that is
-// deferred to the write layer (matching.repository write functions, transaction).
+// deferred to the write layer.
 const FALLBACK_PHASES: { phase: FallbackPhase; context: FilterContext }[] = [
   {
     phase: 'strict',
@@ -170,30 +166,10 @@ export async function runMatching(
     wasSelected: false,
   }));
 
-  // ── Transaction: lock → delete → insert → update ──────────────────────────
-  let insertedRows: Awaited<ReturnType<typeof insertMatchResults>> = [];
-
-  await withTransaction(async (sql) => {
-    const lock = await lockIntakeForUpdate(sql, intakeId);
-    if (!lock) {
-      throw new AppError('Student intake not found', 404);
-    }
-
-    // Only 'closed' intakes are permanently ineligible. 'matched' intakes may
-    // be re-run to refresh results (idempotent by design: delete then insert).
-    if (lock.status === 'closed') {
-      throw new AppError("Cannot run matching on a closed intake", 422);
-    }
-
-    await deleteMatchResults(sql, intakeId);
-
-    if (matchRows.length > 0) {
-      insertedRows = await insertMatchResults(sql, matchRows);
-    }
-
-    const nextStatus = matchRows.length > 0 ? 'matched' : 'open';
-    await updateIntakeStatus(sql, intakeId, nextStatus);
-  });
+  // ── Persist: delete previous results → insert fresh ranked matches → update status.
+  // Uses Supabase Admin client so local E2E works with hosted Supabase projects
+  // where a direct DATABASE_URL connection may be unavailable.
+  const insertedRows = await replaceMatchResults(intakeId, matchRows);
 
   const scoredByTeacherId = new Map(scored.map((match) => [match.candidate.teacherProfileId, match]));
   const matches: MatchApiEntry[] = insertedRows.map((row) => {
