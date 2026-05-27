@@ -16,6 +16,7 @@ import { BookingConfirmationPage } from '../features/matching/pages/BookingConfi
 import { TeacherOnboardingPage } from '../pages/TeacherOnboardingPage';
 import { ParentDashboardPage } from '../pages/ParentDashboardPage';
 import { TeacherBookingInboxPage } from '../pages/TeacherBookingInboxPage';
+import { TeacherLessonManagePage } from '../pages/TeacherLessonManagePage';
 
 export function App() {
   return (
@@ -52,6 +53,14 @@ export function App() {
           element={
             <ProtectedRoute allowedRoles={['teacher']}>
               <TeacherBookingInboxPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teacher/lessons"
+          element={
+            <ProtectedRoute allowedRoles={['teacher']}>
+              <TeacherLessonManagePage />
             </ProtectedRoute>
           }
         />
