@@ -36,11 +36,11 @@ export function createApp() {
   app.use('/api/lessons', lessonsRouter);
   app.use('/api/matching', matchingRouter);
   app.use('/api/student-intakes', studentIntakesRouter);
+  app.use('/api/teachers', teacherOnboardingRouter);
   app.use('/api/teachers', teacherRouter);
   app.use('/api/teacher-availability', teacherAvailabilityRouter);
   app.use('/api/teacher-scheduling-preferences', teacherSchedulingPreferencesRouter);
   app.use('/api/teacher-availability-exceptions', teacherAvailabilityExceptionsRouter);
-  app.use('/api/teachers', teacherOnboardingRouter);
   app.use('/api/students', studentsRouter);
   app.use('/api/student-availability', studentAvailabilityRouter);
   app.use('/api/parents/me', parentDashboardRouter);

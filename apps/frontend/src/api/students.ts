@@ -66,12 +66,11 @@ export async function completeOAuthSignup(
   fullName: string,
   accessToken: string,
 ): Promise<ApiResponse<OAuthSignupResult>> {
-  const role: 'student' | 'parent' = accountType === 'parent_for_child' ? 'parent' : 'student';
   return apiRequest<OAuthSignupResult>(
     '/auth/complete-oauth-signup',
     {
       method: 'POST',
-      body: JSON.stringify({ role, full_name: fullName }),
+      body: JSON.stringify({ account_type: accountType, full_name: fullName }),
     },
     accessToken,
   );
