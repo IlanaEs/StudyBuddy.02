@@ -6,6 +6,14 @@ import { apiRequest } from '../api/client';
 import type { AuthPayload, LocalUser, MeProfile, UserRole } from './authTypes';
 import { getSupabaseBrowserClient } from './supabaseClient';
 import { GCAL_PROVIDER_TOKEN_KEY } from './sessionStorageKeys';
+import {
+  type QaRole,
+  authorizeQaHeader,
+  clearQaRoleOverride,
+  getQaRoleOverride,
+  isEligibleForAdminQa,
+  setQaRoleOverride,
+} from '../adminQa/adminQaMode';
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
@@ -23,6 +31,12 @@ type AuthContextValue = {
    *  (e.g. completing teacher onboarding) so the in-memory context reflects
    *  the new DB state without requiring a full page reload. */
   refreshProfile: () => Promise<void>;
+  /** Active QA role override (sessionStorage only, admin-only, cleared on logout). */
+  qaRole: QaRole | null;
+  /** Set or clear the QA role override. No-ops for non-admin users. */
+  setQaRole: (role: QaRole | null) => void;
+  /** The role used for routing/access checks: qaRole when set, otherwise user.role. */
+  effectiveRole: UserRole | null;
 };
 
 type LoginInput = {
@@ -49,9 +63,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<MeProfile>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Never initialized from sessionStorage directly — restored only after
+  // resolveSession confirms an eligible authenticated user.
+  const [qaRole, setQaRoleState] = useState<QaRole | null>(null);
+
+  // Sync the module-level authorized header store whenever qaRole changes.
+  // This keeps client.ts header injection in sync without needing auth context.
+  useEffect(() => {
+    authorizeQaHeader(qaRole);
+  }, [qaRole]);
+
+  const setQaRole = useCallback((role: QaRole | null) => {
+    if (role !== null && !isEligibleForAdminQa(user?.email, user?.role)) {
+      clearQaRoleOverride();
+      setQaRoleState(null);
+      return;
+    }
+    if (role === null) {
+      clearQaRoleOverride();
+    } else {
+      setQaRoleOverride(role);
+    }
+    setQaRoleState(role);
+  }, [user]);
 
   const resolveSession = useCallback(async (nextSession: Session | null) => {
     if (!nextSession?.access_token) {
+      clearQaRoleOverride();
+      setQaRoleState(null);
       sessionStorage.removeItem(PROVIDER_TOKEN_KEY);
       setSession(null);
       setUser(null);
@@ -78,6 +117,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await apiRequest<{ user: LocalUser; profile: MeProfile }>('/api/auth/me', undefined, effectiveSession.access_token);
 
     if ('error' in response) {
+      clearQaRoleOverride();
+      setQaRoleState(null);
       setSession(null);
       setUser(null);
       setProfile(null);
@@ -103,10 +144,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return effectiveSession;
     });
-    setUser(response.data.user);
+    const resolvedUser = response.data.user;
+    setUser(resolvedUser);
     setProfile(response.data.profile ?? null);
     setStatus('authenticated');
     setError(null);
+    // Restore QA role from sessionStorage only if the confirmed user is eligible.
+    // Clears any stale override if the user changed or is no longer eligible.
+    if (isEligibleForAdminQa(resolvedUser.email, resolvedUser.role)) {
+      setQaRoleState(getQaRoleOverride());
+    } else {
+      clearQaRoleOverride();
+      setQaRoleState(null);
+    }
   }, []);
 
   useEffect(() => {
@@ -157,6 +207,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return () => subscription.unsubscribe();
       } catch (unknownError) {
         if (isMounted) {
+          clearQaRoleOverride();
+          setQaRoleState(null);
           setError(unknownError instanceof Error ? unknownError.message : 'Authentication is not configured');
           setSession(null);
           setUser(null);
@@ -281,19 +333,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiRequest('/api/auth/logout', { method: 'POST' }, currentToken);
     }
 
+    clearQaRoleOverride();
     sessionStorage.removeItem(PROVIDER_TOKEN_KEY);
     sessionStorage.removeItem(GCAL_PROVIDER_TOKEN_KEY);
     const supabase = getSupabaseBrowserClient();
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);
+    setQaRoleState(null);
     setStatus('unauthenticated');
     setError(null);
   }, [session]);
 
   const value = useMemo(
-    () => ({ status, user, profile, session, error, login, signup, logout, refreshProfile }),
-    [error, login, logout, profile, refreshProfile, session, signup, status, user],
+    () => {
+      const eligibleQaRole = isEligibleForAdminQa(user?.email, user?.role) ? qaRole : null;
+      return {
+        status, user, profile, session, error, login, signup, logout, refreshProfile,
+        qaRole, setQaRole,
+        effectiveRole: (eligibleQaRole ?? user?.role) ?? null,
+      };
+    },
+    [error, login, logout, profile, refreshProfile, session, signup, status, user, qaRole, setQaRole],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

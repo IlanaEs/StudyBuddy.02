@@ -24,7 +24,7 @@ export function createApp() {
 
   app.use(cors({
     origin: env.FRONTEND_ORIGIN,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Provider-Token'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Provider-Token', 'X-Admin-QA-Role'],
   }));
   app.use(express.json());
 
