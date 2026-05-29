@@ -15,18 +15,53 @@ import {
 } from '../../components/landing/LandingComponents';
 import { teachersLandingContent } from '../../content/landing/teachersLandingContent';
 
+const teacherLandingAssets = {
+  background: '/images/landing/teacher/teacher-landing-background-foundation.png',
+  decorationLeft: '/images/landing/teacher/teacher-landing-decoration-left.png',
+  decorationRight: '/images/landing/teacher/teacher-landing-decoration-right.png',
+  productMockup: '/images/landing/teacher/teacher-landing-product-mockup.png',
+} as const;
+
+function TeacherLandingBackground() {
+  return (
+    <div
+      className="teacher-landing-background"
+      style={{ backgroundImage: `url(${teacherLandingAssets.background})` }}
+      aria-hidden="true"
+    />
+  );
+}
+
+function TeacherHeroVisualLayers() {
+  return (
+    <div className="teacher-hero-visual-layers" aria-hidden="true">
+      <img
+        className="teacher-hero-asset teacher-hero-decoration teacher-hero-decoration-left"
+        src={teacherLandingAssets.decorationLeft}
+        alt=""
+      />
+      <img
+        className="teacher-hero-asset teacher-hero-product-mockup"
+        src={teacherLandingAssets.productMockup}
+        alt=""
+      />
+      <img
+        className="teacher-hero-asset teacher-hero-decoration teacher-hero-decoration-right"
+        src={teacherLandingAssets.decorationRight}
+        alt=""
+      />
+    </div>
+  );
+}
+
 export function TeachersLandingRoute() {
   const content = teachersLandingContent;
 
   return (
     <div className="landing-page teacher-page" dir="rtl" lang="he">
+      <TeacherLandingBackground />
       <section className="landing-section teacher-hero teacher-hero-complete" dir="rtl" aria-labelledby="teacher-landing-title">
-        <div className="memphis-layer" aria-hidden="true">
-          <span className="shape shape-one" />
-          <span className="shape shape-two" />
-          <span className="shape shape-three" />
-          <span className="shape shape-four" />
-        </div>
+        <TeacherHeroVisualLayers />
         <nav className="landing-nav" aria-label="ניווט עמוד מורים">
           <Link className="brand-lockup" to="/">
             <img alt="StudyBuddy" src="/assets/logo_s.png" />

@@ -91,6 +91,27 @@ a {
   overflow-x: hidden;
 }
 
+.teacher-page {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+}
+
+.teacher-page > :not(.teacher-landing-background) {
+  position: relative;
+  z-index: 1;
+}
+
+.teacher-landing-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+}
+
 .landing-section {
   position: relative;
   width: min(1280px, calc(100% - 56px));
@@ -107,6 +128,62 @@ a {
   flex-direction: column;
   justify-content: space-between;
   padding-top: 0;
+}
+
+.teacher-hero {
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.teacher-page .teacher-hero::after {
+  display: none;
+}
+
+.teacher-hero > .landing-nav,
+.teacher-hero-layout {
+  position: relative;
+  z-index: 4;
+}
+
+.teacher-hero-visual-layers {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.teacher-hero-asset {
+  position: absolute;
+  max-width: none;
+  height: auto;
+  object-fit: contain;
+  user-select: none;
+}
+
+.teacher-hero-decoration {
+  bottom: max(0px, calc(100% - 100dvh));
+  width: min(100vw, 1366px);
+  opacity: 0.82;
+}
+
+.teacher-hero-decoration-left {
+  left: 0;
+}
+
+.teacher-hero-decoration-right {
+  right: 0;
+}
+
+.teacher-hero-product-mockup {
+  right: clamp(-120px, -7vw, -48px);
+  bottom: max(0px, calc(100% - 100dvh + 12px));
+  z-index: 2;
+  width: min(72vw, 980px);
+  opacity: 0.96;
+  filter:
+    drop-shadow(0 34px 46px rgba(0, 0, 0, 0.38))
+    drop-shadow(0 0 32px rgba(90, 232, 226, 0.12));
 }
 
 .landing-hero::after,
@@ -1418,15 +1495,20 @@ a {
 
 .teacher-hero-layout {
   position: relative;
-  z-index: 2;
+  z-index: 4;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(330px, 0.72fr);
-  gap: 22px;
+  grid-template-columns: minmax(430px, 0.68fr) minmax(360px, 0.54fr);
+  gap: clamp(22px, 4vw, 54px);
   align-items: stretch;
-  padding: 82px 0 108px;
+  padding: 82px 0 124px;
+  direction: ltr;
 }
 
 .teacher-hero-body {
+  grid-column: 1;
+  align-self: center;
+  direction: rtl;
+  unicode-bidi: isolate;
   display: grid;
   gap: 22px;
   border: 1px solid var(--line-2);
@@ -1440,6 +1522,20 @@ a {
     0 1px 0 rgba(255, 255, 255, 0.07) inset,
     0 34px 82px -54px rgba(0, 0, 0, 0.95),
     0 64px 120px -92px rgba(90, 232, 226, 0.76);
+}
+
+.teacher-os-preview {
+  grid-column: 2;
+  align-self: end;
+  direction: rtl;
+  unicode-bidi: isolate;
+  margin-block-end: 24px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.042) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.042) 1px, transparent 1px),
+    rgba(7, 28, 28, 0.68);
+  backdrop-filter: blur(8px);
+  opacity: 0.92;
 }
 
 .teacher-hero-body > p {
@@ -1765,6 +1861,26 @@ a {
 }
 
 @media (max-width: 1020px) {
+  .teacher-hero-decoration {
+    width: min(92vw, 1040px);
+    opacity: 0.58;
+  }
+
+  .teacher-hero-decoration-left {
+    left: -5vw;
+  }
+
+  .teacher-hero-decoration-right {
+    right: -5vw;
+  }
+
+  .teacher-hero-product-mockup {
+    right: -28vw;
+    bottom: max(0px, calc(100% - 100dvh + 18px));
+    width: min(88vw, 760px);
+    opacity: 0.38;
+  }
+
   .hero-grid,
   .section-header,
   .value-manifesto-header,
@@ -1818,6 +1934,15 @@ a {
   .pricing-card:nth-child(2),
   .pricing-card:nth-child(2):hover {
     transform: none;
+  }
+
+  .teacher-hero-body,
+  .teacher-os-preview {
+    grid-column: auto;
+  }
+
+  .teacher-os-preview {
+    margin-block-end: 0;
   }
 
   .bento-grid,
@@ -2021,6 +2146,11 @@ a {
 }
 
 @media (max-width: 680px) {
+  .teacher-hero-decoration,
+  .teacher-hero-product-mockup {
+    display: none;
+  }
+
   .landing-section {
     width: min(100% - 28px, 1280px);
     padding: 62px 0;
