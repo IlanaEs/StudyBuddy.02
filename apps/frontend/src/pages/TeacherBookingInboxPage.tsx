@@ -265,9 +265,13 @@ export function TeacherBookingInboxPage() {
 
     const lesson = result.data.lesson;
     if (response === 'approve') {
+      // The lesson is always created on approval. The Google Meet link is
+      // best-effort: if Calendar wasn't connected or the call failed, the
+      // lesson still exists — surface that as a non-blocking notice rather
+      // than implying something broke.
       const meetMsg = lesson?.meetingLink
         ? ' קישור Google Meet נוצר ויופיע לתלמיד לפני השיעור.'
-        : '';
+        : ' (לא נוצר קישור Google Meet — ניתן להוסיף קישור ידנית מאוחר יותר.)';
       showToast(`השיעור אושר בהצלחה!${meetMsg}`);
     } else {
       showToast('הבקשה נדחתה.');

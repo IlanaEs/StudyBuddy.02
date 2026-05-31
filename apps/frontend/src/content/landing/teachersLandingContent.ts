@@ -2,23 +2,15 @@ import type { LandingFaqSection } from './mainLandingContent';
 
 export const teachersLandingContent = {
   brand: 'StudyBuddy – המערכת לניהול הוראה פרטית.',
-  stats: [
-    { value: '200+', label: 'מורים פעילים במערכת' },
-    { value: '95%', label: 'שביעות רצון מתלמידים' },
-    { value: '3 דק׳', label: 'זמן הגדרה ממוצע' },
-    { value: '0₪', label: 'עלות הצטרפות ראשונית' },
-  ],
   hero: {
-    title: 'המערכת שמנהלת את ההוראה הפרטית בשבילכם.\nתנו למערכת לנהל את הבלגן.',
-    body: 'המערכת שמנהלת עבורכם את "מאחורי הקלעים" של ההוראה הפרטית. מהתיאום ועד התשלום – הכל במקום אחד, כדי שתוכלו להתמקד במה שאתם באמת אוהבים: ללמד.',
+    body: 'בלי מרדפים אחרי תשלומים, בלי בלגן בוואטסאפ ובלי לאבד ידיים ורגליים. StudyBuddy מספקת לך מערכת OS מלאה לניהול התלמידים, הלו"ז והפדגוגיה — כדי שיהיה לך חופש פשוט ללמד.',
     primaryCta: {
-      label: 'יצירת פרופיל והצטרפות',
-      note: 'ללא דמי מנוי למצטרפים חדשים',
+      label: 'להגשת מועמדות מהירה',
       to: '/teacher-onboarding',
     },
     secondaryCta: {
-      label: 'חזרה למסך תלמידים ->',
-      to: '/',
+      label: 'התחברות ל-Teacher OS',
+      to: '/login',
     },
   },
   process: {
@@ -135,7 +127,7 @@ export const teachersLandingContent = {
         icon: 'free',
         headline: 'להתחיל בלי התחייבות',
         audience: 'למורים שרוצים להתחיל גמיש',
-        price: '0₪ דמי מנוי',
+        price: 'ללא דמי מנוי',
         commission: 'עמלה של 7% רק על שיעורים שמתקיימים בפועל.',
         note: 'כפוף לאישור פרופיל וזמינות במערכת.',
         includesTitle: 'מה כלול?',

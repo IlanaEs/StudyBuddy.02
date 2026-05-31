@@ -1,7 +1,6 @@
 // Business logic only. No DB access. No HTTP concerns.
 
 import { AppError } from '../errors/AppError.js';
-import { withTransaction } from '../db/transaction.js';
 import type { LocalUser } from '../auth/authTypes.js';
 import type {
   CreateBookingRequestBody,
@@ -17,13 +16,12 @@ import {
   getActiveBookingRequestForIntake,
   getBookingRequestById,
   getLessonByBookingRequestId,
-  checkOverlappingScheduledLessonTx,
-  insertBookingRequest,
-  markMatchResultSelected,
+  checkOverlappingScheduledLessonViaClient,
+  insertBookingRequestViaClient,
+  markMatchResultSelectedViaClient,
   updateBookingRequestStatus,
-  updateBookingRequestStatusTx,
   updateLessonMeetingLink,
-  insertLesson,
+  insertLessonViaClient,
   getBookingRequestsByTeacherId,
   batchGetStudentNamesByStudentIds,
 } from './bookingRequests.repository.js';
@@ -123,23 +121,22 @@ export async function createBookingRequest(
     throw new AppError('An active booking request already exists for this intake', 409);
   }
 
-  // ── Transaction: insert booking + update match_results selection ──────────
-  let createdBooking: BookingRequestRow | null = null;
-
-  await withTransaction(async (sql) => {
-    createdBooking = await insertBookingRequest(sql, {
-      studentId: intake.studentId,
-      teacherId: matchResult.teacherId,
-      matchResultId: body.match_result_id,
-      requestedStartAt: body.requested_start_at,
-      requestedEndAt: body.requested_end_at,
-      studentMessage: body.student_message ?? null,
-    });
-
-    await markMatchResultSelected(sql, body.match_result_id, matchResult.intakeId);
+  // ── Insert booking + mark the chosen match selected ───────────────────────
+  // Sequential Supabase-client writes (no direct Postgres connection available
+  // on the hosted project). The booking row is the source of truth; the
+  // match_results selection flag is a non-critical follow-up update.
+  const createdBooking = await insertBookingRequestViaClient({
+    studentId: intake.studentId,
+    teacherId: matchResult.teacherId,
+    matchResultId: body.match_result_id,
+    requestedStartAt: body.requested_start_at,
+    requestedEndAt: body.requested_end_at,
+    studentMessage: body.student_message ?? null,
   });
 
-  return createdBooking!;
+  await markMatchResultSelectedViaClient(body.match_result_id, matchResult.intakeId);
+
+  return createdBooking;
 }
 
 // ── Respond to Booking Request ────────────────────────────────────────────────
@@ -209,59 +206,50 @@ export async function respondToBookingRequest(
       60_000,
   );
 
-  // ── Atomic transaction: conflict check + update booking_request + insert lesson
-  let updatedBookingRequest: BookingRequestRow | null = null;
-  let createdLesson: LessonRow | null = null;
+  // ── Conflict check → approve booking → insert lesson ──────────────────────
+  // Sequential Supabase-client writes (no direct Postgres connection on the
+  // hosted project). The overlap guard runs first and throws 409 if the
+  // teacher already has a scheduled lesson in this window, leaving the booking
+  // pending. Strict cross-step atomicity is a documented limitation; the
+  // duplicate-lesson unique constraint remains the backstop against doubles.
+  await checkOverlappingScheduledLessonViaClient(
+    bookingRequest.teacherId,
+    bookingRequest.requestedStartAt,
+    bookingRequest.requestedEndAt,
+  );
 
-  await withTransaction(async (sql) => {
-    // Availability conflict guard runs first so the check and the subsequent
-    // INSERT share the same transaction boundary. Throws 409 if overlap found;
-    // the whole transaction rolls back and booking_request stays pending.
-    await checkOverlappingScheduledLessonTx(
-      sql,
-      bookingRequest.teacherId,
-      bookingRequest.requestedStartAt,
-      bookingRequest.requestedEndAt,
-    );
+  const updatedBookingRequest = await updateBookingRequestStatus(bookingRequestId, {
+    status: 'approved',
+    teacherResponseMessage: teacherMsg,
+  });
 
-    updatedBookingRequest = await updateBookingRequestStatusTx(sql, bookingRequestId, {
-      status: 'approved',
-      teacherResponseMessage: teacherMsg,
-    });
-
-    createdLesson = await insertLesson(sql, {
-      bookingRequestId,
-      teacherId: bookingRequest.teacherId,
-      studentId: bookingRequest.studentId,
-      subjectId: intake.subjectId,
-      scheduledStartAt: bookingRequest.requestedStartAt,
-      scheduledEndAt: bookingRequest.requestedEndAt,
-      durationMinutes,
-      locationType: intake.locationPreference,
-    });
+  let createdLesson: LessonRow = await insertLessonViaClient({
+    bookingRequestId,
+    teacherId: bookingRequest.teacherId,
+    studentId: bookingRequest.studentId,
+    subjectId: intake.subjectId,
+    scheduledStartAt: bookingRequest.requestedStartAt,
+    scheduledEndAt: bookingRequest.requestedEndAt,
+    durationMinutes,
+    locationType: intake.locationPreference,
   });
 
   // ── Best-effort: create Google Calendar event with Meet link ─────────────
-  // Runs outside the transaction so a calendar failure never rolls back the
-  // lesson. If anything goes wrong (expired token, insufficient scope, network
-  // error) we silently skip — the lesson is still valid without a Meet link.
-  //
-  // Snapshot into a const so TypeScript can narrow it — TypeScript 5.x loses the
-  // narrowed type of `let` variables mutated inside async callbacks. The cast is
-  // safe: insertLesson always returns LessonRow (throws on failure).
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-  const lessonSnapshot = createdLesson as LessonRow | null;
-  if (googleProviderToken && lessonSnapshot) {
+  // A calendar failure never affects the already-created lesson. If anything
+  // goes wrong (expired token, insufficient scope, network error) we skip the
+  // Meet link — the lesson is still valid and the client surfaces a
+  // non-blocking notice based on the null meetingLink.
+  if (googleProviderToken) {
     const meetUrl = await createGoogleCalendarEventWithMeet(
       googleProviderToken,
       'שיעור StudyBuddy',
-      lessonSnapshot.scheduledStartAt,
-      lessonSnapshot.scheduledEndAt,
+      createdLesson.scheduledStartAt,
+      createdLesson.scheduledEndAt,
     );
     if (meetUrl) {
       try {
-        await updateLessonMeetingLink(lessonSnapshot.id, meetUrl);
-        createdLesson = { ...lessonSnapshot, meetingLink: meetUrl };
+        await updateLessonMeetingLink(createdLesson.id, meetUrl);
+        createdLesson = { ...createdLesson, meetingLink: meetUrl };
       } catch (err) {
         // Persist failure is non-fatal: the lesson is already approved and
         // created. Log and continue — the response will omit the Meet link
@@ -271,5 +259,5 @@ export async function respondToBookingRequest(
     }
   }
 
-  return { bookingRequest: updatedBookingRequest!, lesson: createdLesson! };
+  return { bookingRequest: updatedBookingRequest, lesson: createdLesson };
 }

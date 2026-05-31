@@ -1179,7 +1179,7 @@ type DraftStatus = 'idle' | 'saving' | 'saved' | 'save-error';
 
 export function TeacherOnboardingPage() {
   const navigate = useNavigate();
-  const { status, session, login, signup, refreshProfile } = useAuth();
+  const { status, user, profile, session, login, signup, refreshProfile } = useAuth();
   const [step, setStep] = useState(1);
   const [data, setData] = useState<TeacherOnboardingData>(INITIAL_DATA);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
@@ -1202,6 +1202,14 @@ export function TeacherOnboardingPage() {
   const saveVersionRef = useRef(0);
   // Prevents double-submission when activateProfile is clicked quickly
   const isActivatingRef = useRef(false);
+
+  // If a teacher who already finished onboarding lands here (e.g. via back-button or
+  // a stale bookmark), send them to their dashboard immediately.
+  useEffect(() => {
+    if (user?.role === 'teacher' && profile?.onboardingCompleted === true) {
+      navigate('/teacher/dashboard', { replace: true });
+    }
+  }, [user, profile, navigate]);
 
   // ── Auth gate (shown between step 3 and step 4 for guests) ─────────────────
   const [showAuthGate, setShowAuthGate] = useState(false);

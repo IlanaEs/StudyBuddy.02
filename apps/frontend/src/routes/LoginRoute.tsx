@@ -2,6 +2,14 @@ import { FormEvent, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthProvider';
+import { getSupabaseBrowserClient } from '../auth/supabaseClient';
+import { getDashboardPathByRole } from '../utils/getDashboardPathByRole';
+
+const ONBOARDING_PREFIXES = ['/teacher-onboarding', '/onboarding'];
+
+function isOnboardingPath(path: string): boolean {
+  return ONBOARDING_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
 
 function getRedirectPath(state: unknown): string {
   if (
@@ -11,7 +19,8 @@ function getRedirectPath(state: unknown): string {
     typeof state.from === 'object' &&
     state.from !== null &&
     'pathname' in state.from &&
-    typeof state.from.pathname === 'string'
+    typeof state.from.pathname === 'string' &&
+    !isOnboardingPath(state.from.pathname)
   ) {
     return state.from.pathname;
   }
@@ -26,63 +35,120 @@ export function LoginRoute() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const redirectTo = getRedirectPath(location.state);
 
   if (auth.status === 'authenticated') {
-    return <Navigate replace to={redirectTo} />;
+    return <Navigate replace to={getDashboardPathByRole(auth.effectiveRole)} />;
+  }
+
+  async function handleGoogleLogin() {
+    setFormError(null);
+    const supabase = getSupabaseBrowserClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+    if (error) {
+      setFormError('לא ניתן להתחבר עם Google כרגע. נסו שוב.');
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
+    setIsSubmitting(true);
 
     try {
       await auth.login({ email, password });
       navigate(redirectTo, { replace: true });
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : 'Unable to log in');
+      const message = error instanceof Error ? error.message : 'לא ניתן להשלים את הכניסה כרגע. נסו שוב.';
+      setFormError(message);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
+  const errorMessage = formError ?? auth.error;
+  const isBusy = isSubmitting || auth.status === 'loading';
+
   return (
-    <div className="w-full max-w-md">
-      <p className="mb-3 text-sm uppercase text-studybuddy-lime">Authentication foundation</p>
-      <h1 className="font-display text-4xl font-semibold">Sign in</h1>
-      <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
-        <label className="block">
-          <span className="text-sm text-white/72">Email</span>
-          <input
-            className="mt-2 w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none transition focus:border-studybuddy-turquoise focus:ring-2 focus:ring-studybuddy-turquoise/30"
-            onChange={(event) => setEmail(event.target.value)}
-            type="email"
-            value={email}
-          />
-        </label>
-        <label className="block">
-          <span className="text-sm text-white/72">Password</span>
-          <input
-            className="mt-2 w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none transition focus:border-studybuddy-turquoise focus:ring-2 focus:ring-studybuddy-turquoise/30"
-            onChange={(event) => setPassword(event.target.value)}
-            type="password"
-            value={password}
-          />
-        </label>
-        {(formError || auth.error) && <p className="text-sm text-studybuddy-pink">{formError ?? auth.error}</p>}
-        <button
-          className="w-full rounded-2xl bg-studybuddy-turquoise px-5 py-3 font-semibold text-studybuddy-teal shadow-glow transition hover:-translate-y-0.5 disabled:opacity-60"
-          disabled={auth.status === 'loading'}
-          type="submit"
-        >
-          Sign in
+    <div className="auth-page">
+      <div className="auth-card">
+        <header className="auth-header">
+          <span className="auth-brand">
+            <img alt="StudyBuddy" src="/assets/logo_s.png" />
+          </span>
+          <h1 className="auth-title">ברוכים השבים</h1>
+          <p className="auth-subtitle">היכנסו כדי להמשיך לנהל את הלמידה, השיעורים והלו״ז שלכם.</p>
+        </header>
+
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <label className="auth-field">
+            <span className="auth-label">אימייל</span>
+            <input
+              autoComplete="email"
+              className="auth-input"
+              dir="ltr"
+              onChange={(event) => setEmail(event.target.value)}
+              type="email"
+              value={email}
+            />
+          </label>
+          <label className="auth-field">
+            <span className="auth-label">סיסמה</span>
+            <input
+              autoComplete="current-password"
+              className="auth-input"
+              dir="ltr"
+              onChange={(event) => setPassword(event.target.value)}
+              type="password"
+              value={password}
+            />
+          </label>
+          {errorMessage && (
+            <p className="auth-error" role="alert">
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9" />
+                <line x1="12" y1="8" x2="12" y2="13" />
+                <line x1="12" y1="16.5" x2="12" y2="16.5" />
+              </svg>
+              <span>{errorMessage}</span>
+            </p>
+          )}
+          <button className="auth-submit" disabled={isBusy} type="submit">
+            {isBusy ? (
+              <>
+                <span className="auth-spinner" aria-hidden="true" />
+                מתחברים…
+              </>
+            ) : (
+              'כניסה למערכת'
+            )}
+          </button>
+        </form>
+
+        <div className="auth-divider">
+          <span>או</span>
+        </div>
+
+        <button className="auth-google" disabled={isBusy} onClick={handleGoogleLogin} type="button">
+          <svg aria-hidden="true" height="18" viewBox="0 0 24 24" width="18">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          המשך באמצעות Google
         </button>
-      </form>
-      <p className="mt-5 text-sm text-white/64">
-        Need a foundation account?{' '}
-        <Link className="text-studybuddy-turquoise" to="/signup">
-          Create one
-        </Link>
-      </p>
+
+        <p className="auth-footer">
+          עוד לא רשומים?{' '}
+          <Link to="/signup">מתחילים כאן</Link>
+        </p>
+      </div>
     </div>
   );
 }

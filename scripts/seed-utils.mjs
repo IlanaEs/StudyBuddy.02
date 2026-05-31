@@ -137,6 +137,44 @@ export function assertDemoSeedAllowed({ scriptName, envInfo, supabaseUrl, args }
   }
 }
 
+export function assertLocalOrDevelopmentOnly({ scriptName, env, supabaseUrl }) {
+  const rawStudyBuddyEnv = process.env.STUDYBUDDY_ENV ?? env.STUDYBUDDY_ENV;
+  const normalizedStudyBuddyEnv = rawStudyBuddyEnv?.toLowerCase();
+  const isLocalUrl = /localhost|127\.0\.0\.1|supabase_kong_studybuddy/i.test(supabaseUrl);
+
+  if (!['local', 'development'].includes(normalizedStudyBuddyEnv)) {
+    throw new Error(
+      `${scriptName}: refusing to run. Set STUDYBUDDY_ENV=local or STUDYBUDDY_ENV=development explicitly.`,
+    );
+  }
+
+  const productionSignals = [
+    ['NODE_ENV', process.env.NODE_ENV ?? env.NODE_ENV],
+    ['APP_ENV', process.env.APP_ENV ?? env.APP_ENV],
+    ['ENVIRONMENT', process.env.ENVIRONMENT ?? env.ENVIRONMENT],
+    ['VERCEL_ENV', process.env.VERCEL_ENV ?? env.VERCEL_ENV],
+  ].filter(([, value]) => ['production', 'prod'].includes(value?.toLowerCase()));
+
+  if (productionSignals.length > 0) {
+    const signalList = productionSignals.map(([key, value]) => `${key}=${value}`).join(', ');
+    throw new Error(`${scriptName}: refusing to run with production environment signal(s): ${signalList}.`);
+  }
+
+  if (normalizedStudyBuddyEnv === 'local' && !isLocalUrl) {
+    throw new Error(`${scriptName}: STUDYBUDDY_ENV=local requires a local Supabase URL. Target was ${supabaseUrl}.`);
+  }
+
+  if (normalizedStudyBuddyEnv === 'development' && !isLocalUrl) {
+    const confirmed = process.env.CONFIRM_REMOTE_DEVELOPMENT_USER_RESET === 'true';
+    if (!confirmed) {
+      throw new Error(
+        `${scriptName}: refusing to reset a remote development database without ` +
+          'CONFIRM_REMOTE_DEVELOPMENT_USER_RESET=true.',
+      );
+    }
+  }
+}
+
 export async function must(label, query) {
   const { data, error } = await query;
   if (error) throw new Error(`${label} failed: ${error.message}`);

@@ -6,25 +6,20 @@ import { isEligibleForAdminQa } from '../adminQa/adminQaMode';
 export function DashboardPlaceholderRoute() {
   const auth = useAuth();
 
-  // Authenticated parents (real or QA override) always go to the parent dashboard.
+  if (auth.status === 'authenticated' && auth.effectiveRole === 'teacher') {
+    return <Navigate replace to="/teacher/dashboard" />;
+  }
+
   if (auth.status === 'authenticated' && auth.effectiveRole === 'parent') {
     return <Navigate replace to="/parent/dashboard" />;
   }
 
-  // Profile is resolved from /api/auth/me after login. Wait for it before
-  // deciding on routing — avoids a flicker to the wrong screen.
-  if (auth.status === 'authenticated' && auth.user?.role === 'teacher' && auth.profile === null) {
-    return <div className="text-white/72">Loading…</div>;
+  if (auth.status === 'authenticated' && auth.effectiveRole === 'student') {
+    return <Navigate replace to="/student/dashboard" />;
   }
 
-  // Teachers who have not completed onboarding should go to the onboarding
-  // wizard, not the dashboard. profile.status === 'onboarding' is equivalent.
-  if (
-    auth.status === 'authenticated' &&
-    auth.user?.role === 'teacher' &&
-    auth.profile?.onboardingCompleted === false
-  ) {
-    return <Navigate replace to="/teacher-onboarding" />;
+  if (auth.status === 'authenticated' && auth.effectiveRole === 'admin') {
+    return <Navigate replace to="/admin/dashboard" />;
   }
 
   const showQaControls = isEligibleForAdminQa(auth.user?.email, auth.user?.role);

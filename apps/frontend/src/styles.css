@@ -2772,3 +2772,1009 @@ a {
 .wizard-cta-primary:active:not(:disabled) {
   transform: translateY(0);
 }
+
+/* ==================================================
+   LOGIN / AUTH SCREEN — premium centered Bento card
+   ========================================================= */
+
+.auth-page {
+  position: relative;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 48px 20px;
+  direction: rtl;
+  isolation: isolate;
+}
+
+/* CSS-only background: deep teal edges, soft turquoise center glow */
+.auth-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(120% 88% at 50% 36%, rgba(76, 231, 227, 0.18), transparent 56%),
+    radial-gradient(78% 64% at 50% 48%, rgba(31, 103, 102, 0.5), transparent 72%),
+    radial-gradient(150% 120% at 50% 116%, rgba(6, 35, 34, 0.92), transparent 58%),
+    linear-gradient(157deg, #0c413f 0%, #0a3534 46%, #072a29 100%);
+}
+
+/* very low-opacity dotted depth, faded toward edges */
+.auth-page::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(circle at 1px 1px, rgba(234, 245, 243, 0.035) 1px, transparent 0);
+  background-size: 30px 30px;
+  mask-image: radial-gradient(1000px 760px at 50% 40%, black 8%, transparent 76%);
+}
+
+.auth-card {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+  display: grid;
+  gap: 20px;
+  padding: 40px;
+  border: 1px solid var(--line-2);
+  border-radius: 24px;
+  background:
+    radial-gradient(120% 130% at 100% 0%, rgba(76, 231, 227, 0.12), transparent 55%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015)),
+    color-mix(in oklab, var(--surface) 76%, transparent);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 30px 62px -34px rgba(0, 0, 0, 0.72),
+    0 54px 104px -74px rgba(76, 231, 227, 0.55);
+  backdrop-filter: blur(22px) saturate(140%);
+}
+
+.auth-header {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  text-align: center;
+}
+
+.auth-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.auth-brand img {
+  width: 62px;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 26px rgba(0, 0, 0, 0.36)) drop-shadow(0 0 22px rgba(76, 231, 227, 0.24));
+}
+
+.auth-title {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.auth-subtitle {
+  margin: 0;
+  max-width: 38ch;
+  color: var(--text-2);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.auth-form {
+  display: grid;
+  gap: 16px;
+}
+
+.auth-field {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-label {
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.auth-input {
+  width: 100%;
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  padding: 13px 16px;
+  font: inherit;
+  font-size: 15px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.auth-input::placeholder {
+  color: var(--text-3);
+}
+
+.auth-input:focus {
+  outline: none;
+  border-color: color-mix(in oklab, var(--cyan) 60%, transparent);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 0 0 3px rgba(76, 231, 227, 0.16),
+    0 0 20px -4px rgba(76, 231, 227, 0.4);
+}
+
+.auth-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  border: 1px solid color-mix(in oklab, var(--coral) 48%, transparent);
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--coral) 13%, transparent);
+  padding: 12px 14px;
+  color: color-mix(in oklab, var(--coral) 86%, white);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.auth-error svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.auth-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid color-mix(in oklab, var(--cyan) 50%, black);
+  border-radius: 16px;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--cyan) 92%, white 8%), color-mix(in oklab, var(--cyan) 82%, black 10%));
+  color: #06302f;
+  cursor: pointer;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 16px 34px -18px rgba(76, 231, 227, 0.82);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.auth-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 20px 42px -16px rgba(76, 231, 227, 0.9);
+}
+
+.auth-submit:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+}
+
+.auth-submit:disabled {
+  cursor: wait;
+  opacity: 0.78;
+  filter: saturate(0.82);
+  transform: none;
+}
+
+.auth-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(6, 48, 47, 0.35);
+  border-top-color: #06302f;
+  animation: ob-spin 0.8s linear infinite;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.auth-divider span {
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.auth-google {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid var(--line-2);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.auth-google:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: color-mix(in oklab, var(--cyan) 35%, var(--line-2));
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.auth-google:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+}
+
+.auth-google:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.auth-footer {
+  margin: 0;
+  text-align: center;
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.auth-footer a {
+  color: var(--cyan);
+  font-weight: 700;
+}
+
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 540px) {
+  .auth-page {
+    padding: 28px 16px;
+  }
+
+  .auth-card {
+    padding: 30px 22px;
+    border-radius: 20px;
+  }
+
+  .auth-title {
+    font-size: 26px;
+  }
+}
+
+/* ============================================================
+   TEACHERS LANDING V2 — teacher-scoped styles
+   Restored from feat/teacher-landing-visual-foundation-v2.
+   Additive & isolated: only .teacher-* / .teacher-page-scoped
+   selectors. No shared/login/session/main-landing rules touched.
+   ============================================================ */
+.teacher-page {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+}
+
+.teacher-page > :not(.teacher-landing-background) {
+  position: relative;
+  z-index: 1;
+}
+
+.teacher-landing-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  opacity: 0.78;
+}
+
+.teacher-hero {
+  overflow: hidden;
+  isolation: isolate;
+  width: 100%;
+  /* top padding clears the fixed glass nav (64px height + 12px offset + 16px breathing) */
+  padding-top: 92px;
+}
+
+.teacher-hero-complete {
+  justify-content: flex-start;
+}
+
+.teacher-page .teacher-hero::after {
+  display: none;
+}
+
+.teacher-hero-layout {
+  position: relative;
+  z-index: 10;
+}
+
+.teacher-hero-visual-layers {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.teacher-hero-asset {
+  position: absolute;
+  max-width: none;
+  height: auto;
+  object-fit: contain;
+  user-select: none;
+}
+
+.teacher-hero-decoration {
+  bottom: max(0px, calc(100% - 100dvh));
+  width: min(110vw, 1480px);
+}
+
+.teacher-hero-decoration-left {
+  left: 0;
+  z-index: 1;
+}
+
+.teacher-hero-decoration-right {
+  right: 0;
+  z-index: 3;
+}
+
+.teacher-hero-product-mockup {
+  right: clamp(-20px, -1vw, 0px);
+  bottom: max(0px, calc(100% - 100dvh + 12px));
+  z-index: 2;
+  width: min(68vw, 940px);
+  filter:
+    drop-shadow(0 34px 46px rgba(0, 0, 0, 0.38))
+    drop-shadow(0 0 32px rgba(90, 232, 226, 0.12));
+}
+
+.teacher-page .landing-nav::before {
+  border-color: rgba(0, 246, 255, 0.18);
+  background:
+    linear-gradient(180deg, rgba(23, 86, 85, 0.82), rgba(7, 36, 37, 0.68)),
+    rgba(8, 43, 43, 0.72);
+  backdrop-filter: blur(20px) saturate(150%);
+  box-shadow:
+    0 22px 70px -44px rgba(0, 0, 0, 0.82),
+    0 0 0 1px rgba(0, 246, 255, 0.06) inset;
+}
+
+.teacher-glass-nav {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 30;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+  min-height: 64px;
+  border: 1px solid rgba(0, 246, 255, 0.17);
+  border-radius: 999px;
+  background: rgba(10, 30, 32, 0.84);
+  backdrop-filter: blur(28px) saturate(170%);
+  box-shadow:
+    0 0 0 1px rgba(90, 232, 226, 0.07) inset,
+    0 8px 32px -12px rgba(0, 0, 0, 0.55),
+    0 0 48px -30px rgba(0, 246, 255, 0.14);
+}
+
+.teacher-page .brand-lockup,
+.teacher-page .role-switcher {
+  text-shadow: 0 0 18px rgba(0, 246, 255, 0.12);
+}
+
+.teacher-page .teacher-hero h1 {
+  max-width: 760px;
+  font-size: clamp(38px, 4.8vw, 72px);
+  line-height: 1.06;
+  text-align: center;
+}
+
+.teacher-hero h1::after {
+  content: "";
+  display: block;
+  width: 100px;
+  height: 2px;
+  margin: 20px auto 0;
+  background: linear-gradient(90deg, transparent, var(--cyan) 50%, transparent);
+  box-shadow: 0 0 24px rgba(0, 246, 255, 0.45);
+}
+
+.teacher-accent {
+  color: var(--cyan);
+  text-shadow:
+    0 0 28px rgba(0, 246, 255, 0.55),
+    0 0 60px rgba(0, 246, 255, 0.2);
+}
+
+.teacher-hero-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 36px;
+  direction: rtl;
+}
+
+.teacher-cta-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 28px;
+  border: 1px solid rgba(0, 246, 255, 0.4);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(0, 246, 255, 0.92), rgba(0, 200, 220, 0.88));
+  color: rgba(4, 24, 26, 0.96);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  box-shadow:
+    0 0 36px -10px rgba(0, 246, 255, 0.65),
+    0 4px 18px -6px rgba(0, 0, 0, 0.4);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.teacher-cta-primary:hover,
+.teacher-cta-primary:focus-visible {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 48px -8px rgba(0, 246, 255, 0.78),
+    0 8px 24px -6px rgba(0, 0, 0, 0.45);
+  outline: none;
+  color: rgba(4, 24, 26, 0.96);
+}
+
+.teacher-cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 24px;
+  border: 1px solid rgba(0, 246, 255, 0.32);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  backdrop-filter: blur(8px);
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.teacher-cta-secondary:hover,
+.teacher-cta-secondary:focus-visible {
+  border-color: rgba(0, 246, 255, 0.46);
+  background: rgba(0, 246, 255, 0.1);
+  color: var(--text);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.teacher-hero-layout {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 0 88px;
+  direction: rtl;
+  text-align: center;
+}
+
+.teacher-os-preview {
+  grid-column: 2;
+  align-self: end;
+  direction: rtl;
+  unicode-bidi: isolate;
+  margin-block-end: 24px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.042) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.042) 1px, transparent 1px),
+    rgba(7, 28, 28, 0.68);
+  backdrop-filter: blur(8px);
+  opacity: 0.92;
+}
+
+.teacher-hero-subtitle {
+  margin: 22px 0 0;
+  max-width: 600px;
+  color: var(--text-2);
+  font-size: clamp(15px, 1.5vw, 18px);
+  font-weight: 500;
+  line-height: 1.65;
+  text-align: center;
+  direction: rtl;
+  text-wrap: pretty;
+}
+
+.teacher-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.teacher-hero-cta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 24px;
+  direction: rtl;
+}
+
+.teacher-hero-cta-card {
+  display: flex;
+  min-height: 136px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid rgba(0, 246, 255, 0.15);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.022)),
+    rgba(6, 41, 42, 0.5);
+  padding: 14px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 16px 40px -28px rgba(0, 0, 0, 0.7),
+    0 0 28px -22px rgba(0, 246, 255, 0.6);
+}
+
+.teacher-hero-cta-card h2 {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: clamp(18px, 1.55vw, 22px);
+  font-weight: 800;
+  line-height: 1.18;
+}
+
+.teacher-hero-cta-card p {
+  margin: 8px 0 0;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.42;
+}
+
+.teacher-hero-card-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  width: fit-content;
+  border: 1px solid rgba(0, 246, 255, 0.32);
+  border-radius: 999px;
+  background: rgba(0, 246, 255, 0.1);
+  color: var(--cyan);
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 0 24px -18px rgba(0, 246, 255, 0.95);
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.teacher-hero-card-link:hover,
+.teacher-hero-card-link:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(0, 246, 255, 0.58);
+  background: rgba(0, 246, 255, 0.16);
+  outline: none;
+}
+
+.teacher-hero-trust {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 10px;
+  direction: rtl;
+}
+
+.teacher-hero-trust span {
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.teacher-hero-trust span[aria-hidden] {
+  color: color-mix(in oklab, var(--text-3) 40%, transparent);
+  font-weight: 400;
+}
+
+.teacher-os-preview article {
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 16px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.045) inset,
+    0 18px 44px -38px rgba(0, 0, 0, 0.86);
+}
+
+.teacher-os-preview span {
+  display: block;
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.48;
+}
+
+@media (max-width: 1020px) {
+  .teacher-hero-decoration {
+    width: min(100vw, 1100px);
+    opacity: 0.8;
+  }
+  .teacher-hero-decoration-left {
+    left: -2vw;
+  }
+  .teacher-hero-decoration-right {
+    right: -2vw;
+  }
+  .teacher-hero-product-mockup {
+    right: -18vw;
+    bottom: max(0px, calc(100% - 100dvh + 18px));
+    width: min(80vw, 820px);
+    opacity: 0.65;
+  }
+  .teacher-os-preview {
+    grid-column: auto;
+    margin-block-end: 0;
+  }
+  .teacher-hero-cta-grid {
+    grid-template-columns: 1fr;
+  }
+  .teacher-hero-cta-card {
+    min-height: auto;
+  }
+}
+
+.teacher-stats-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--line-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.teacher-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 12px;
+  background: var(--surface-2);
+  text-align: center;
+  transition: background 0.2s;
+}
+
+.teacher-stat:hover {
+  background: color-mix(in oklab, var(--cyan) 8%, var(--surface-2));
+}
+
+.teacher-stat-value {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--cyan);
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+.teacher-stat-label {
+  font-size: 12px;
+  color: var(--text-3);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.teacher-trust-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px var(--px, 6vw);
+}
+
+.teacher-tools-section {
+  padding-block: 72px;
+}
+
+.teacher-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 40px;
+}
+
+.teacher-tool-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 28px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(120% 100% at 0% 100%, var(--blue-soft), transparent 58%),
+    linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01)),
+    var(--surface);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.06) inset,
+    0 20px 48px -36px rgba(0,0,0,0.88);
+  transition: transform 0.28s cubic-bezier(0.2,0.8,0.2,1), border-color 0.2s;
+}
+
+.teacher-tool-card:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in oklab, var(--blue) 40%, var(--line-2));
+}
+
+.teacher-tool-card strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.teacher-tool-card p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 15px;
+  line-height: 1.58;
+}
+
+@media (max-width: 640px) {
+  .teacher-stats-bar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .teacher-tools-grid {
+    grid-template-columns: 1fr;
+  }
+  .teacher-trust-strip {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 680px) {
+  .teacher-hero-decoration,
+  .teacher-hero-product-mockup {
+    display: none;
+  }
+  .teacher-hero-layout {
+    max-width: 100%;
+    padding: 20px 0 52px;
+  }
+  .teacher-glass-nav {
+    border-radius: 16px;
+    top: 6px;
+    left: 6px;
+    right: 6px;
+    padding: 0 16px;
+    min-height: 56px;
+  }
+  .teacher-glass-nav .role-switcher {
+    display: none;
+  }
+}
+
+
+/* ============================================================
+   TEACHERS LANDING — 3-LAYER DEPTH ENGINE
+   Scoped to /teachers only via .teacher-landing-depth-page.
+   Additive & isolated: new selectors only. Higher-specificity
+   ".teacher-landing-depth-page > X" selectors intentionally win
+   over the existing ".teacher-page > :not()" rule by source order.
+   ============================================================ */
+
+.teacher-landing-depth-page {
+  position: relative;
+  height: 100dvh;
+  overflow: hidden;
+  background-color: #175655;
+  direction: rtl;
+}
+
+/* ── Layer 0 — static desk world (frozen) ───────────────────── */
+.teacher-landing-depth-page > .teacher-depth-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+  background-color: #175655;
+  overflow: hidden;
+}
+
+.teacher-depth-canvas {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  opacity: 0.5;
+}
+
+/* keep the centre calm so it never competes with the hero text */
+.teacher-depth-background::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    120% 95% at 50% 42%,
+    rgba(23, 86, 85, 0) 0%,
+    rgba(23, 86, 85, 0.45) 62%,
+    rgba(7, 36, 37, 0.82) 100%
+  );
+}
+
+.teacher-depth-prop {
+  position: absolute;
+  bottom: 0;
+  height: auto;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+  opacity: 0.9;
+}
+
+.teacher-depth-prop-left {
+  left: 0;
+  width: min(28vw, 400px);
+}
+
+.teacher-depth-prop-right {
+  right: 0;
+  width: min(28vw, 400px);
+}
+
+.teacher-depth-prop-mockup {
+  right: clamp(-24px, -1vw, 0px);
+  bottom: 4vh;
+  z-index: 1;
+  width: min(50vw, 740px);
+  filter:
+    drop-shadow(0 34px 46px rgba(0, 0, 0, 0.38))
+    drop-shadow(0 0 32px rgba(90, 232, 226, 0.12));
+}
+
+/* ── Layer 1 — scrollable foreground content ────────────────── */
+.teacher-landing-depth-page > .teacher-depth-content {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+/* hero: horizontally centred, comfortable column */
+.teacher-depth-content .teacher-hero {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.teacher-depth-content .teacher-hero-layout {
+  width: min(820px, 92%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+
+.teacher-depth-content .teacher-hero-ctas {
+  justify-content: center;
+}
+
+/* ── Layer 2 — sticky glass navbar ──────────────────────────── */
+.teacher-depth-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 64px;
+  padding: 12px clamp(16px, 4vw, 48px);
+  border-bottom: 1px solid rgba(1, 108, 124, 0);
+  background: rgba(23, 86, 85, 0.16);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.teacher-depth-nav[data-scrolled="true"] {
+  background: rgba(11, 55, 54, 0.72);
+  border-bottom: 1px solid #016c7c;
+  box-shadow: 0 12px 32px -20px rgba(0, 0, 0, 0.62);
+}
+
+.teacher-depth-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* ── Responsive: props must never overlap the centred hero ──── */
+@media (max-width: 900px) {
+  .teacher-depth-prop-left,
+  .teacher-depth-prop-right {
+    width: min(26vw, 200px);
+    opacity: 0.55;
+  }
+  .teacher-depth-prop-mockup {
+    width: min(72vw, 440px);
+    opacity: 0.5;
+  }
+}
+
+@media (max-width: 600px) {
+  .teacher-depth-prop-left,
+  .teacher-depth-prop-right {
+    display: none;
+  }
+  .teacher-depth-prop-mockup {
+    width: 88vw;
+    opacity: 0.32;
+    bottom: 2vh;
+  }
+  .teacher-depth-nav {
+    padding: 10px 16px;
+    min-height: 56px;
+  }
+}

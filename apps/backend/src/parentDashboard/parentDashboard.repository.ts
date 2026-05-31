@@ -11,6 +11,19 @@ import type {
 
 const adminClient = createSupabaseAdminClient;
 
+// Some optional dashboard sub-resources live in tables that may be absent from
+// the PostgREST schema cache on a given environment (e.g. a migration not yet
+// applied / schema cache not reloaded → PGRST205). Those widgets are
+// non-essential: when their table is unavailable we degrade to an empty value
+// instead of failing the whole dashboard with a 500. Genuine query errors still
+// surface.
+function isTableUnavailable(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === 'PGRST205') return true;
+  const message = error.message?.toLowerCase() ?? '';
+  return message.includes('schema cache') || message.includes('could not find the table');
+}
+
 // ── Column lists ──────────────────────────────────────────────────────────────
 
 const CONFIRMATION_COLUMNS =
@@ -149,7 +162,13 @@ export async function getPendingConfirmation(
     .limit(1)
     .maybeSingle();
 
-  if (error) throw new AppError('Failed to load pending confirmation', 500);
+  if (error) {
+    if (isTableUnavailable(error)) {
+      console.warn('[parentDashboard] lesson_confirmations unavailable; treating pending confirmation as none.');
+      return null;
+    }
+    throw new AppError('Failed to load pending confirmation', 500);
+  }
   if (!data) return null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -204,7 +223,13 @@ export async function getHomeworkTasksByLessonNoteId(
     .eq('lesson_note_id', lessonNoteId)
     .order('created_at', { ascending: true });
 
-  if (error) throw new AppError('Failed to load homework tasks', 500);
+  if (error) {
+    if (isTableUnavailable(error)) {
+      console.warn('[parentDashboard] homework_tasks unavailable; returning no homework tasks.');
+      return [];
+    }
+    throw new AppError('Failed to load homework tasks', 500);
+  }
   if (!data) return [];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

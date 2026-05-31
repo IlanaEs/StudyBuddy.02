@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom';
 
 import { AppShell } from './AppShell';
 import { ProtectedRoute } from '../auth/ProtectedRoute';
+import { AuthCallbackRoute } from '../routes/AuthCallbackRoute';
 import { DashboardPlaceholderRoute } from '../routes/DashboardPlaceholderRoute';
 import { LoginRoute } from '../routes/LoginRoute';
 import { NotFoundRoute } from '../routes/NotFoundRoute';
@@ -14,7 +15,10 @@ import { MatchResultsPage } from '../features/matching/pages/MatchResultsPage';
 import { BookingRequestPage } from '../features/matching/pages/BookingRequestPage';
 import { BookingConfirmationPage } from '../features/matching/pages/BookingConfirmationPage';
 import { TeacherOnboardingPage } from '../pages/TeacherOnboardingPage';
+import { AdminDashboardPage } from '../pages/AdminDashboardPage';
 import { ParentDashboardPage } from '../pages/ParentDashboardPage';
+import { StudentDashboardPage } from '../pages/StudentDashboardPage';
+import { TeacherDashboardPage } from '../pages/TeacherDashboardPage';
 import { TeacherBookingInboxPage } from '../pages/TeacherBookingInboxPage';
 import { TeacherLessonManagePage } from '../pages/TeacherLessonManagePage';
 
@@ -32,6 +36,7 @@ export function App() {
         <Route path="/onboarding/confirmation" element={<BookingConfirmationPage />} />
         <Route path="/login" element={<LoginRoute />} />
         <Route path="/signup" element={<SignupRoute />} />
+        <Route path="/auth/callback" element={<AuthCallbackRoute />} />
         <Route
           path="/dashboard"
           element={
@@ -49,6 +54,14 @@ export function App() {
           }
         />
         <Route
+          path="/teacher/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['teacher']}>
+              <TeacherDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/teacher/inbox"
           element={
             <ProtectedRoute allowedRoles={['teacher']}>
@@ -61,6 +74,22 @@ export function App() {
           element={
             <ProtectedRoute allowedRoles={['teacher']}>
               <TeacherLessonManagePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <StudentDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminDashboardPage />
             </ProtectedRoute>
           }
         />

@@ -33,7 +33,8 @@ export function MainLandingRoute() {
           { label: 'איך זה עובד?', href: '#process' },
           { label: 'למה StudyBuddy?', href: '#value' },
           { label: content.faq.title, href: '#faq' },
-          { label: content.hero.teacherCta.label, href: content.hero.teacherCta.to, tone: 'primary' },
+          { label: content.hero.teacherCta.label, href: content.hero.teacherCta.to },
+          { label: 'כניסה למערכת', href: '/login', tone: 'primary' },
         ]}
       />
       <AudienceListSection

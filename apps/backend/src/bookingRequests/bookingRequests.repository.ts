@@ -265,6 +265,143 @@ export async function markMatchResultSelected(
   `;
 }
 
+// ── Client-based writes (Supabase REST) ───────────────────────────────────────
+//
+// These mirror the transaction write functions above but go through the
+// Supabase Admin REST client instead of a direct Postgres connection. The
+// hosted Supabase project exposes no reachable direct DATABASE_URL host, so the
+// write paths run as sequential client calls — the same approach matching uses
+// in replaceMatchResults. Atomicity across the steps is best-effort (documented
+// limitation); each step still raises the correct AppError status on failure.
+
+export async function insertBookingRequestViaClient(
+  input: CreateBookingRequestInput,
+): Promise<BookingRequestRow> {
+  const { data, error } = await adminClient()
+    .from('booking_requests')
+    .insert({
+      student_id: input.studentId,
+      teacher_id: input.teacherId,
+      match_result_id: input.matchResultId,
+      requested_start_at: input.requestedStartAt,
+      requested_end_at: input.requestedEndAt,
+      student_message: input.studentMessage,
+      status: 'pending',
+    })
+    .select(
+      'id,student_id,teacher_id,match_result_id,requested_start_at,requested_end_at,status,student_message,teacher_response_message,created_at,updated_at',
+    )
+    .single();
+
+  if (error || !data) throw new AppError('Failed to create booking request', 500);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const row = data as any;
+  return {
+    id: row.id as string,
+    studentId: row.student_id as string,
+    teacherId: row.teacher_id as string,
+    matchResultId: row.match_result_id as string,
+    requestedStartAt: toISOString(row.requested_start_at),
+    requestedEndAt: toISOString(row.requested_end_at),
+    status: row.status as 'pending',
+    studentMessage: row.student_message as string | null,
+    teacherResponseMessage: row.teacher_response_message as string | null,
+    createdAt: toISOString(row.created_at),
+    updatedAt: toISOString(row.updated_at),
+  };
+}
+
+// Mark the chosen match result as selected; deselect the others for the intake.
+export async function markMatchResultSelectedViaClient(
+  selectedMatchResultId: string,
+  intakeId: string,
+): Promise<void> {
+  const { error: selectError } = await adminClient()
+    .from('match_results')
+    .update({ was_selected: true })
+    .eq('id', selectedMatchResultId);
+  if (selectError) throw new AppError('Failed to update match selection', 500);
+
+  const { error: deselectError } = await adminClient()
+    .from('match_results')
+    .update({ was_selected: false })
+    .eq('intake_id', intakeId)
+    .neq('id', selectedMatchResultId);
+  if (deselectError) throw new AppError('Failed to update match selection', 500);
+}
+
+// Overlap guard mirroring checkOverlappingScheduledLessonTx via the REST client:
+//   existing.start < requested_end  AND  existing.end > requested_start
+export async function checkOverlappingScheduledLessonViaClient(
+  teacherId: string,
+  startsAt: string,
+  endsAt: string,
+): Promise<void> {
+  const { data, error } = await adminClient()
+    .from('lessons')
+    .select('id')
+    .eq('teacher_id', teacherId)
+    .eq('status', 'scheduled')
+    .lt('scheduled_start_at', endsAt)
+    .gt('scheduled_end_at', startsAt)
+    .limit(1);
+
+  if (error) throw new AppError('Failed to check overlapping lessons', 500);
+  if (data && data.length > 0) {
+    throw new AppError('Teacher already has a scheduled lesson in this time range', 409);
+  }
+}
+
+export async function insertLessonViaClient(
+  input: CreateLessonInput,
+): Promise<LessonRow> {
+  const { data, error } = await adminClient()
+    .from('lessons')
+    .insert({
+      booking_request_id: input.bookingRequestId,
+      teacher_id: input.teacherId,
+      student_id: input.studentId,
+      subject_id: input.subjectId,
+      scheduled_start_at: input.scheduledStartAt,
+      scheduled_end_at: input.scheduledEndAt,
+      duration_minutes: input.durationMinutes,
+      status: 'scheduled',
+      location_type: input.locationType,
+      meeting_link: null,
+    })
+    .select(
+      'id,booking_request_id,teacher_id,student_id,subject_id,scheduled_start_at,scheduled_end_at,duration_minutes,status,location_type,meeting_link,created_at,updated_at',
+    )
+    .single();
+
+  if (error || !data) {
+    // Unique constraint violation: lesson already exists for this booking_request.
+    if (error && (error as { code?: string }).code === '23505') {
+      throw new AppError('Lesson already exists for this booking request', 409);
+    }
+    throw new AppError('Failed to create lesson', 500);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const row = data as any;
+  return {
+    id: row.id as string,
+    bookingRequestId: row.booking_request_id as string,
+    teacherId: row.teacher_id as string,
+    studentId: row.student_id as string,
+    subjectId: row.subject_id as string | null,
+    scheduledStartAt: toISOString(row.scheduled_start_at),
+    scheduledEndAt: toISOString(row.scheduled_end_at),
+    durationMinutes: row.duration_minutes as number,
+    status: row.status as LessonRow['status'],
+    locationType: row.location_type as LessonRow['locationType'],
+    meetingLink: row.meeting_link as string | null,
+    createdAt: toISOString(row.created_at),
+    updatedAt: toISOString(row.updated_at),
+  };
+}
+
 // ── Teacher Response Write ────────────────────────────────────────────────────
 
 // ── Lesson Lookup ─────────────────────────────────────────────────────────────
@@ -460,7 +597,15 @@ export async function getBookingRequestsByTeacherId(
   }));
 }
 
-// Resolves student IDs → full names via the students → users join.
+// Resolves student IDs → display names.
+//
+// Two student shapes exist: standalone students (linked to an auth user via
+// user_id) and parent-managed children (user_id is null; their name lives on
+// students.full_name). We prefer students.full_name when present, and only
+// fall back to the users table for the remaining students that still have a
+// non-null user_id. This avoids issuing `.in('id', [null])` against users,
+// which errors and previously 500'd the teacher inbox for parent-managed
+// bookings.
 export async function batchGetStudentNamesByStudentIds(
   studentIds: string[],
 ): Promise<Map<string, string>> {
@@ -469,30 +614,56 @@ export async function batchGetStudentNamesByStudentIds(
 
   const { data: students, error: se } = await adminClient()
     .from('students')
-    .select('id,user_id')
+    .select('id,user_id,full_name')
     .in('id', ids);
 
   if (se || !students) throw new AppError('Failed to load students', 500);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const userIds = [...new Set((students as any[]).map((s) => s.user_id as string))];
-  if (userIds.length === 0) return new Map();
-
-  const { data: users, error: ue } = await adminClient()
-    .from('users')
-    .select('id,full_name')
-    .in('id', userIds);
-
-  if (ue || !users) throw new AppError('Failed to load user names', 500);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const userNameMap = new Map<string, string>((users as any[]).map((u) => [u.id as string, u.full_name as string]));
-
   const result = new Map<string, string>();
+  const userIdToStudentIds = new Map<string, string[]>();
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const student of students as any[]) {
-    result.set(student.id as string, userNameMap.get(student.user_id as string) ?? 'תלמיד לא ידוע');
+    const studentId = student.id as string;
+    const fullName = student.full_name as string | null;
+    const userId = student.user_id as string | null;
+
+    if (fullName) {
+      result.set(studentId, fullName);
+    } else if (userId) {
+      const pending = userIdToStudentIds.get(userId) ?? [];
+      pending.push(studentId);
+      userIdToStudentIds.set(userId, pending);
+    } else {
+      result.set(studentId, 'תלמיד לא ידוע');
+    }
   }
+
+  const userIds = [...userIdToStudentIds.keys()];
+  if (userIds.length > 0) {
+    const { data: users, error: ue } = await adminClient()
+      .from('users')
+      .select('id,full_name')
+      .in('id', userIds);
+
+    if (ue || !users) throw new AppError('Failed to load user names', 500);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const userNameMap = new Map<string, string>((users as any[]).map((u) => [u.id as string, u.full_name as string]));
+
+    for (const [userId, studentIdsForUser] of userIdToStudentIds) {
+      const name = userNameMap.get(userId) ?? 'תלמיד לא ידוע';
+      for (const studentId of studentIdsForUser) {
+        result.set(studentId, name);
+      }
+    }
+  }
+
+  // Guarantee every requested id resolves to something.
+  for (const id of ids) {
+    if (!result.has(id)) result.set(id, 'תלמיד לא ידוע');
+  }
+
   return result;
 }
 

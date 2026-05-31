@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthProvider';
 import type { UserRole } from '../auth/authTypes';
+import { getDashboardPathByRole } from '../utils/getDashboardPathByRole';
 
 const signupRoles: UserRole[] = ['teacher', 'student', 'parent'];
 
@@ -27,7 +28,7 @@ export function SignupRoute() {
 
     try {
       await auth.signup({ email, full_name: fullName, password, role });
-      navigate('/dashboard', { replace: true });
+      navigate(getDashboardPathByRole(role), { replace: true });
     } catch (error) {
       if (error instanceof Error && error.message === 'CHECK_EMAIL') {
         setNeedsEmailConfirmation(true);
