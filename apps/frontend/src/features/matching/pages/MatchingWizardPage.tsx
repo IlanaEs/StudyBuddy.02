@@ -14,12 +14,11 @@ import { WizardOptionCard } from '../components/WizardOptionCard';
 import { WizardSummaryCard } from '../components/WizardSummaryCard';
 import { DualRangeSlider } from '../components/DualRangeSlider';
 import { AvailabilityGrid } from '../components/AvailabilityGrid';
-import { subjectsByLevel, gradesByLevel } from '../data/mockSubjects';
-import { mockMatches } from '../data/mockMatches';
+import { subjectsByLevel, gradesByLevel } from '../data/subjectsByLevel';
 import type { EducationLevel, LearningGoal, LocationPreference, TimeSlot } from '../types/matching.types';
 import { useAuth } from '../../../auth/AuthProvider';
 import { getSupabaseBrowserClient } from '../../../auth/supabaseClient';
-import { completeOAuthSignup, createStudentProfile, createStudentIntake } from '../../../api/students';
+import { completeOAuthSignup, createStudentProfile, createStudentIntake, runMatching } from '../../../api/students';
 import {
   syncStudentCalendarAvailability,
   initiateCalendarOAuth,
@@ -128,6 +127,13 @@ export function MatchingWizardPage() {
     !!intake.accountType &&
     auth.user?.role !== expectedRole;
 
+  const isParent = intake.accountType === 'parent_for_child';
+  const expectedRole = intake.accountType === 'parent_for_child' ? 'parent' : 'student';
+  const hasRoleConflict =
+    auth.status === 'authenticated' &&
+    !!intake.accountType &&
+    auth.user?.role !== expectedRole;
+
   // ── Initial mount ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (step > TOTAL_STEPS) {
@@ -185,6 +191,7 @@ export function MatchingWizardPage() {
       return;
     }
 
+    if (isParent && !intake.childName.trim()) return;
     if (isParent && !intake.childName.trim()) {
       return;
     }
@@ -202,6 +209,7 @@ export function MatchingWizardPage() {
     ).then((profileResult) => {
       if ('error' in profileResult) {
         setAuthError(toHebrewOnboardingError(profileResult.error));
+        setAuthError(profileResult.error);
         return;
       }
       updateIntake({ studentId: profileResult.data.student_id });
@@ -391,6 +399,7 @@ export function MatchingWizardPage() {
       setStep(AUTH_STEP + 1);
     } catch (err) {
       setAuthError(toHebrewOnboardingError(err));
+      setAuthError(toHebrewOnboardingError(err instanceof Error ? err.message : 'שגיאה. נסו שנית.'));
     } finally {
       setAuthLoading(false);
     }
@@ -408,6 +417,10 @@ export function MatchingWizardPage() {
     }
     if (isParent && !intake.childName.trim()) {
       setAuthError('נא להכניס את שם הילד/ה לפני ההתחברות עם גוגל');
+      return;
+    }
+    if (hasRoleConflict) {
+      setAuthError('החשבון המחובר לא מתאים למסלול שנבחר.');
       return;
     }
     try {
@@ -454,6 +467,26 @@ export function MatchingWizardPage() {
       setErrors({ submit: toHebrewOnboardingError(result.error) });
       return false;
     }
+    const matchingResult = await runMatching(result.data.intake_id, token);
+    if ('error' in matchingResult) {
+      setErrors({ submit: toHebrewOnboardingError(matchingResult.error) });
+      return false;
+    }
+    setMatchResults(matchingResult.data.matches.map((match) => ({
+      id: match.id,
+      rank: match.rank,
+      matchScore: match.matchScore,
+      reason: match.reason,
+      teacher: {
+        id: match.teacherId,
+        fullName: match.teacherFullName,
+        bio: match.teacherBio ?? undefined,
+        hourlyRate: match.teacherHourlyRate,
+        ratingAvg: match.teacherRatingAvg,
+        ratingCount: match.teacherRatingCount,
+        isVerified: match.teacherIsVerified,
+      },
+    })));
     clearStorage();
     localStorage.removeItem(OAUTH_PENDING_KEY);
     return true;
@@ -485,8 +518,6 @@ export function MatchingWizardPage() {
         setLoading(false);
         return;
       }
-      await new Promise((r) => setTimeout(r, 1800));
-      setMatchResults(mockMatches);
       setLoading(false);
       navigate('/onboarding/results');
     } else {
@@ -564,6 +595,16 @@ export function MatchingWizardPage() {
     return (
       <WizardShell step={step}>
         <WizardProgress current={1} total={TOTAL_STEPS} />
+        <WizardStepHeader
+          title="למי מיועד החשבון?"
+          subtitle="השאלון ימשיך בהתאם למסלול שתבחרו."
+        />
+        <WizardOptionCard
+          icon={<GraduationCap size={20} />}
+          label="אני התלמיד/ה"
+          description="חשבון תלמיד/ה עצמאי למציאת מורה עבורי"
+          selected={intake.accountType === 'independent_student'}
+          onClick={() => updateIntake({ accountType: 'independent_student', childName: '' })}
         <WizardStepHeader title="למי מיועד החשבון?" />
         <WizardOptionCard
           icon={<GraduationCap size={20} />}
@@ -575,6 +616,19 @@ export function MatchingWizardPage() {
         <WizardOptionCard
           icon={<Users size={20} />}
           label="אני הורה / אחראי/ת עבור תלמיד"
+          description="אני מחפש/ת מורה עבור ילד/ה או תלמיד/ה באחריותי"
+          selected={intake.accountType === 'parent_for_child'}
+          onClick={() => { updateIntake({ accountType: 'parent_for_child' }); setErrors({}); }}
+        />
+          description="חשבון הורה למציאת מורה לילד/ה"
+          selected={intake.accountType === 'parent_for_child'}
+          onClick={() => updateIntake({ accountType: 'parent_for_child' })}
+        />
+        {errors.accountType && <div style={{ color: 'var(--coral)', fontSize: 13, marginTop: 8 }}>{errors.accountType}</div>}
+        <div className="flex gap-3 mt-4">
+          <button onClick={() => setStep(0)} className="py-3 px-5 rounded-xl font-medium" style={ctaBack}>חזור</button>
+          <button onClick={() => void handleNext()} className="flex-1 py-3 rounded-xl wizard-cta-primary" style={ctaPrimary}>המשך</button>
+        </div>
           description="אני מחפש/ת מורה עבור ילד/ה או תלמיד/ה באחריותי"
           selected={intake.accountType === 'parent_for_child'}
           onClick={() => { updateIntake({ accountType: 'parent_for_child' }); setErrors({}); }}
@@ -819,6 +873,31 @@ export function MatchingWizardPage() {
           subtitle="אחרי ההתחברות נמשיך לשאלון ההתאמה"
         />
 
+          subtitle="נשמור את ההתקדמות ונמשיך לשאלון ההתאמה."
+        />
+
+        {hasRoleConflict && (
+          <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: 'color-mix(in oklab, var(--coral) 15%, var(--surface-2))', color: 'var(--coral)', border: '1px solid color-mix(in oklab, var(--coral) 30%, transparent)' }}>
+            החשבון המחובר לא מתאים למסלול שנבחר.
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={() => { void auth.logout().then(() => window.location.reload()); }}
+                className="px-3 py-2 rounded-lg text-sm"
+                style={{ ...ctaPrimary, fontSize: 13 }}
+              >
+                התנתקות
+              </button>
+              <button
+                onClick={() => navigate(`/${auth.user?.role ?? ''}`)}
+                className="px-3 py-2 rounded-lg text-sm"
+                style={ctaBack}
+              >
+                מעבר למסלול הנכון
+              </button>
+            </div>
+          subtitle="אחרי ההתחברות נמשיך לשאלון ההתאמה"
+        />
+
         {authTab === 'signup' && (
           <div className="mb-4">
             <div className="font-semibold mb-1 text-sm" style={{ color: 'var(--text-2)' }}>
@@ -869,6 +948,18 @@ export function MatchingWizardPage() {
         </div>
 
         <div className="flex flex-col gap-3 mb-4">
+          {authTab === 'signup' && (
+            <div>
+              <input
+                type="text"
+                placeholder="שם מלא"
+                value={intake.fullName}
+                onChange={(e) => updateIntake({ fullName: e.target.value })}
+                className="w-full p-3 rounded-xl wizard-input"
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 15, outline: 'none', transition: 'border-color 0.18s, box-shadow 0.18s' }}
+              />
+            </div>
+          )}
           <div className="relative">
             <Mail size={15} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-3)' }} />
             <input
@@ -1284,6 +1375,21 @@ function GoogleIcon() {
       <path d="M44.5 20H24v8.5h11.8c-.8 2.3-2.3 4.3-4.3 5.7l6.8 5.6C42.2 36.3 45 30.6 45 24c0-1.3-.2-2.7-.5-4z" fill="#1976D2"/>
     </svg>
   );
+}
+
+function toHebrewOnboardingError(error: string) {
+  const normalized = error.toLowerCase();
+  if (error.includes('החשבון המחובר לא מתאים למסלול שנבחר')) return 'החשבון המחובר לא מתאים למסלול שנבחר.';
+  if (normalized.includes('invalid account_type') || normalized.includes('account_type')) return 'יש לבחור סוג חשבון תקין.';
+  if (normalized.includes('role mismatch') || normalized.includes('role')) return 'החשבון המחובר לא מתאים למסלול שנבחר.';
+  if (normalized.includes('email') && normalized.includes('invalid')) return 'כתובת האימייל אינה תקינה.';
+  if (normalized.includes('password')) return 'הסיסמה אינה תקינה או קצרה מדי.';
+  if (normalized.includes('already') || normalized.includes('registered')) return 'כבר קיים חשבון עם כתובת האימייל הזו.';
+  if (normalized.includes('student') && normalized.includes('access')) return 'אין הרשאה ליצור שאלון עבור התלמיד/ה הזה.';
+  if (normalized.includes('subject')) return 'נא לבחור מקצוע תקין.';
+  if (normalized.includes('network') || normalized.includes('fetch')) return 'לא ניתן להתחבר לשרת כרגע. נסו שוב בעוד רגע.';
+  if (normalized.includes('failed') || normalized.includes('error')) return 'אירעה שגיאה. נסו שוב.';
+  return error && /[א-ת]/.test(error) ? error : 'אירעה שגיאה. נסו שוב.';
 }
 
 function MatchingLoadingScreen({ name }: { name: string }) {

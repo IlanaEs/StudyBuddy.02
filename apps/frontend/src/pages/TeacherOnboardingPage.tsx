@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Upload, GraduationCap, Briefcase, Award, BookOpen,
@@ -12,12 +12,14 @@ import { TeacherAvailabilityCalendar, makeBlockKey, AVAIL_DAYS } from '../compon
 import type { TimeBlockId } from '../components/onboarding/TeacherAvailabilityCalendar';
 import type { GCalStatus, BusySlot } from '../api/teacherCalendar';
 import {
+  ensureCalendarLinkSession,
   initiateCalendarConnect,
   syncCalendar,
   fetchCalendarStatus,
   fetchBusySlots,
   disconnectCalendar as disconnectCalendarApi,
 } from '../api/teacherCalendar';
+import { ReauthRequiredError } from '../auth/ensureActiveSession';
 import { consumeEarlyProviderToken } from '../auth/supabaseClient';
 
 import { SelectableChip } from '../components/onboarding/SelectableChip';
@@ -31,6 +33,13 @@ import {
   completeOnboarding,
   hydrateFromRemote,
 } from '../api/teacherOnboarding';
+import {
+  createAcademicRepositoryRequest,
+  fetchAcademicFields,
+  fetchAcademicInstitutions,
+  type AcademicRepositoryItem,
+  type AcademicRepositoryType,
+} from '../api/academicRepositories';
 import {
   SB_ORANGE,
   SB_ORANGE_SOFT,
@@ -63,6 +72,16 @@ export interface TeacherOnboardingData {
   profileImagePreview: string | null;
   institution: string;
   degree: string;
+  academicInstitutionId: string | null;
+  academicInstitutionName: string;
+  academicInstitutionCategory: string | null;
+  academicInstitutionRequestId: string | null;
+  academicInstitutionRequestName: string;
+  academicFieldId: string | null;
+  academicFieldName: string;
+  academicFieldCategory: string | null;
+  academicFieldRequestId: string | null;
+  academicFieldRequestName: string;
   academicYear: string;
   excellentCourses: string;
   yearsOfExperience: string;
@@ -96,6 +115,16 @@ const INITIAL_DATA: TeacherOnboardingData = {
   profileImagePreview: null,
   institution: '',
   degree: '',
+  academicInstitutionId: null,
+  academicInstitutionName: '',
+  academicInstitutionCategory: null,
+  academicInstitutionRequestId: null,
+  academicInstitutionRequestName: '',
+  academicFieldId: null,
+  academicFieldName: '',
+  academicFieldCategory: null,
+  academicFieldRequestId: null,
+  academicFieldRequestName: '',
   academicYear: '',
   excellentCourses: '',
   yearsOfExperience: '',
@@ -129,6 +158,111 @@ function toggleItem(arr: string[], item: string): string[] {
 
 function isAcademicPath(status: ProfessionalStatus | null): boolean {
   return status !== null && ACADEMIC_PATH_STATUSES.includes(status);
+}
+
+type StepValidationErrors = Record<string, string>;
+
+type StepValidationResult = {
+  isValid: boolean;
+  errors: StepValidationErrors;
+};
+
+function validateTeacherOnboardingStep(step: number, formState: TeacherOnboardingData): StepValidationResult {
+  const errors: StepValidationErrors = {};
+  const rate = Number(formState.hourlyRate);
+
+  if (step === 1) {
+    if (formState.fullName.trim().length < 2) errors.fullName = 'יש להזין שם מלא.';
+    if (!formState.professionalStatus) errors.professionalStatus = 'יש לבחור מעמד מקצועי.';
+  }
+
+  if (step === 2) {
+    if (isAcademicPath(formState.professionalStatus)) {
+      if (!formState.academicInstitutionId && !formState.academicInstitutionRequestId) errors.institution = 'יש לבחור מוסד לימודים מתוך הרשימה או לשלוח בקשת הוספה.';
+      if (!formState.academicFieldId && !formState.academicFieldRequestId) errors.degree = 'יש לבחור תחום לימוד מתוך הרשימה או לשלוח בקשת הוספה.';
+      if (!formState.academicYear) errors.academicYear = 'יש לבחור שנת לימוד.';
+    } else {
+      if (!formState.yearsOfExperience.trim()) errors.yearsOfExperience = 'יש להזין שנות ניסיון.';
+      if (!formState.expertiseAreas.trim()) errors.expertiseAreas = 'יש להזין תחומי מומחיות.';
+    }
+  }
+
+  if (step === 3) {
+    if (formState.teachingLevels.length === 0) errors.teachingLevels = 'יש לבחור לפחות רמת הוראה אחת.';
+    if (formState.selectedSubjects.length === 0) errors.selectedSubjects = 'יש לבחור לפחות מקצוע אחד.';
+  }
+
+  if (step === 4) {
+    if (formState.weeklyTimeBlocks.length === 0) errors.weeklyTimeBlocks = 'יש לבחור לפחות חלון זמינות אחד.';
+    if (formState.maxActiveStudents === null) errors.maxActiveStudents = 'יש לבחור מספר תלמידים פעילים.';
+    if (formState.weeklyTeachingHours === null) errors.weeklyTeachingHours = 'יש לבחור מספר שעות שבועיות.';
+    if (!formState.bookingApproval) errors.bookingApproval = 'יש לבחור אופן אישור הזמנות.';
+    if (formState.bookingApproval === 'manual' && formState.slaHours === null) errors.slaHours = 'יש לבחור זמן תגובה מקסימלי.';
+    if (formState.bookingApproval === 'manual' && !formState.slaAutoAction) errors.slaAutoAction = 'יש לבחור פעולה אוטומטית לאחר SLA.';
+    if (formState.commitmentTypes.length === 0) errors.commitmentTypes = 'יש לבחור לפחות סוג מחויבות אחד.';
+    if (formState.commitmentTypes.includes('exam_marathons') && formState.marathonSessionCount === null) {
+      errors.marathonSessionCount = 'יש לבחור מספר שיעורים למרתון.';
+    }
+    if (!formState.emergencyAvailability) errors.emergencyAvailability = 'יש לבחור זמינות לשיעורי חירום.';
+  }
+
+  if (step === 5) {
+    if (!Number.isFinite(rate) || rate <= 0) errors.hourlyRate = 'יש להזין מחיר שעתי גבוה מ־0.';
+    if (!formState.introSessionPricing) errors.introSessionPricing = 'יש לבחור תמחור לשיעור מבוא.';
+    if (!formState.legalTax || !formState.legalContractor || !formState.legalMinors || !formState.legalCommunity) {
+      errors.legal = 'יש לאשר את כל ארבע ההצהרות להמשך.';
+    }
+  }
+
+  return { isValid: Object.keys(errors).length === 0, errors };
+}
+
+function validateTeacherOnboardingAll(formState: TeacherOnboardingData): { isValid: boolean; errorsByStep: Record<number, StepValidationErrors>; firstInvalidStep: number | null } {
+  const errorsByStep: Record<number, StepValidationErrors> = {};
+  let firstInvalidStep: number | null = null;
+
+  for (const step of [1, 2, 3, 4, 5]) {
+    const result = validateTeacherOnboardingStep(step, formState);
+    if (!result.isValid) {
+      errorsByStep[step] = result.errors;
+      firstInvalidStep ??= step;
+    }
+  }
+
+  return { isValid: firstInvalidStep === null, errorsByStep, firstInvalidStep };
+}
+
+function mapBackendOnboardingError(error: string, formState: TeacherOnboardingData) {
+  const fullValidation = validateTeacherOnboardingAll(formState);
+  if (!fullValidation.isValid && fullValidation.firstInvalidStep !== null) {
+    return {
+      message: 'חסרים פרטים בטופס. תקנו את השלב המסומן ונסו שוב.',
+      step: fullValidation.firstInvalidStep,
+      errors: fullValidation.errorsByStep[fullValidation.firstInvalidStep] ?? {},
+    };
+  }
+
+  const lower = error.toLowerCase();
+  if (lower.includes('hourly') || lower.includes('rate') || lower.includes('number')) {
+    return { message: 'יש להזין מחיר שעתי גבוה מ־0.', step: 5, errors: { hourlyRate: 'יש להזין מחיר שעתי גבוה מ־0.' } };
+  }
+  if (lower.includes('full') || lower.includes('name')) {
+    return { message: 'יש להזין שם מלא.', step: 1, errors: { fullName: 'יש להזין שם מלא.' } };
+  }
+  if (lower.includes('forbidden')) {
+    return { message: 'אין הרשאה להשלים את התהליך. אנא התחברו מחדש.', step: 1, errors: {} };
+  }
+
+  return { message: 'לא ניתן להשלים את הפעלת הפרופיל כרגע. בדקו את הפרטים ונסו שוב.', step: 6, errors: {} };
+}
+
+function translateAuthGateError(error: string): string {
+  const lower = error.toLowerCase();
+  if (lower.includes('invalid') && lower.includes('email')) return 'יש להזין כתובת אימייל תקינה.';
+  if (lower.includes('password')) return 'הסיסמה חייבת להכיל לפחות 8 תווים.';
+  if (lower.includes('invalid login') || lower.includes('credentials')) return 'האימייל או הסיסמה אינם נכונים.';
+  if (lower.includes('already') || lower.includes('registered')) return 'כבר קיים חשבון עם כתובת האימייל הזו.';
+  return 'לא ניתן להתחבר כרגע. בדקו את הפרטים ונסו שוב.';
 }
 
 // Maps Google Calendar busy slots (UTC ISO timestamps) to onboarding grid block keys
@@ -461,6 +595,182 @@ function OpsToggle({ label, checked, onChange }: { label: string; checked: boole
         {label}
       </span>
     </button>
+  );
+}
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return (
+    <div
+      style={{
+        marginTop: 8,
+        color: 'var(--coral)',
+        fontSize: 12,
+        fontWeight: 700,
+        lineHeight: 1.45,
+      }}
+    >
+      {message}
+    </div>
+  );
+}
+
+function AcademicRepositoryAutocomplete({
+  label,
+  placeholder,
+  items,
+  selectedName,
+  selectedCategory,
+  pendingName,
+  onSelect,
+  onRequestAdd,
+  error,
+  requestError,
+  requestDisabled,
+}: {
+  label: string;
+  placeholder: string;
+  items: AcademicRepositoryItem[];
+  selectedName: string;
+  selectedCategory: string | null;
+  pendingName: string;
+  onSelect: (item: AcademicRepositoryItem) => void;
+  onRequestAdd: (name: string) => Promise<void>;
+  error?: string;
+  requestError?: string | null;
+  requestDisabled?: boolean;
+}) {
+  const [query, setQuery] = useState(selectedName || pendingName);
+  const [open, setOpen] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+
+  useEffect(() => {
+    setQuery(selectedName || pendingName);
+  }, [pendingName, selectedName]);
+
+  const filtered = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase();
+    if (!normalized) return items.slice(0, 10);
+    return items
+      .filter((item) => {
+        const text = `${item.name} ${item.category ?? ''}`.toLocaleLowerCase();
+        return text.includes(normalized);
+      })
+      .slice(0, 10);
+  }, [items, query]);
+
+  const exactMatch = items.some((item) => item.name.trim().toLocaleLowerCase() === query.trim().toLocaleLowerCase());
+  const canRequest = query.trim().length >= 2 && !exactMatch;
+
+  async function requestAdd() {
+    if (!canRequest || requesting || requestDisabled) return;
+    setRequesting(true);
+    try {
+      await onRequestAdd(query.trim());
+      setOpen(false);
+    } finally {
+      setRequesting(false);
+    }
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <SectionLabel>{label}</SectionLabel>
+      <input
+        type="text"
+        placeholder={placeholder}
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        className="ob-input"
+        style={inputStyle}
+        autoComplete="off"
+      />
+      {selectedName && (
+        <div style={{ marginTop: 8, fontSize: 12, color: SB_ORANGE, fontWeight: 800 }}>
+          נבחר: {selectedName}{selectedCategory ? ` · ${selectedCategory}` : ''}
+        </div>
+      )}
+      {pendingName && (
+        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--gold)', fontWeight: 800 }}>
+          {pendingName} · ממתין לאישור אדמין
+        </div>
+      )}
+      {(open || error || requestError) && (
+        <div
+          style={{
+            marginTop: 8,
+            border: '1px solid var(--line-2)',
+            borderRadius: 'var(--radius-sm)',
+            background: 'color-mix(in oklab, var(--surface) 92%, black 8%)',
+            boxShadow: '0 22px 54px -34px rgba(0,0,0,0.85)',
+            overflow: 'hidden',
+          }}
+        >
+          {open && filtered.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                onSelect(item);
+                setQuery(item.name);
+                setOpen(false);
+              }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: 10,
+                padding: '11px 13px',
+                border: 'none',
+                borderBottom: '1px solid var(--line)',
+                background: item.name === selectedName ? SB_ORANGE_SOFT : 'transparent',
+                color: 'var(--text)',
+                cursor: 'pointer',
+                textAlign: 'right',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 700,
+              }}
+            >
+              <span>{item.name}</span>
+              {item.category && <span style={{ color: 'var(--text-3)', fontSize: 12 }}>{item.category}</span>}
+            </button>
+          ))}
+          {open && filtered.length === 0 && (
+            <div style={{ padding: '11px 13px', color: 'var(--text-3)', fontSize: 13 }}>
+              לא נמצאו תוצאות
+            </div>
+          )}
+          {open && canRequest && (
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => void requestAdd()}
+              disabled={requesting || requestDisabled}
+              style={{
+                width: '100%',
+                padding: '12px 13px',
+                border: 'none',
+                background: 'rgba(249,115,22,0.1)',
+                color: requestDisabled ? 'var(--text-3)' : SB_ORANGE,
+                cursor: requestDisabled ? 'not-allowed' : 'pointer',
+                textAlign: 'right',
+                fontFamily: 'var(--font-body)',
+                fontSize: 13,
+                fontWeight: 800,
+              }}
+            >
+              {requesting ? 'שולח בקשה...' : 'לא ברשימה? בקשת הוספה לאישור אדמין'}
+            </button>
+          )}
+          <FieldError message={error || requestError || undefined} />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -875,11 +1185,12 @@ export function TeacherOnboardingPage() {
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
   const [draftStatus, setDraftStatus] = useState<DraftStatus>('idle');
   const [completionError, setCompletionError] = useState<string | null>(null);
-  const [nextRoute, setNextRoute] = useState('/dashboard');
+  const [nextRoute, setNextRoute] = useState('/teacher/dashboard');
   // Initial draft fetch state — shown while the first GET /api/teachers/me/onboarding
   // is in-flight. After the fetch resolves (success or null draft) this becomes false.
   const [draftLoading, setDraftLoading] = useState(true);
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [stepErrors, setStepErrors] = useState<Record<number, StepValidationErrors>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Snapshot of data+token captured when entering step 7 (loading screen)
   const completionSnapshotRef = useRef<{ data: TeacherOnboardingData; token: string } | null>(null);
@@ -914,11 +1225,46 @@ export function TeacherOnboardingPage() {
   const [gcalLastSynced, setGcalLastSynced] = useState<string | null>(null);
   const [gcalBusyCount, setGcalBusyCount] = useState(0);
   const [removedBlocksNotice, setRemovedBlocksNotice] = useState(false);
+  const [academicInstitutions, setAcademicInstitutions] = useState<AcademicRepositoryItem[]>([]);
+  const [academicFields, setAcademicFields] = useState<AcademicRepositoryItem[]>([]);
+  const [repositoryRequestErrors, setRepositoryRequestErrors] = useState<Partial<Record<AcademicRepositoryType, string>>>({});
 
   function update(patch: Partial<TeacherOnboardingData>) {
     hasUserEditedRef.current = true;
     setData((prev) => ({ ...prev, ...patch }));
   }
+
+  useEffect(() => {
+    fetchAcademicInstitutions()
+      .then((response) => {
+        if (!('error' in response)) setAcademicInstitutions(response.data.institutions);
+      })
+      .catch(() => {});
+    fetchAcademicFields()
+      .then((response) => {
+        if (!('error' in response)) setAcademicFields(response.data.fields);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setStepErrors((prev) => {
+      const currentErrors = prev[step];
+      if (!currentErrors || Object.keys(currentErrors).length === 0) return prev;
+
+      const stillInvalid = validateTeacherOnboardingStep(step, data).errors;
+      const nextCurrentErrors = Object.fromEntries(
+        Object.entries(currentErrors).filter(([field]) => stillInvalid[field]),
+      );
+
+      if (Object.keys(nextCurrentErrors).length === Object.keys(currentErrors).length) return prev;
+
+      return {
+        ...prev,
+        [step]: nextCurrentErrors,
+      };
+    });
+  }, [data, step]);
 
   // ── Guest mode: load draft from localStorage when unauthenticated ──────────
   // When the user is not logged in, we skip the backend fetch and restore any
@@ -1099,17 +1445,6 @@ export function TeacherOnboardingPage() {
     const providerToken = sessionProviderToken ?? earlyToken ?? undefined;
     const wasConnecting = sessionStorage.getItem('sb_gcal_connecting') === '1';
 
-    if (import.meta.env.DEV) {
-      console.debug('[GCalEffect] fired', {
-        step,
-        hasAccessToken: !!accessToken,
-        hasProviderToken: !!providerToken,
-        providerTokenSource: sessionProviderToken ? 'session' : earlyToken ? 'early-capture' : 'none',
-        providerTokenLength: providerToken?.length ?? 0,
-        wasConnecting,
-      });
-    }
-
     if (wasConnecting) sessionStorage.removeItem('sb_gcal_connecting');
 
     if (providerToken) {
@@ -1133,17 +1468,11 @@ export function TeacherOnboardingPage() {
             updateTimeBlocks(remaining);
           }
         })
-        .catch((err: unknown) => {
-          if (import.meta.env.DEV) {
-            console.error('[GCalEffect] syncCalendar failed', err instanceof Error ? err.message : err);
-          }
+        .catch(() => {
           setGcalStatus('sync_failed');
         });
     } else if (wasConnecting) {
       // OAuth was attempted but no provider_token → denied or error
-      if (import.meta.env.DEV) {
-        console.debug('[GCalEffect] wasConnecting but no provider_token — marking sync_failed');
-      }
       setGcalStatus('sync_failed');
     } else {
       // Normal load — check cached status from backend.
@@ -1176,6 +1505,13 @@ export function TeacherOnboardingPage() {
   }, [step, session?.access_token, session?.provider_token]);
 
   function next() {
+    const validation = validateTeacherOnboardingStep(step, data);
+    if (!validation.isValid) {
+      setStepErrors((prev) => ({ ...prev, [step]: validation.errors }));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     // Require authentication before the teaching-operations step (step 4+).
     // Unauthenticated users see the inline auth gate instead of advancing.
     if (step === 3 && !session) {
@@ -1204,25 +1540,58 @@ export function TeacherOnboardingPage() {
     update({ weeklyTimeBlocks: newBlocks, weeklyAvailability: days });
   }
 
-  async function handleGCalConnect() {
-    const token = session?.access_token;
-
-    // linkIdentity requires a valid Supabase session. Without one it hits
-    // GET /auth/v1/user → 403 before OAuth even opens. Detect early and
-    // show a targeted "re-login" message instead of a generic failure.
-    if (!token) {
-      setGcalConnectError('session_expired');
-      setGcalStatus('sync_failed');
+  async function requestAcademicRepositoryValue(repositoryType: AcademicRepositoryType, requestedName: string) {
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      setRepositoryRequestErrors((prev) => ({
+        ...prev,
+        [repositoryType]: 'יש להתחבר לפני שליחת בקשת הוספה לאישור אדמין.',
+      }));
       return;
     }
 
+    setRepositoryRequestErrors((prev) => ({ ...prev, [repositoryType]: undefined }));
+    const response = await createAcademicRepositoryRequest({ repositoryType, requestedName }, accessToken);
+    if ('error' in response) {
+      setRepositoryRequestErrors((prev) => ({
+        ...prev,
+        [repositoryType]: 'לא ניתן לשלוח את הבקשה כרגע. נסו שוב.',
+      }));
+      return;
+    }
+
+    if (repositoryType === 'institution') {
+      update({
+        institution: '',
+        academicInstitutionId: null,
+        academicInstitutionName: '',
+        academicInstitutionCategory: null,
+        academicInstitutionRequestId: response.data.request.id,
+        academicInstitutionRequestName: response.data.request.requestedName,
+      });
+    } else {
+      update({
+        degree: '',
+        academicFieldId: null,
+        academicFieldName: '',
+        academicFieldCategory: null,
+        academicFieldRequestId: response.data.request.id,
+        academicFieldRequestName: response.data.request.requestedName,
+      });
+    }
+  }
+
+  async function handleGCalConnect() {
     setGcalConnectError(null);
     setGcalStatus('connecting');
     try {
+      // linkIdentity requires an active Supabase session. Validate and refresh
+      // before saving/redirecting so expired context state never reaches OAuth.
+      const validSession = await ensureCalendarLinkSession();
       // Flush current form state to the DB before the OAuth redirect so it
       // can be restored when the browser returns to this page. We await here
       // so the write completes before navigation leaves the page.
-      await saveOnboardingDraft(data, step, token);
+      await saveOnboardingDraft(data, step, validSession.access_token);
       sessionStorage.setItem('sb_gcal_connecting', '1');
       sessionStorage.setItem('sb_gcal_return_step', String(step));
       sessionStorage.setItem('sb_gcal_return_route', '/teacher-onboarding');
@@ -1232,6 +1601,12 @@ export function TeacherOnboardingPage() {
       sessionStorage.removeItem('sb_gcal_connecting');
       sessionStorage.removeItem('sb_gcal_return_step');
       sessionStorage.removeItem('sb_gcal_return_route');
+      if (err instanceof ReauthRequiredError) {
+        setGcalConnectError('session_expired');
+        setGcalStatus('sync_failed');
+        navigate('/login', { state: { from: { pathname: '/teacher-onboarding' } } });
+        return;
+      }
       // 403 = session expired or allow_manual_linking disabled in Supabase dashboard.
       const is403 = (err as { status?: number }).status === 403;
       setGcalConnectError(is403 ? 'session_expired' : 'generic');
@@ -1319,6 +1694,15 @@ export function TeacherOnboardingPage() {
   // isActivatingRef prevents double-submission from rapid clicks.
   function activateProfile() {
     if (isActivatingRef.current) return;
+    const validation = validateTeacherOnboardingAll(data);
+    if (!validation.isValid && validation.firstInvalidStep !== null) {
+      setStepErrors((prev) => ({ ...prev, ...validation.errorsByStep }));
+      setCompletionError('חסרים פרטים בטופס. תקנו את השלב המסומן ונסו שוב.');
+      setStep(validation.firstInvalidStep);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     isActivatingRef.current = true;
     setCompletionError(null);
     const token = session?.access_token;
@@ -1334,6 +1718,17 @@ export function TeacherOnboardingPage() {
   async function handleAuthGateSubmit() {
     if (authGateLoading) return;
     setAuthGateError(null);
+
+    if (!authGateEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authGateEmail.trim())) {
+      setAuthGateError('יש להזין כתובת אימייל תקינה.');
+      return;
+    }
+
+    if (authGatePassword.length < 8) {
+      setAuthGateError('הסיסמה חייבת להכיל לפחות 8 תווים.');
+      return;
+    }
+
     setAuthGateLoading(true);
     try {
       if (authGateTab === 'signup') {
@@ -1355,7 +1750,7 @@ export function TeacherOnboardingPage() {
         setAuthGateError('אימות נשלח לדוא"ל — אשר/י את הכתובת ואז כנסי/י עם "כניסה לחשבון קיים".');
         setAuthGateTab('login');
       } else {
-        setAuthGateError(msg);
+        setAuthGateError(translateAuthGateError(msg));
       }
       pendingPostAuthType.current = null;
     } finally {
@@ -1384,9 +1779,13 @@ export function TeacherOnboardingPage() {
         if (cancelled) return;
         clearInterval(interval);
         if ('error' in response) {
-          setCompletionError(response.error);
+          const mapped = mapBackendOnboardingError(response.error, snapshot.data);
+          setCompletionError(mapped.message);
+          if (mapped.step !== 6) {
+            setStepErrors((prev) => ({ ...prev, [mapped.step]: mapped.errors }));
+          }
           isActivatingRef.current = false;
-          setStep(6);
+          setStep(mapped.step);
         } else {
           setNextRoute(response.data.nextRoute);
           // Refresh the auth context so AuthProvider.profile.onboardingCompleted
@@ -1679,7 +2078,7 @@ export function TeacherOnboardingPage() {
 
   // ── STEP 1: Identity ─────────────────────────────────────────────────────────
   if (step === 1) {
-    const canContinue = data.fullName.trim().length > 1 && data.professionalStatus !== null;
+    const errors = stepErrors[1] ?? {};
 
     function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
       const file = e.target.files?.[0];
@@ -1758,6 +2157,7 @@ export function TeacherOnboardingPage() {
               className="ob-input"
               style={inputStyle}
             />
+            <FieldError message={errors.fullName} />
           </div>
         </div>
 
@@ -1776,6 +2176,7 @@ export function TeacherOnboardingPage() {
               />
             ))}
           </div>
+          <FieldError message={errors.professionalStatus} />
         </div>
 
         {/* Hint */}
@@ -1803,7 +2204,7 @@ export function TeacherOnboardingPage() {
           </div>
         )}
 
-        <NavButtons hideBack onNext={next} nextDisabled={!canContinue} />
+        <NavButtons hideBack onNext={next} />
       </OnboardingShell>
       </>
     );
@@ -1812,6 +2213,7 @@ export function TeacherOnboardingPage() {
   // ── STEP 2: Background ───────────────────────────────────────────────────────
   if (step === 2) {
     const academic = isAcademicPath(data.professionalStatus);
+    const errors = stepErrors[2] ?? {};
 
     return (
       <OnboardingShell>
@@ -1823,28 +2225,46 @@ export function TeacherOnboardingPage() {
 
         {academic ? (
           <div style={{ display: 'grid', gap: 18 }}>
-            <div>
-              <SectionLabel>מוסד לימודים</SectionLabel>
-              <input
-                type="text"
-                placeholder='לדוגמה: אוניברסיטת תל אביב, הטכניון...'
-                value={data.institution}
-                onChange={(e) => update({ institution: e.target.value })}
-                className="ob-input"
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <SectionLabel>תחום לימוד / תואר</SectionLabel>
-              <input
-                type="text"
-                placeholder='לדוגמה: תואר ראשון במתמטיקה, מדעי המחשב...'
-                value={data.degree}
-                onChange={(e) => update({ degree: e.target.value })}
-                className="ob-input"
-                style={inputStyle}
-              />
-            </div>
+            <AcademicRepositoryAutocomplete
+              label="מוסד לימודים"
+              placeholder="חיפוש מוסד בעברית או באנגלית..."
+              items={academicInstitutions}
+              selectedName={data.academicInstitutionName}
+              selectedCategory={data.academicInstitutionCategory}
+              pendingName={data.academicInstitutionRequestName}
+              error={errors.institution}
+              requestError={repositoryRequestErrors.institution}
+              requestDisabled={!session?.access_token}
+              onSelect={(item) => update({
+                institution: '',
+                academicInstitutionId: item.id,
+                academicInstitutionName: item.name,
+                academicInstitutionCategory: item.category,
+                academicInstitutionRequestId: null,
+                academicInstitutionRequestName: '',
+              })}
+              onRequestAdd={(name) => requestAcademicRepositoryValue('institution', name)}
+            />
+            <AcademicRepositoryAutocomplete
+              label="תחום לימוד / תואר"
+              placeholder="חיפוש תחום לימוד בעברית או באנגלית..."
+              items={academicFields}
+              selectedName={data.academicFieldName}
+              selectedCategory={data.academicFieldCategory}
+              pendingName={data.academicFieldRequestName}
+              error={errors.degree}
+              requestError={repositoryRequestErrors.field}
+              requestDisabled={!session?.access_token}
+              onSelect={(item) => update({
+                degree: '',
+                academicFieldId: item.id,
+                academicFieldName: item.name,
+                academicFieldCategory: item.category,
+                academicFieldRequestId: null,
+                academicFieldRequestName: '',
+              })}
+              onRequestAdd={(name) => requestAcademicRepositoryValue('field', name)}
+            />
             <div>
               <SectionLabel>שנת לימוד</SectionLabel>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -1858,6 +2278,7 @@ export function TeacherOnboardingPage() {
                   />
                 ))}
               </div>
+              <FieldError message={errors.academicYear} />
             </div>
             <div>
               <SectionLabel>קורסים בהצטיינות (אופציונלי)</SectionLabel>
@@ -1884,6 +2305,7 @@ export function TeacherOnboardingPage() {
                 className="ob-input"
                 style={inputStyle}
               />
+              <FieldError message={errors.yearsOfExperience} />
             </div>
             <div>
               <SectionLabel>תחומי מומחיות</SectionLabel>
@@ -1895,6 +2317,7 @@ export function TeacherOnboardingPage() {
                 className="ob-input"
                 style={inputStyle}
               />
+              <FieldError message={errors.expertiseAreas} />
             </div>
             <div>
               <SectionLabel>העלאת תעודות / אישורים (אופציונלי)</SectionLabel>
@@ -1931,6 +2354,7 @@ export function TeacherOnboardingPage() {
   if (step === 3) {
     const availableSubjects = data.teachingLevels.flatMap((lvl) => SUBJECTS_BY_LEVEL[lvl]);
     const uniqueSubjects = [...new Set(availableSubjects)];
+    const errors = stepErrors[3] ?? {};
 
     function toggleLevel(lvl: typeof TEACHING_LEVELS[number]['value']) {
       const next = data.teachingLevels.includes(lvl)
@@ -1966,6 +2390,7 @@ export function TeacherOnboardingPage() {
               />
             ))}
           </div>
+          <FieldError message={errors.teachingLevels} />
         </div>
 
         {/* Subjects */}
@@ -2001,8 +2426,10 @@ export function TeacherOnboardingPage() {
                 />
               ))}
             </div>
+            <FieldError message={errors.selectedSubjects} />
           </div>
         )}
+        {data.teachingLevels.length === 0 && <FieldError message={errors.selectedSubjects} />}
 
         {/* Selected subjects preview */}
         {data.selectedSubjects.length > 0 && (
@@ -2076,13 +2503,14 @@ export function TeacherOnboardingPage() {
           </div>
         </div>
 
-        <NavButtons onBack={back} onNext={next} nextDisabled={data.teachingLevels.length === 0} />
+        <NavButtons onBack={back} onNext={next} />
       </OnboardingShell>
     );
   }
 
   // ── STEP 4: Teaching Operations Engine ───────────────────────────────────────
   if (step === 4) {
+    const errors = stepErrors[4] ?? {};
     const weeklyCapacity =
       data.maxActiveStudents !== null && data.weeklyTeachingHours !== null
         ? `${data.maxActiveStudents} תלמידים · ${data.weeklyTeachingHours} שעות/שבוע`
@@ -2140,6 +2568,7 @@ export function TeacherOnboardingPage() {
                   חלק מהשעות הוסרו כי הן תפוסות ביומן Google
                 </div>
               )}
+              <FieldError message={errors.weeklyTimeBlocks} />
             </div>
 
             {/* Quick presets */}
@@ -2183,6 +2612,7 @@ export function TeacherOnboardingPage() {
                 onSelect={(v) => update({ maxActiveStudents: v })}
                 suffix=" תלמידים"
               />
+              <FieldError message={errors.maxActiveStudents} />
             </div>
             <div style={{ marginBottom: 12 }}>
               <SectionLabel>שעות שבועיות (מקסימום)</SectionLabel>
@@ -2192,6 +2622,7 @@ export function TeacherOnboardingPage() {
                 onSelect={(v) => update({ weeklyTeachingHours: v })}
                 suffix=" ש׳"
               />
+              <FieldError message={errors.weeklyTeachingHours} />
             </div>
             <OpsToggle
               label="עצור קבלת תלמידים חדשים אוטומטית בהגעה לקיבולת"
@@ -2220,6 +2651,7 @@ export function TeacherOnboardingPage() {
                   onClick={() => update({ bookingApproval: 'manual' })}
                 />
               </div>
+              <FieldError message={errors.bookingApproval} />
             </div>
             {data.bookingApproval === 'manual' && (
               <>
@@ -2231,6 +2663,7 @@ export function TeacherOnboardingPage() {
                     onSelect={(v) => update({ slaHours: v })}
                     suffix=" שעות"
                   />
+                  <FieldError message={errors.slaHours} />
                 </div>
                 <div>
                   <SectionLabel>פעולה אוטומטית לאחר SLA</SectionLabel>
@@ -2248,6 +2681,7 @@ export function TeacherOnboardingPage() {
                       />
                     ))}
                   </div>
+                  <FieldError message={errors.slaAutoAction} />
                 </div>
               </>
             )}
@@ -2265,6 +2699,7 @@ export function TeacherOnboardingPage() {
                 />
               ))}
             </div>
+            <FieldError message={errors.commitmentTypes} />
             {data.commitmentTypes.includes('exam_marathons') && (
               <div style={{ marginTop: 14 }}>
                 <SectionLabel>מספר שיעורים למרתון</SectionLabel>
@@ -2274,6 +2709,7 @@ export function TeacherOnboardingPage() {
                   onSelect={(v) => update({ marathonSessionCount: v })}
                   suffix=" שיעורים"
                 />
+                <FieldError message={errors.marathonSessionCount} />
               </div>
             )}
           </OpsSection>
@@ -2291,6 +2727,7 @@ export function TeacherOnboardingPage() {
                 />
               ))}
             </div>
+            <FieldError message={errors.emergencyAvailability} />
           </OpsSection>
 
           {/* 6. Realtime feedback */}
@@ -2335,6 +2772,7 @@ export function TeacherOnboardingPage() {
   if (step === 5) {
     const allRequiredChecked = data.legalTax && data.legalContractor && data.legalMinors && data.legalCommunity;
     const rateNum = parseFloat(data.hourlyRate);
+    const errors = stepErrors[5] ?? {};
 
     return (
       <OnboardingShell>
@@ -2370,6 +2808,7 @@ export function TeacherOnboardingPage() {
               className="ob-input"
               style={{ ...inputStyle, paddingRight: 36 }}
             />
+            <FieldError message={errors.hourlyRate} />
           </div>
 
           {data.hourlyRate && !isNaN(rateNum) && (
@@ -2392,8 +2831,10 @@ export function TeacherOnboardingPage() {
                   />
                 ))}
               </div>
+              <FieldError message={errors.introSessionPricing} />
             </>
           )}
+          {!data.hourlyRate && <FieldError message={errors.introSessionPricing} />}
         </div>
 
         <Divider />
@@ -2545,11 +2986,11 @@ export function TeacherOnboardingPage() {
             יש לאשר את כל ארבע ההצהרות להמשך
           </div>
         )}
+        <FieldError message={errors.legal} />
 
         <NavButtons
           onBack={back}
           onNext={next}
-          nextDisabled={!allRequiredChecked}
           nextLabel="המשך לתצוגה מקדימה"
         />
       </OnboardingShell>
@@ -2738,7 +3179,7 @@ export function TeacherOnboardingPage() {
   }
 
   // ── STEP 8: Success ───────────────────────────────────────────────────────────
-  // TODO: replace navigate('/dashboard') with the teacher-specific dashboard route once it exists
+  // ── STEP 8: Success ───────────────────────────────────────────────────────────
   return (
     <div
       dir="rtl"

@@ -22,8 +22,47 @@ import {
   markMatchResultSelected,
   updateBookingRequestStatus,
   updateBookingRequestStatusTx,
+  updateLessonMeetingLink,
   insertLesson,
+  getBookingRequestsByTeacherId,
+  batchGetStudentNamesByStudentIds,
 } from './bookingRequests.repository.js';
+import { createGoogleCalendarEventWithMeet } from '../teachers/teacherCalendarService.js';
+
+// ── Teacher Inbox ─────────────────────────────────────────────────────────────
+
+// Returns pending booking requests for the authenticated teacher, with
+// student names pre-resolved. Only teachers (and admins) may call this.
+export async function getMyBookingRequests(currentUser: LocalUser) {
+  if (currentUser.role !== 'teacher' && currentUser.role !== 'admin') {
+    throw new AppError('Forbidden', 403);
+  }
+
+  let teacherProfileId: string;
+
+  if (currentUser.role === 'admin') {
+    throw new AppError('Admin inbox not yet supported', 501);
+  }
+
+  const profile = await getTeacherProfileByUserId(currentUser.id);
+  if (!profile) throw new AppError('Teacher profile not found', 404);
+  teacherProfileId = profile.id;
+
+  const requests = await getBookingRequestsByTeacherId(teacherProfileId, 'pending');
+  const studentNames = await batchGetStudentNamesByStudentIds(requests.map((r) => r.studentId));
+
+  return requests.map((r) => ({
+    id: r.id,
+    studentName: studentNames.get(r.studentId) ?? 'תלמיד לא ידוע',
+    requestedStartAt: r.requestedStartAt,
+    requestedEndAt: r.requestedEndAt,
+    studentMessage: r.studentMessage,
+    status: r.status,
+    createdAt: r.createdAt,
+  }));
+}
+
+// ── Create Booking Request ────────────────────────────────────────────────────
 
 export async function createBookingRequest(
   body: CreateBookingRequestBody,
@@ -51,6 +90,14 @@ export async function createBookingRequest(
   const teacher = await getTeacherProfileById(matchResult.teacherId);
   if (!teacher) {
     throw new AppError('Teacher not found', 404);
+  }
+
+  // ── MVP: parent-managed students only ────────────────────────────────────
+  if (student.parentUserId === null) {
+    throw new AppError(
+      'MVP supports parent-managed students only. Standalone student booking is not yet available.',
+      422,
+    );
   }
 
   // ── Ownership check ───────────────────────────────────────────────────────
@@ -101,6 +148,7 @@ export async function respondToBookingRequest(
   bookingRequestId: string,
   body: RespondToBookingRequestBody,
   currentUser: LocalUser,
+  googleProviderToken?: string,
 ): Promise<RespondResult> {
   // ── Load booking request ──────────────────────────────────────────────────
   const bookingRequest = await getBookingRequestById(bookingRequestId);
@@ -192,6 +240,36 @@ export async function respondToBookingRequest(
       locationType: intake.locationPreference,
     });
   });
+
+  // ── Best-effort: create Google Calendar event with Meet link ─────────────
+  // Runs outside the transaction so a calendar failure never rolls back the
+  // lesson. If anything goes wrong (expired token, insufficient scope, network
+  // error) we silently skip — the lesson is still valid without a Meet link.
+  //
+  // Snapshot into a const so TypeScript can narrow it — TypeScript 5.x loses the
+  // narrowed type of `let` variables mutated inside async callbacks. The cast is
+  // safe: insertLesson always returns LessonRow (throws on failure).
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+  const lessonSnapshot = createdLesson as LessonRow | null;
+  if (googleProviderToken && lessonSnapshot) {
+    const meetUrl = await createGoogleCalendarEventWithMeet(
+      googleProviderToken,
+      'שיעור StudyBuddy',
+      lessonSnapshot.scheduledStartAt,
+      lessonSnapshot.scheduledEndAt,
+    );
+    if (meetUrl) {
+      try {
+        await updateLessonMeetingLink(lessonSnapshot.id, meetUrl);
+        createdLesson = { ...lessonSnapshot, meetingLink: meetUrl };
+      } catch (err) {
+        // Persist failure is non-fatal: the lesson is already approved and
+        // created. Log and continue — the response will omit the Meet link
+        // rather than returning a spurious 500.
+        console.error('[respondToBookingRequest] Failed to persist meeting link', err);
+      }
+    }
+  }
 
   return { bookingRequest: updatedBookingRequest!, lesson: createdLesson! };
 }

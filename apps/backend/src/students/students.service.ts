@@ -12,7 +12,12 @@ export async function ensureStudentProfile(
   body: CreateStudentProfileBody,
 ): Promise<CreateStudentProfileResult> {
   if (role !== 'student' && role !== 'parent') {
-    throw new AppError('Student profiles are only created for student and parent accounts', 403);
+    throw new AppError('החשבון המחובר לא מתאים למסלול שנבחר.', 403);
+  }
+
+  const expectedRole = body.account_type === 'parent_for_child' ? 'parent' : 'student';
+  if (role !== expectedRole) {
+    throw new AppError('החשבון המחובר לא מתאים למסלול שנבחר.', 403);
   }
   if (body.account_type === 'independent_student' && role !== 'student') {
     throw new AppError('החשבון המחובר לא מתאים למסלול שנבחר.', 403);
@@ -36,6 +41,7 @@ export async function ensureStudentProfile(
       throw new AppError('full_name is required for independent student accounts', 422);
     }
     studentId = await insertStudentProfile(userId, body.full_name, body.grade_level ?? null);
+    studentId = await insertStudentProfile(userId, body.full_name ?? '', body.grade_level ?? null);
   }
 
   return { student_id: studentId };

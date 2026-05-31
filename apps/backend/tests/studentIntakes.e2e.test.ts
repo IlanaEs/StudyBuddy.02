@@ -19,10 +19,7 @@ vi.mock('../src/studentIntakes/studentIntakes.repository.js', () => ({
 vi.mock('../src/matching/matching.repository.js', () => ({
   getStudentIntakeById: vi.fn(),
   findInitialTeacherCandidates: vi.fn(),
-  lockIntakeForUpdate: vi.fn(),
-  deleteMatchResults: vi.fn(),
-  insertMatchResults: vi.fn(),
-  updateIntakeStatus: vi.fn(),
+  replaceMatchResults: vi.fn(),
 }));
 
 vi.mock('../src/db/transaction.js', () => ({
@@ -35,12 +32,9 @@ import { assertStudentAccess } from '../src/auth/ownership.js';
 import { AppError } from '../src/errors/AppError.js';
 import { createStudentIntake } from '../src/studentIntakes/studentIntakes.repository.js';
 import {
-  deleteMatchResults,
   findInitialTeacherCandidates,
   getStudentIntakeById as matchingGetStudentIntakeById,
-  insertMatchResults,
-  lockIntakeForUpdate,
-  updateIntakeStatus,
+  replaceMatchResults,
 } from '../src/matching/matching.repository.js';
 import { withTransaction } from '../src/db/transaction.js';
 import type { IntakeWithContext, MatchCandidate } from '../src/matching/matching.types.js';
@@ -158,10 +152,7 @@ const vi_assertStudentAccess     = vi.mocked(assertStudentAccess);
 const vi_createStudentIntake     = vi.mocked(createStudentIntake);
 const vi_matchingGetIntake       = vi.mocked(matchingGetStudentIntakeById);
 const vi_findCandidates          = vi.mocked(findInitialTeacherCandidates);
-const vi_lockIntake              = vi.mocked(lockIntakeForUpdate);
-const vi_deleteMatchResults      = vi.mocked(deleteMatchResults);
-const vi_insertMatchResults      = vi.mocked(insertMatchResults);
-const vi_updateIntakeStatus      = vi.mocked(updateIntakeStatus);
+const vi_replaceMatchResults     = vi.mocked(replaceMatchResults);
 const vi_withTransaction         = vi.mocked(withTransaction);
 
 // ── Test body for create intake ────────────────────────────────────────────────
@@ -185,8 +176,7 @@ describe('POST /api/student-intakes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi_assertStudentAccess.mockResolvedValue(undefined);
-    vi_deleteMatchResults.mockResolvedValue(undefined);
-    vi_updateIntakeStatus.mockResolvedValue(undefined);
+    vi_replaceMatchResults.mockResolvedValue([]);
     vi_withTransaction.mockImplementation((fn) => fn({}));
   });
 
@@ -443,9 +433,9 @@ describe('POST /api/student-intakes', () => {
     expect(res.status).toBe(201);
     expect(res.body).toHaveProperty('data');
     expect(res.body).not.toHaveProperty('success');
-    expect(res.body.data).toHaveProperty('id');
-    expect(res.body.data).toHaveProperty('studentId');
-    expect(res.body.data).toHaveProperty('subjectId');
+    expect(res.body.data).toHaveProperty('intake_id');
+    expect(res.body.data).toHaveProperty('student_id');
+    expect(res.body.data).toHaveProperty('subject_id');
     expect(res.body.data).toHaveProperty('status');
   });
 
@@ -474,8 +464,7 @@ describe('E2E: create intake then run matching', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi_assertStudentAccess.mockResolvedValue(undefined);
-    vi_deleteMatchResults.mockResolvedValue(undefined);
-    vi_updateIntakeStatus.mockResolvedValue(undefined);
+    vi_replaceMatchResults.mockResolvedValue([]);
     vi_withTransaction.mockImplementation((fn) => fn({}));
   });
 
@@ -494,7 +483,7 @@ describe('E2E: create intake then run matching', () => {
 
     expect(createRes.status).toBe(201);
     expect(createRes.body).not.toHaveProperty('success');
-    const intakeId = createRes.body.data.id as string;
+    const intakeId = createRes.body.data.intake_id as string;
 
     // Step 2: run matching using the returned intake id
     vi_matchingGetIntake.mockResolvedValue(makeIntakeWithContext(intakeId));
@@ -503,8 +492,7 @@ describe('E2E: create intake then run matching', () => {
       makeCandidate('e2ea0003-0000-4000-8000-000000000011'),
       makeCandidate('e2ea0003-0000-4000-8000-000000000012'),
     ]);
-    vi_lockIntake.mockResolvedValue({ id: intakeId, status: 'open' });
-    vi_insertMatchResults.mockResolvedValue([
+    vi_replaceMatchResults.mockResolvedValue([
       makeInsertedRow('e2ea0003-0000-4000-8000-000000000010', 1),
       makeInsertedRow('e2ea0003-0000-4000-8000-000000000011', 2),
       makeInsertedRow('e2ea0003-0000-4000-8000-000000000012', 3),
@@ -549,7 +537,6 @@ describe('E2E: create intake then run matching', () => {
     vi_verifyAccessToken.mockResolvedValue(STUDENT_AUTH);
     vi_matchingGetIntake.mockResolvedValue(makeIntakeWithContext(INTAKE_ID));
     vi_findCandidates.mockResolvedValue([]);
-    vi_lockIntake.mockResolvedValue({ id: INTAKE_ID, status: 'open' });
 
     const res = await request(app)
       .post(`/api/matching/${INTAKE_ID}/run`)

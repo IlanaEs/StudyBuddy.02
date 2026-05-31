@@ -19,6 +19,26 @@ export type CreateStudentIntakeResult = {
   intake_id: string;
 };
 
+export type MatchingRunResult = {
+  intakeId: string;
+  matches: Array<{
+    id: string;
+    teacherId: string;
+    rank: number;
+    matchScore: number;
+    reason: string;
+    fallbackPhase: string;
+    teacherFullName: string;
+    teacherHourlyRate: number;
+    teacherBio: string | null;
+    teacherRatingAvg: number;
+    teacherRatingCount: number;
+    teacherIsVerified: boolean;
+  }>;
+  fallbackPhaseUsed: string;
+  matchingVersion: string;
+};
+
 export interface CreateStudentProfileInput {
   account_type: 'independent_student' | 'parent_for_child';
   full_name?: string;
@@ -80,6 +100,17 @@ export async function createStudentIntake(
       method: 'POST',
       body: JSON.stringify(input),
     },
+    accessToken,
+  );
+}
+
+export async function runMatching(
+  intakeId: string,
+  accessToken: string,
+): Promise<ApiResponse<MatchingRunResult>> {
+  return apiRequest<MatchingRunResult>(
+    `/api/matching/${intakeId}/run`,
+    { method: 'POST' },
     accessToken,
   );
 }

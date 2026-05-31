@@ -5,6 +5,15 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { apiRequest } from '../api/client';
 import type { AuthPayload, LocalUser, MeProfile, UserRole } from './authTypes';
 import { getSupabaseBrowserClient } from './supabaseClient';
+import { GCAL_PROVIDER_TOKEN_KEY } from './sessionStorageKeys';
+import {
+  type QaRole,
+  authorizeQaHeader,
+  clearQaRoleOverride,
+  getQaRoleOverride,
+  isEligibleForAdminQa,
+  setQaRoleOverride,
+} from '../adminQa/adminQaMode';
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
@@ -22,6 +31,12 @@ type AuthContextValue = {
    *  (e.g. completing teacher onboarding) so the in-memory context reflects
    *  the new DB state without requiring a full page reload. */
   refreshProfile: () => Promise<void>;
+  /** Active QA role override (sessionStorage only, admin-only, cleared on logout). */
+  qaRole: QaRole | null;
+  /** Set or clear the QA role override. No-ops for non-admin users. */
+  setQaRole: (role: QaRole | null) => void;
+  /** The role used for routing/access checks: qaRole when set, otherwise user.role. */
+  effectiveRole: UserRole | null;
 };
 
 type LoginInput = {
@@ -37,6 +52,8 @@ type SignupInput = LoginInput & {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const PROVIDER_TOKEN_KEY = 'sb_provider_token';
+
 function getResponseError(response: { error?: string }) {
   return response.error ?? 'Authentication request failed';
 }
@@ -47,9 +64,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<MeProfile>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Never initialized from sessionStorage directly — restored only after
+  // resolveSession confirms an eligible authenticated user.
+  const [qaRole, setQaRoleState] = useState<QaRole | null>(null);
+
+  // Sync the module-level authorized header store whenever qaRole changes.
+  // This keeps client.ts header injection in sync without needing auth context.
+  useEffect(() => {
+    authorizeQaHeader(qaRole);
+  }, [qaRole]);
+
+  const setQaRole = useCallback((role: QaRole | null) => {
+    if (role !== null && !isEligibleForAdminQa(user?.email, user?.role)) {
+      clearQaRoleOverride();
+      setQaRoleState(null);
+      return;
+    }
+    if (role === null) {
+      clearQaRoleOverride();
+    } else {
+      setQaRoleOverride(role);
+    }
+    setQaRoleState(role);
+  }, [user]);
 
   const resolveSession = useCallback(async (nextSession: Session | null) => {
     if (!nextSession?.access_token) {
+      clearQaRoleOverride();
+      setQaRoleState(null);
+      sessionStorage.removeItem(PROVIDER_TOKEN_KEY);
       setSession(null);
       setUser(null);
       setProfile(null);
@@ -57,9 +100,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const response = await apiRequest<{ user: LocalUser; profile: MeProfile }>('/api/auth/me', undefined, nextSession.access_token);
+    // Restore provider_token from sessionStorage when it is absent from the
+    // restored session (Supabase strips it after the initial SIGNED_IN event).
+    let effectiveSession = nextSession;
+    if (!nextSession.provider_token && nextSession.user?.id) {
+      const stored = sessionStorage.getItem(PROVIDER_TOKEN_KEY);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored) as { userId: string; token: string };
+          if (parsed.userId === nextSession.user.id) {
+            effectiveSession = { ...nextSession, provider_token: parsed.token };
+          }
+        } catch { /* ignore malformed data */ }
+      }
+    }
+
+    const response = await apiRequest<{ user: LocalUser; profile: MeProfile }>('/api/auth/me', undefined, effectiveSession.access_token);
 
     if ('error' in response) {
+      clearQaRoleOverride();
+      setQaRoleState(null);
       setSession(null);
       setUser(null);
       setProfile(null);
@@ -69,27 +129,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setSession((prev) => {
-      // Supabase only includes provider_token in the initial SIGNED_IN event after
-      // OAuth. Subsequent TOKEN_REFRESHED / replayed events strip it. Preserve it
-      // as long as the session belongs to the same user.
-      const willPreserve = !nextSession.provider_token && !!prev?.provider_token && prev.user?.id === nextSession.user?.id;
+      // Keep provider_token from prev in-memory session if effectiveSession
+      // still lacks it (e.g. TOKEN_REFRESHED fires before sessionStorage is read).
+      const willPreserve = !effectiveSession.provider_token && !!prev?.provider_token && prev.user?.id === effectiveSession.user?.id;
       if (import.meta.env.DEV) {
         console.debug('[AuthProvider] setSession', {
-          incomingHasProviderToken: !!nextSession.provider_token,
+          incomingHasProviderToken: !!effectiveSession.provider_token,
           prevHasProviderToken: !!prev?.provider_token,
-          sameUser: prev?.user?.id === nextSession.user?.id,
+          sameUser: prev?.user?.id === effectiveSession.user?.id,
           preservingPrevToken: willPreserve,
         });
       }
       if (willPreserve) {
-        return { ...nextSession, provider_token: prev!.provider_token };
+        return { ...effectiveSession, provider_token: prev!.provider_token };
       }
-      return nextSession;
+      return effectiveSession;
     });
-    setUser(response.data.user);
+    const resolvedUser = response.data.user;
+    setUser(resolvedUser);
     setProfile(response.data.profile ?? null);
     setStatus('authenticated');
     setError(null);
+    // Restore QA role from sessionStorage only if the confirmed user is eligible.
+    // Clears any stale override if the user changed or is no longer eligible.
+    if (isEligibleForAdminQa(resolvedUser.email, resolvedUser.role)) {
+      setQaRoleState(getQaRoleOverride());
+    } else {
+      clearQaRoleOverride();
+      setQaRoleState(null);
+    }
   }, []);
 
   useEffect(() => {
@@ -125,6 +193,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               userId: nextSession?.user?.id ?? null,
             });
           }
+          // Persist provider_token on SIGNED_IN so it survives a same-tab refresh.
+          if (event === 'SIGNED_IN' && nextSession?.provider_token && nextSession.user?.id) {
+            sessionStorage.setItem(
+              PROVIDER_TOKEN_KEY,
+              JSON.stringify({ userId: nextSession.user.id, token: nextSession.provider_token }),
+            );
+          }
           if (isMounted) {
             void resolveSession(nextSession);
           }
@@ -133,6 +208,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return () => subscription.unsubscribe();
       } catch (unknownError) {
         if (isMounted) {
+          clearQaRoleOverride();
+          setQaRoleState(null);
           setError(unknownError instanceof Error ? unknownError.message : 'Authentication is not configured');
           setSession(null);
           setUser(null);
@@ -257,17 +334,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiRequest('/api/auth/logout', { method: 'POST' }, currentToken);
     }
 
+    clearQaRoleOverride();
+    sessionStorage.removeItem(PROVIDER_TOKEN_KEY);
+    sessionStorage.removeItem(GCAL_PROVIDER_TOKEN_KEY);
     const supabase = getSupabaseBrowserClient();
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);
+    setQaRoleState(null);
     setStatus('unauthenticated');
     setError(null);
   }, [session]);
 
   const value = useMemo(
-    () => ({ status, user, profile, session, error, login, signup, logout, refreshProfile }),
-    [error, login, logout, profile, refreshProfile, session, signup, status, user],
+    () => {
+      const eligibleQaRole = isEligibleForAdminQa(user?.email, user?.role) ? qaRole : null;
+      return {
+        status, user, profile, session, error, login, signup, logout, refreshProfile,
+        qaRole, setQaRole,
+        effectiveRole: (eligibleQaRole ?? user?.role) ?? null,
+      };
+    },
+    [error, login, logout, profile, refreshProfile, session, signup, status, user, qaRole, setQaRole],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,11 +1,45 @@
-import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { CheckCircle2, Mail, Check, Calendar, Clock } from 'lucide-react';
-import { useMatchingStore } from '../store/matchingStore';
+import { useAuth } from '../../../auth/AuthProvider';
+
+type ConfirmationState = {
+  bookingId: string;
+  teacherName: string;
+};
+
+function isConfirmationState(value: unknown): value is ConfirmationState {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as Record<string, unknown>)['bookingId'] === 'string' &&
+    typeof (value as Record<string, unknown>)['teacherName'] === 'string'
+  );
+}
+
+function useDashboardRoute() {
+  const auth = useAuth();
+  if (auth.user?.role === 'parent') return '/parent/dashboard';
+  return '/dashboard';
+}
 
 export function BookingConfirmationPage() {
   const navigate = useNavigate();
-  const { matchResults, selectedMatchId } = useMatchingStore();
-  const match = matchResults.find((r) => r.id === selectedMatchId);
+  const location = useLocation();
+  const state = isConfirmationState(location.state) ? location.state : null;
+  const dashboardRoute = useDashboardRoute();
+
+  // No real booking state means the user landed here without submitting
+  // (e.g. direct URL or page refresh). Redirect to dashboard silently.
+  useEffect(() => {
+    if (!state) {
+      navigate(dashboardRoute, { replace: true });
+    }
+  }, [state, navigate, dashboardRoute]);
+
+  if (!state) return null;
+
+  const { teacherName } = state;
 
   return (
     <div dir="rtl" lang="he" className="min-h-screen flex flex-col items-center justify-center px-4 py-10" style={{ background: 'var(--bg)' }}>
@@ -15,13 +49,13 @@ export function BookingConfirmationPage() {
         </div>
         <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)' }}>הבקשה נשלחה בהצלחה!</h1>
         <p className="mb-6" style={{ color: 'var(--text-2)', fontSize: 15 }}>
-          המורה {match?.teacher.fullName ?? ''} יקבל/תקבל את בקשת השיעור ויאשר/תאשר בהקדם.
+          המורה {teacherName} יקבל/תקבל את בקשת השיעור ויאשר/תאשר בהקדם.
         </p>
 
         <div className="rounded-2xl p-5 mb-6 text-right" style={{ background: 'var(--surface)', border: '1px solid var(--line-2)' }}>
           <div className="font-bold mb-3" style={{ color: 'var(--text)' }}>מה קורה עכשיו?</div>
           {[
-            { icon: <Mail size={16} />, text: `המורה ${match?.teacher.fullName ?? ''} מקבל/ת את הבקשה` },
+            { icon: <Mail size={16} />, text: `המורה ${teacherName} מקבל/ת את הבקשה` },
             { icon: <Check size={16} />, text: 'המורה מאשר/ת ומתחיל/ה ליצור קשר דרך המערכת' },
             { icon: <Calendar size={16} />, text: 'תואמים את השיעור הראשון' },
           ].map((item) => (
@@ -38,7 +72,7 @@ export function BookingConfirmationPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <button onClick={() => navigate('/dashboard')} className="w-full py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>
+          <button onClick={() => navigate(dashboardRoute)} className="w-full py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>
             לדשבורד שלי
           </button>
           <button onClick={() => navigate('/onboarding/matching')} className="w-full py-3 rounded-xl font-medium text-sm" style={{ background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--text-3)', cursor: 'pointer' }}>

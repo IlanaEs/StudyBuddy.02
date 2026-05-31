@@ -16,6 +16,14 @@ export const signupSchema = z.object({
     }
     if (body.account_type === 'parent_for_child' && body.role !== 'parent') {
       ctx.addIssue({ code: 'custom', path: ['role'], message: 'role must be parent for parent_for_child account_type' });
+    if (!body.account_type) return;
+    const expectedRole = body.account_type === 'parent_for_child' ? 'parent' : 'student';
+    if (body.role !== expectedRole) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['role'],
+        message: 'role must match account_type',
+      });
     }
   }),
 });

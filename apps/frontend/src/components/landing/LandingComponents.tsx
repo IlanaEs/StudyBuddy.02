@@ -1,16 +1,15 @@
-import { Link } from 'react-router-dom';
-import type { ReactNode } from 'react';
-import { GraduationCap, Users, Zap, Briefcase, Building2 } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Zap, Briefcase, Building2 } from 'lucide-react';
 
 import type {
   LandingFaqItem,
   LandingFaqSection,
 } from '../../content/landing/mainLandingContent';
 
-type RoleCard = {
-  icon: string;
+type UnifiedLandingCta = {
   title: string;
-  note: string;
+  body: string;
   cta: string;
   to: string;
 };
@@ -86,30 +85,32 @@ function FloatingHeroLogo() {
   );
 }
 
-const roleIconMap: Record<string, ReactNode> = {
-  student: <GraduationCap size={28} />,
-  parent: <Users size={28} />,
-};
-
 const planIconMap: Record<string, ReactNode> = {
   free: <Zap size={22} />,
   pro: <Briefcase size={22} />,
   business: <Building2 size={22} />,
 };
 
-export function ForkRoleCards({ roles }: { roles: readonly RoleCard[] }) {
+export function UnifiedOnboardingCtaCard({ cta }: { cta: UnifiedLandingCta }) {
+  const navigate = useNavigate();
+  const [isLeaving, setIsLeaving] = useState(false);
+
+  const handleStart = () => {
+    if (isLeaving) return;
+    setIsLeaving(true);
+    window.setTimeout(() => navigate(cta.to), 150);
+  };
+
   return (
-    <div className="role-card-grid" aria-label="בחירת מסלול">
-      {roles.map((role) => (
-        <Link className="identity-card" key={role.title} to={role.to}>
-          <span className="identity-icon" aria-hidden="true">
-            {roleIconMap[role.icon] ?? null}
-          </span>
-          <span className="identity-title">{role.title}</span>
-          <span className="identity-note">({role.note})</span>
-          <span className="tactile-button">{role.cta}</span>
-        </Link>
-      ))}
+    <div className={`unified-entry-wrap${isLeaving ? ' is-leaving' : ''}`}>
+      <article className="unified-entry-card" aria-label="כניסה לשאלון התאמה">
+        <h2>{cta.title}</h2>
+        <p>{cta.body}</p>
+        <button className="unified-entry-button" type="button" onClick={handleStart}>
+          <span>{cta.cta}</span>
+          <ArrowLeft size={20} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+      </article>
     </div>
   );
 }

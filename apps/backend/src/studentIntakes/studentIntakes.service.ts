@@ -22,6 +22,11 @@ export async function createIntake(
     body.preferred_days != null
       ? [...new Set(body.preferred_days)].sort((a, b) => a - b)
       : null;
+  const subjectId = body.subject_id ?? (body.subject_name ? await findSubjectIdByName(body.subject_name) : null);
+
+  if (!subjectId) {
+    throw new AppError('לא נמצא מקצוע מתאים במערכת. בחרו מקצוע מהרשימה ונסו שוב.', 422);
+  }
 
   const subjectId = body.subject_id ?? (body.subject_name ? await findSubjectIdByName(body.subject_name) : null);
   if (!subjectId) {

@@ -11,6 +11,11 @@ export async function findSubjectIdByName(subjectName: string): Promise<string |
     .from('subjects')
     .select('id')
     .eq('name', subjectName.trim())
+  const normalizedName = subjectName.trim();
+  const { data, error } = await adminClient()
+    .from('subjects')
+    .select('id')
+    .ilike('name', normalizedName)
     .eq('is_active', true)
     .maybeSingle();
 

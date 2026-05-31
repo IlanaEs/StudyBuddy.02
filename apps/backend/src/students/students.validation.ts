@@ -9,6 +9,19 @@ export const createStudentProfileSchema = z.object({
   }).superRefine((body, ctx) => {
     if (body.account_type === 'parent_for_child' && !body.child_name) {
       ctx.addIssue({ code: 'custom', path: ['child_name'], message: 'child_name is required for parent_for_child' });
+    if (body.account_type === 'independent_student' && !body.full_name?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['full_name'],
+        message: 'full_name is required for independent_student',
+      });
+    }
+    if (body.account_type === 'parent_for_child' && !body.child_name?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['child_name'],
+        message: 'child_name is required for parent_for_child',
+      });
     }
   }),
 });

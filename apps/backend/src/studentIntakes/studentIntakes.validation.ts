@@ -38,6 +38,10 @@ const bodySchema = z
       location_preference !== 'frontal' || !!(city && city.trim().length > 0),
     { message: 'city is required when location_preference is frontal', path: ['city'] },
   )
+  .refine(({ subject_id, subject_name }) => !!subject_id || !!subject_name?.trim(), {
+    message: 'subject_id or subject_name is required',
+    path: ['subject_id'],
+  })
   // Cross-field: when both budget bounds are present, min must not exceed max.
   .refine(
     ({ budget_min, budget_max }) =>

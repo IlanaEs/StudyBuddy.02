@@ -79,6 +79,81 @@ a {
   text-decoration: none;
 }
 
+.session-controls {
+  position: fixed;
+  inset: auto 18px 18px auto;
+  z-index: 80;
+  display: flex;
+  max-width: min(540px, calc(100vw - 36px));
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--bg-2) 86%, transparent);
+  box-shadow: 0 20px 56px -34px rgba(0, 0, 0, 0.74);
+  backdrop-filter: blur(18px) saturate(145%);
+}
+
+.session-controls__identity {
+  max-width: 230px;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-controls__button {
+  appearance: none;
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  background: color-mix(in oklab, var(--surface-2) 72%, transparent);
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.session-controls__button:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in oklab, var(--cyan) 38%, var(--line-2));
+  background: color-mix(in oklab, var(--surface-2) 90%, var(--cyan) 10%);
+}
+
+.session-controls__button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+  transform: none;
+}
+
+.session-controls__button--secondary {
+  color: var(--text-3);
+  background: transparent;
+}
+
+@media (max-width: 640px) {
+  .session-controls {
+    inset: auto 10px 10px 10px;
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+
+  .session-controls__identity {
+    max-width: 44vw;
+  }
+}
+
 button,
 summary,
 a {
@@ -516,98 +591,128 @@ a {
     0 12px 28px -18px color-mix(in oklab, var(--blue) 88%, transparent);
 }
 
-.role-card-grid {
+.unified-entry-wrap {
   grid-column: 3;
   grid-row: 1;
-  display: grid;
-  gap: 14px;
+  width: 100%;
   direction: rtl;
   unicode-bidi: isolate;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 
-.identity-card {
+.unified-entry-wrap.is-leaving {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.99);
+}
+
+.unified-entry-card {
   position: relative;
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 8px 14px;
-  align-items: center;
-  min-height: 164px;
+  gap: 18px;
+  justify-items: stretch;
   overflow: hidden;
-  border: 1px solid rgba(220, 245, 240, 0.22);
+  border: 1px solid #016c7c;
   border-radius: var(--radius-lg);
   background:
-    radial-gradient(120% 100% at 100% 0%, color-mix(in oklab, var(--blue) 16%, transparent), transparent 56%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
-    var(--surface);
-  padding: 20px;
+    radial-gradient(120% 130% at 100% 0%, rgba(0, 246, 255, 0.18), transparent 58%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.03)),
+    #3f7e76;
+  padding: 30px;
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.08) inset,
-    0 24px 40px -30px rgba(0, 0, 0, 0.9),
-    0 48px 96px -76px rgba(90, 232, 226, 0.82);
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 26px 50px -30px rgba(0, 0, 0, 0.78),
+    0 48px 92px -72px rgba(0, 246, 255, 0.84);
   transition:
     transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.2s ease,
     box-shadow 0.25s ease;
 }
 
-.identity-card:nth-child(2) {
-  background:
-    radial-gradient(120% 100% at 100% 0%, color-mix(in oklab, var(--lime) 16%, transparent), transparent 56%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
-    var(--surface);
-}
-
-.identity-card::before {
+.unified-entry-card::before {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(circle at 1px 1px, rgba(238, 247, 245, 0.08) 1px, transparent 0);
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
   background-size: 18px 18px;
-  opacity: 0.42;
+  opacity: 0.24;
   pointer-events: none;
 }
 
-.identity-card:hover {
-  transform: translateY(-5px);
-  border-color: color-mix(in oklab, var(--blue) 46%, transparent);
+.unified-entry-card:hover {
+  transform: translateY(-5px) translateX(-2px);
+  border-color: color-mix(in oklab, #00f6ff 54%, #016c7c);
   box-shadow:
-    0 30px 64px -28px rgba(0, 0, 0, 0.66),
-    0 54px 100px -72px color-mix(in oklab, var(--blue) 82%, transparent),
-    0 0 0 1px color-mix(in oklab, var(--blue) 30%, transparent) inset;
+    0 34px 66px -30px rgba(0, 0, 0, 0.7),
+    0 54px 110px -70px rgba(0, 246, 255, 0.98),
+    0 0 0 1px rgba(0, 246, 255, 0.28) inset;
 }
 
-.identity-icon {
+.unified-entry-card h2,
+.unified-entry-card p,
+.unified-entry-button {
   position: relative;
   z-index: 1;
-  grid-row: span 3;
-  display: grid;
-  place-items: center;
-  width: 58px;
-  height: 58px;
-  border: 1px solid var(--line-2);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.05);
+}
+
+.unified-entry-card h2 {
+  margin: 0;
+  color: #f5fffd;
   font-size: 28px;
-}
-
-.identity-title,
-.identity-note,
-.identity-card .tactile-button {
-  position: relative;
-  z-index: 1;
-}
-
-.identity-title {
-  color: var(--text);
-  font-size: 24px;
   font-weight: 800;
   line-height: 1.2;
 }
 
-.identity-note {
-  color: var(--text-2);
-  font-size: 14px;
+.unified-entry-card p {
+  margin: 0;
+  max-width: 34ch;
+  color: rgba(245, 255, 253, 0.84);
+  font-size: 17px;
   font-weight: 600;
+  line-height: 1.65;
+}
+
+.unified-entry-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 54px;
+  width: 100%;
+  margin-top: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 16px;
+  background: #00f6ff;
+  color: #073536;
+  cursor: pointer;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 900;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.56) inset,
+    0 18px 38px -24px rgba(0, 246, 255, 0.9);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease;
+}
+
+.unified-entry-button:hover,
+.unified-entry-button:focus-visible {
+  outline: none;
+  filter: brightness(1.05);
+  transform: translateY(-2px) translateX(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.68) inset,
+    0 0 0 4px rgba(0, 246, 255, 0.16),
+    0 22px 46px -18px rgba(0, 246, 255, 0.92);
+}
+
+.unified-entry-button:active {
+  transform: translateY(0) scale(0.99);
 }
 
 .section-header {
@@ -1781,7 +1886,7 @@ a {
 
   .floating-logo-stage,
   .hero-copy,
-  .role-card-grid {
+  .unified-entry-wrap {
     grid-column: auto;
     grid-row: auto;
   }
@@ -1795,8 +1900,10 @@ a {
     order: 2;
   }
 
-  .role-card-grid {
+  .unified-entry-wrap {
     order: 3;
+    max-width: 560px;
+    justify-self: center;
   }
 
   .value-manifesto-row {
@@ -2001,6 +2108,41 @@ a {
 }
 
 /* ── Responsive overrides ────────────────────────── */
+/* ── Parent Dashboard ───────────────────────────────── */
+
+/* English text in RTL layout: keep sentence punctuation at the right end */
+.parent-dashboard h1,
+.parent-dashboard p,
+.parent-dashboard span,
+.parent-dashboard button {
+  unicode-bidi: plaintext;
+}
+
+/* ── Parent Dashboard Bento Grid ───────────────────── */
+
+@media (max-width: 860px) {
+  .parent-bento-grid {
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-areas:
+      "upcoming upcoming"
+      "approval ."
+      "lesson   lesson"
+      "help     history" !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .parent-bento-grid {
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+      "upcoming"
+      "approval"
+      "lesson"
+      "help"
+      "history" !important;
+  }
+}
+
 @media (max-width: 640px) {
   .teacher-stats-bar {
     grid-template-columns: repeat(2, 1fr);
@@ -2090,13 +2232,12 @@ a {
     font-size: 17px;
   }
 
-  .identity-card {
-    grid-template-columns: 1fr;
-    min-height: auto;
+  .unified-entry-card {
+    padding: 24px;
   }
 
-  .identity-icon {
-    grid-row: auto;
+  .unified-entry-card h2 {
+    font-size: 24px;
   }
 
   .value-manifesto-section {
