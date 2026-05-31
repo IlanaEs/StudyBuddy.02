@@ -17,6 +17,7 @@ import { TeacherOnboardingPage } from '../pages/TeacherOnboardingPage';
 import { ParentDashboardPage } from '../pages/ParentDashboardPage';
 import { TeacherBookingInboxPage } from '../pages/TeacherBookingInboxPage';
 import { TeacherLessonManagePage } from '../pages/TeacherLessonManagePage';
+import { TeacherDashboardPage } from '../pages/TeacherDashboardPage';
 
 export function App() {
   return (
@@ -61,6 +62,10 @@ export function App() {
           element={
             <ProtectedRoute allowedRoles={['teacher']}>
               <TeacherLessonManagePage />
+          path="/teacher/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['teacher']}>
+              <TeacherDashboardPage />
             </ProtectedRoute>
           }
         />

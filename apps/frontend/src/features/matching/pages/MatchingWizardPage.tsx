@@ -109,6 +109,13 @@ export function MatchingWizardPage() {
     !!intake.accountType &&
     auth.user?.role !== expectedRole;
 
+  const isParent = intake.accountType === 'parent_for_child';
+  const expectedRole = intake.accountType === 'parent_for_child' ? 'parent' : 'student';
+  const hasRoleConflict =
+    auth.status === 'authenticated' &&
+    !!intake.accountType &&
+    auth.user?.role !== expectedRole;
+
   // ── Initial mount ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (step > TOTAL_STEPS) {
@@ -167,6 +174,9 @@ export function MatchingWizardPage() {
     }
 
     if (isParent && !intake.childName.trim()) return;
+    if (isParent && !intake.childName.trim()) {
+      return;
+    }
 
     setAuthLoading(true);
     setAuthError(null);
@@ -181,6 +191,7 @@ export function MatchingWizardPage() {
     ).then((profileResult) => {
       if ('error' in profileResult) {
         setAuthError(toHebrewOnboardingError(profileResult.error));
+        setAuthError(profileResult.error);
         return;
       }
       updateIntake({ studentId: profileResult.data.student_id });
@@ -342,6 +353,7 @@ export function MatchingWizardPage() {
           full_name: intake.fullName,
           password: authPassword,
           role: expectedRole,
+          account_type: intake.accountType,
         });
       } else {
         await auth.login({ email: authEmail, password: authPassword });
@@ -574,6 +586,13 @@ export function MatchingWizardPage() {
           description="חשבון תלמיד/ה עצמאי למציאת מורה עבורי"
           selected={intake.accountType === 'independent_student'}
           onClick={() => updateIntake({ accountType: 'independent_student', childName: '' })}
+        <WizardStepHeader title="למי מיועד החשבון?" />
+        <WizardOptionCard
+          icon={<GraduationCap size={20} />}
+          label="אני התלמיד/ה"
+          description="אני מחפש/ת מורה עבור עצמי"
+          selected={intake.accountType === 'independent_student'}
+          onClick={() => { updateIntake({ accountType: 'independent_student', childName: '' }); setErrors({}); }}
         />
         <WizardOptionCard
           icon={<Users size={20} />}
@@ -587,6 +606,14 @@ export function MatchingWizardPage() {
           <button onClick={() => setStep(0)} className="py-3 px-5 rounded-xl font-medium" style={ctaBack}>חזור</button>
           <button onClick={() => void handleNext()} className="flex-1 py-3 rounded-xl wizard-cta-primary" style={ctaPrimary}>המשך</button>
         </div>
+          description="אני מחפש/ת מורה עבור ילד/ה או תלמיד/ה באחריותי"
+          selected={intake.accountType === 'parent_for_child'}
+          onClick={() => { updateIntake({ accountType: 'parent_for_child' }); setErrors({}); }}
+        />
+        {errors.accountType && <div style={{ color: 'var(--coral)', fontSize: 13, marginTop: 4 }}>{errors.accountType}</div>}
+        <button onClick={() => void handleNext()} className="w-full py-3 rounded-xl mt-4 wizard-cta-primary" style={ctaPrimary}>
+          המשך
+        </button>
       </WizardShell>
     );
   }
@@ -842,6 +869,22 @@ export function MatchingWizardPage() {
                 מעבר למסלול הנכון
               </button>
             </div>
+          subtitle="אחרי ההתחברות נמשיך לשאלון ההתאמה"
+        />
+
+        {authTab === 'signup' && (
+          <div className="mb-4">
+            <div className="font-semibold mb-1 text-sm" style={{ color: 'var(--text-2)' }}>
+              {isParent ? 'השם המלא שלך' : 'שם מלא'}
+            </div>
+            <input
+              type="text"
+              placeholder={isParent ? 'השם המלא שלך...' : 'השם שלך כאן...'}
+              value={intake.fullName}
+              onChange={(e) => updateIntake({ fullName: e.target.value })}
+              className="w-full p-3 rounded-xl wizard-input"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 15, outline: 'none', transition: 'border-color 0.18s, box-shadow 0.18s' }}
+            />
           </div>
         )}
 
@@ -929,6 +972,26 @@ export function MatchingWizardPage() {
         {authError && (
           <div className="mb-3 p-3 rounded-lg text-sm" style={{ background: 'color-mix(in oklab, var(--coral) 15%, var(--surface-2))', color: 'var(--coral)', border: '1px solid color-mix(in oklab, var(--coral) 30%, transparent)' }}>
             {authError}
+            {hasRoleConflict && (
+              <div className="flex flex-col gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => void auth.logout()}
+                  className="w-full py-2 rounded-lg font-semibold"
+                  style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--line-2)', cursor: 'pointer' }}
+                >
+                  התנתקות ובחירת חשבון אחר
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/dashboard')}
+                  className="w-full py-2 rounded-lg font-semibold"
+                  style={{ background: 'transparent', color: 'var(--text-2)', border: '1px solid var(--line-2)', cursor: 'pointer' }}
+                >
+                  מעבר לאזור האישי המתאים
+                </button>
+              </div>
+            )}
           </div>
         )}
 

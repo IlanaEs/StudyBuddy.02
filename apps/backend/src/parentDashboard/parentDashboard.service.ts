@@ -56,12 +56,14 @@ export async function getParentDashboardService(
   const childIds = children.map((c) => c.id);
 
   const [nextLessonRaw, pendingConfirmationRaw, latestNoteRaw, recentLessonsRaw, weeklyLessonsRaw] =
+  const [nextLessonRaw, pendingConfirmationRaw, latestNoteRaw, recentLessonsRaw] =
     await Promise.all([
       getNextLesson(selectedStudentId),
       getPendingConfirmationWithLesson(selectedStudentId),
       getLatestLessonNote(selectedStudentId),
       getRecentLessons(selectedStudentId, 6),
       getWeeklyFamilySchedule(childIds),
+      getRecentLessons(selectedStudentId, 3),
     ]);
 
   // ── Homework tasks for the latest note ────────────────────────────────────

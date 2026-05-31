@@ -198,6 +198,6 @@ export async function completeMyOnboarding(
 
   return {
     teacherProfileId,
-    nextRoute: '/dashboard',
+    nextRoute: '/teacher/dashboard',
   };
 }

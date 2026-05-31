@@ -5,6 +5,11 @@ import { Calendar, CreditCard, Sun, BookOpen, ChevronLeft, CalendarDays, Video }
 import { useAuth } from '../auth/AuthProvider';
 import { useParentDashboard } from '../features/parent/hooks/useParentDashboard';
 import type { ParentDashboardPayload, HomeworkTaskStatus } from '../features/parent/api/types';
+import { useState } from 'react';
+import { Calendar, CreditCard, Sun, BookOpen, ChevronLeft } from 'lucide-react';
+
+import { mockParentData } from '../features/parent/data/mockParentData';
+import type { ChildDashboardData } from '../features/parent/data/mockParentData';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -394,6 +399,8 @@ function isLessonLive(startsAt: string, endsAt: string): boolean {
   return now >= unlockAt && now <= closesAt;
 }
 
+// ── Card 1: Upcoming Lesson ────────────────────────────────────────────────────
+
 function UpcomingLessonCard({
   childName,
   data,
@@ -461,6 +468,23 @@ function UpcomingLessonCard({
             </a>
           )}
         </>
+  data: ChildDashboardData['upcomingLesson'];
+  className?: string;
+}) {
+  return (
+    <div
+      className={className}
+      style={{ ...CARD_BASE, padding: '20px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+    >
+      <CardHeader icon={<Calendar size={16} />} title='הלו"ז הקרוב' accentColor={SB_NEON} />
+      {data ? (
+        <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--text)', lineHeight: 1.65 }}>
+          השיעור הבא של {childName}:{' '}
+          <span style={{ color: SB_NEON, fontWeight: 700 }}>{data.subject}</span> עם{' '}
+          <span style={{ color: 'var(--text)' }}>{data.teacherName}</span> ביום {data.day},{' '}
+          {data.date} בשעה{' '}
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{data.time}</span>.
+        </p>
       ) : (
         <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--text-3)', lineHeight: 1.65 }}>
           אין ל{childName} שיעורים מתוזמנים לימים הקרובים.
@@ -478,6 +502,7 @@ function PendingApprovalCard({
   className,
 }: {
   data: PendingApprovalData;
+  data: ChildDashboardData['pendingApproval'];
   onApprove: () => void;
   className?: string;
 }) {
@@ -507,6 +532,8 @@ function PendingApprovalCard({
             {data.amount != null && (
               <>(<span style={{ fontFamily: 'var(--font-mono)', color: SB_SUCCESS }}>₪{data.amount}</span>). </>
             )}
+            שהשיעור ב{data.subject} מתאריך {data.date} בוצע ושולם{' '}
+            (<span style={{ fontFamily: 'var(--font-mono)', color: SB_SUCCESS }}>₪{data.amount}</span>).{' '}
             הכל תקין?
           </p>
           <button
@@ -519,6 +546,7 @@ function PendingApprovalCard({
               gap: 7,
               width: '100%',
               padding: '11px 16px',
+              padding: '10px 16px',
               borderRadius: 'var(--radius-sm)',
               border: 'none',
               background: SB_SUCCESS,
@@ -532,6 +560,9 @@ function PendingApprovalCard({
             }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)';
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.08)';
               (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
             }}
             onMouseLeave={(e) => {
@@ -575,6 +606,9 @@ function LatestLessonCard({
   const taskStatusColor =
     data?.taskStatus === 'completed' ? SB_SUCCESS : SB_NEON;
 
+  data: ChildDashboardData['latestLessonUpdate'];
+  className?: string;
+}) {
   return (
     <div
       className={className}
@@ -588,6 +622,7 @@ function LatestLessonCard({
 
       {data ? (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+          {/* Teacher note */}
           <div>
             <SectionLabel>מה המורה כתב</SectionLabel>
             <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--text)', lineHeight: 1.65 }}>
@@ -597,6 +632,7 @@ function LatestLessonCard({
 
           <Divider />
 
+          {/* Homework */}
           <div>
             <SectionLabel>שיעורי בית</SectionLabel>
             {data.homework === 'none' ? (
@@ -665,6 +701,51 @@ function LatestLessonCard({
               </div>
             </>
           )}
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--text)', lineHeight: 1.65 }}>
+                {data.homework.description}
+              </p>
+            )}
+          </div>
+
+          <Divider />
+
+          {/* Task status pill */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 'auto' }}>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: 'var(--text-3)',
+                fontFamily: 'var(--font-mono)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+              }}
+            >
+              סטטוס המשימה אצל הילד:
+            </span>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '4px 12px',
+                borderRadius: 999,
+                fontSize: 12,
+                fontWeight: 700,
+                fontFamily: 'var(--font-mono)',
+                background:
+                  data.taskStatus === 'completed'
+                    ? `color-mix(in oklab, ${SB_SUCCESS} 15%, transparent)`
+                    : `color-mix(in oklab, ${SB_NEON} 12%, transparent)`,
+                border:
+                  data.taskStatus === 'completed'
+                    ? `1px solid color-mix(in oklab, ${SB_SUCCESS} 35%, transparent)`
+                    : `1px solid color-mix(in oklab, ${SB_NEON} 28%, transparent)`,
+                color: data.taskStatus === 'completed' ? SB_SUCCESS : SB_NEON,
+              }}
+            >
+              {data.taskStatus === 'completed' ? 'סימן שהושלם' : 'בתהליך'}
+            </span>
+          </div>
         </div>
       ) : (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -707,6 +788,12 @@ function FindTeacherCard({
       <button
         type="button"
         onClick={() => navigate('/onboarding/matching')}
+      {/* TODO: navigate to /onboarding/matching with child context pre-filled */}
+      <button
+        type="button"
+        onClick={() => {
+          // TODO: navigate to matching flow with child context pre-filled
+        }}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -728,6 +815,9 @@ function FindTeacherCard({
         }}
         onMouseEnter={(e) => {
           (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)';
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.08)';
           (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
         }}
         onMouseLeave={(e) => {
@@ -757,6 +847,9 @@ function PreviousLessonsCard({
   // Desktop: up to 6; Mobile: up to 3 (toggled by `expanded`)
   const visibleLessons = expanded ? lessons : lessons.slice(0, 3);
 
+  lessons: ChildDashboardData['previousLessons'];
+  className?: string;
+}) {
   return (
     <div
       className={className}
@@ -822,11 +915,53 @@ function PreviousLessonsCard({
           {expanded ? 'הצג פחות' : `הצג הכל (${lessons.length})`}
         </button>
       )}
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+        {lessons.slice(0, 3).map((lesson, i) => (
+          <div key={i}>
+            {i > 0 && <Divider />}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>
+                  {lesson.date}
+                </span>
+                <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {lesson.teacherName} · {lesson.subject}
+                </span>
+              </div>
+              <span
+                style={{
+                  flexShrink: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '3px 9px',
+                  borderRadius: 999,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  fontFamily: 'var(--font-mono)',
+                  background:
+                    lesson.status === 'closed'
+                      ? `color-mix(in oklab, ${SB_SUCCESS} 12%, transparent)`
+                      : `color-mix(in oklab, ${SB_ORANGE} 12%, transparent)`,
+                  border:
+                    lesson.status === 'closed'
+                      ? `1px solid color-mix(in oklab, ${SB_SUCCESS} 28%, transparent)`
+                      : `1px solid color-mix(in oklab, ${SB_ORANGE} 28%, transparent)`,
+                  color: lesson.status === 'closed' ? SB_SUCCESS : SB_ORANGE,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {lesson.status === 'closed' ? 'סגור' : 'ממתין לאישור'}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
 
       <button
         type="button"
         style={{
           marginTop: 14,
+          marginTop: 18,
           background: 'none',
           border: 'none',
           padding: 0,
@@ -1121,6 +1256,30 @@ export function ParentDashboardPage() {
 
   const { upcomingLesson, pendingApproval, latestLessonUpdate, previousLessons, weeklyGroups } =
     transformPayload(data);
+  const { parentName, children, dashboardByChild } = mockParentData;
+  const [selectedChildId, setSelectedChildId] = useState(children[0]!.id);
+  const [visible, setVisible] = useState(true);
+  const [approvedChildren, setApprovedChildren] = useState<Set<string>>(new Set());
+
+  const selectedChild = children.find((c) => c.id === selectedChildId)!;
+  const rawData = dashboardByChild[selectedChildId]!;
+  const data: ChildDashboardData = {
+    ...rawData,
+    pendingApproval: approvedChildren.has(selectedChildId) ? null : rawData.pendingApproval,
+  };
+
+  function handleChildSelect(id: string) {
+    if (id === selectedChildId) return;
+    setVisible(false);
+    setTimeout(() => {
+      setSelectedChildId(id);
+      setVisible(true);
+    }, 200);
+  }
+
+  function handleApprove() {
+    setApprovedChildren((prev) => new Set([...prev, selectedChildId]));
+  }
 
   return (
     <div
@@ -1191,6 +1350,10 @@ export function ParentDashboardPage() {
           width: '100%',
           margin: '0 auto',
           padding: '32px 20px 64px',
+          maxWidth: 1100,
+          width: '100%',
+          margin: '0 auto',
+          padding: '32px 24px 64px',
           display: 'flex',
           flexDirection: 'column',
           gap: 24,
@@ -1202,6 +1365,7 @@ export function ParentDashboardPage() {
             style={{
               margin: '0 0 4px',
               fontSize: 'clamp(20px, 4vw, 28px)',
+              fontSize: 26,
               fontWeight: 900,
               color: 'var(--text)',
               fontFamily: 'var(--font-display)',
@@ -1267,6 +1431,48 @@ export function ParentDashboardPage() {
               childName={selectedChild.name}
               lessons={previousLessons}
               className="order-6 md:col-span-2 lg:col-span-6 lg:order-6"
+        <ChildSelector children={children} selectedId={selectedChildId} onSelect={handleChildSelect} />
+
+        {/* Bento grid — fade on child switch */}
+        <div style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.2s ease' }}>
+          {/*
+            Grid: 1 col (mobile) → 2 col (md/tablet) → 4 col (lg/desktop)
+            Mobile order priority: Approval(1) → Upcoming(2) → Lesson(3) → Help(4) → Previous(5)
+            Desktop auto-placement order: Upcoming → Lesson(row-span-2) → Approval → Help → Previous
+          */}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-4 lg:gap-5">
+            {/* Approval — mobile priority 1; desktop after Upcoming+Lesson */}
+            <PendingApprovalCard
+              data={data.pendingApproval}
+              onApprove={handleApprove}
+              className="order-1 lg:order-3"
+            />
+
+            {/* Upcoming — mobile priority 2; desktop first (col-span-2) */}
+            <UpcomingLessonCard
+              childName={selectedChild.name}
+              data={data.upcomingLesson}
+              className="order-2 lg:order-1 md:col-span-2 lg:col-span-2"
+            />
+
+            {/* Latest lesson update — mobile priority 3; desktop second (col-span-2, row-span-2) */}
+            <LatestLessonCard
+              childName={selectedChild.name}
+              data={data.latestLessonUpdate}
+              className="order-3 lg:order-2 md:col-span-2 lg:col-span-2 lg:row-span-2"
+            />
+
+            {/* Find teacher — mobile priority 4; desktop fourth */}
+            <FindTeacherCard
+              childName={selectedChild.name}
+              className="order-4 lg:order-4"
+            />
+
+            {/* Previous lessons — mobile priority 5; desktop fifth */}
+            <PreviousLessonsCard
+              childName={selectedChild.name}
+              lessons={data.previousLessons}
+              className="order-5 lg:order-5"
             />
           </div>
         </div>

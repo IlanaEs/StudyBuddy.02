@@ -115,6 +115,13 @@ export async function getNextLesson(
     .eq('student_id', studentId)
     .eq('status', 'scheduled')
     .gt('scheduled_end_at', new Date().toISOString())
+): Promise<{ id: string; subjectId: string | null; teacherProfileId: string; startsAt: string; status: string } | null> {
+  const { data, error } = await adminClient()
+    .from('lessons')
+    .select('id,subject_id,teacher_id,scheduled_start_at,status')
+    .eq('student_id', studentId)
+    .eq('status', 'scheduled')
+    .gt('scheduled_start_at', new Date().toISOString())
     .order('scheduled_start_at', { ascending: true })
     .limit(1)
     .maybeSingle();
