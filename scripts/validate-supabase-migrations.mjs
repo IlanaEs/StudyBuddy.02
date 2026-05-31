@@ -18,6 +18,7 @@ const expectedFiles = [
   '012_onboarding_drafts.sql',
   '013_academic_repositories.sql',
   '014_parent_dashboard.sql',
+  '015_demo_seed_flags.sql',
 ];
 
 const migrationFiles = {
@@ -28,6 +29,7 @@ const migrationFiles = {
   schedulingPreferences: '010_teacher_scheduling_preferences.sql',
   availabilityExceptions: '011_availability_exceptions.sql',
   onboardingDrafts: '012_onboarding_drafts.sql',
+  demoSeedFlags: '015_demo_seed_flags.sql',
 };
 
 const expectedTables = [
@@ -207,6 +209,24 @@ if (/using\s*\(\s*true\s*\)/i.test(rlsWithoutSubjectLookup)) {
 
 if (/to\s+anon/i.test(sqlByFile[migrationFiles.rls])) {
   fail('anon RLS policy detected');
+}
+
+if (!sqlByFile[migrationFiles.demoSeedFlags].includes('alter table public.users')) {
+  fail('missing users demo flag migration');
+}
+
+if (!sqlByFile[migrationFiles.demoSeedFlags].includes('add column is_demo boolean not null default false')) {
+  fail('missing is_demo boolean default false columns');
+}
+
+if (!sqlByFile[migrationFiles.demoSeedFlags].includes('alter table public.teacher_profiles')) {
+  fail('missing teacher_profiles demo flag migration');
+}
+
+for (const index of ['users_is_demo_idx', 'teacher_profiles_is_demo_idx']) {
+  if (!sqlByFile[migrationFiles.demoSeedFlags].includes(`create index ${index}`)) {
+    fail(`missing demo flag index ${index}`);
+  }
 }
 
 console.log('Supabase migration validation passed.');

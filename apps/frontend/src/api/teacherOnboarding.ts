@@ -6,6 +6,16 @@ import type { TeacherOnboardingData } from '../pages/TeacherOnboardingPage';
 export type OnboardingDraftRemote = {
   institution: string;
   degree: string;
+  academicInstitutionId?: string | null;
+  academicInstitutionName?: string;
+  academicInstitutionCategory?: string | null;
+  academicInstitutionRequestId?: string | null;
+  academicInstitutionRequestName?: string;
+  academicFieldId?: string | null;
+  academicFieldName?: string;
+  academicFieldCategory?: string | null;
+  academicFieldRequestId?: string | null;
+  academicFieldRequestName?: string;
   academicYear: string;
   excellentCourses: string;
   yearsOfExperience: string;
@@ -62,6 +72,16 @@ function buildSaveBody(data: TeacherOnboardingData, step: number) {
     draft: {
       institution: data.institution,
       degree: data.degree,
+      academicInstitutionId: data.academicInstitutionId,
+      academicInstitutionName: data.academicInstitutionName,
+      academicInstitutionCategory: data.academicInstitutionCategory,
+      academicInstitutionRequestId: data.academicInstitutionRequestId,
+      academicInstitutionRequestName: data.academicInstitutionRequestName,
+      academicFieldId: data.academicFieldId,
+      academicFieldName: data.academicFieldName,
+      academicFieldCategory: data.academicFieldCategory,
+      academicFieldRequestId: data.academicFieldRequestId,
+      academicFieldRequestName: data.academicFieldRequestName,
       academicYear: data.academicYear,
       excellentCourses: data.excellentCourses,
       yearsOfExperience: data.yearsOfExperience,
@@ -125,6 +145,16 @@ export async function completeOnboarding(
         draft: {
           institution: data.institution,
           degree: data.degree,
+          academicInstitutionId: data.academicInstitutionId,
+          academicInstitutionName: data.academicInstitutionName,
+          academicInstitutionCategory: data.academicInstitutionCategory,
+          academicInstitutionRequestId: data.academicInstitutionRequestId,
+          academicInstitutionRequestName: data.academicInstitutionRequestName,
+          academicFieldId: data.academicFieldId,
+          academicFieldName: data.academicFieldName,
+          academicFieldCategory: data.academicFieldCategory,
+          academicFieldRequestId: data.academicFieldRequestId,
+          academicFieldRequestName: data.academicFieldRequestName,
           academicYear: data.academicYear,
           excellentCourses: data.excellentCourses,
           yearsOfExperience: data.yearsOfExperience,
@@ -171,6 +201,16 @@ export function hydrateFromRemote(
       ? {
           institution: draft.institution || currentData.institution,
           degree: draft.degree || currentData.degree,
+          academicInstitutionId: draft.academicInstitutionId ?? currentData.academicInstitutionId,
+          academicInstitutionName: draft.academicInstitutionName ?? currentData.academicInstitutionName,
+          academicInstitutionCategory: draft.academicInstitutionCategory ?? currentData.academicInstitutionCategory,
+          academicInstitutionRequestId: draft.academicInstitutionRequestId ?? currentData.academicInstitutionRequestId,
+          academicInstitutionRequestName: draft.academicInstitutionRequestName ?? currentData.academicInstitutionRequestName,
+          academicFieldId: draft.academicFieldId ?? currentData.academicFieldId,
+          academicFieldName: draft.academicFieldName ?? currentData.academicFieldName,
+          academicFieldCategory: draft.academicFieldCategory ?? currentData.academicFieldCategory,
+          academicFieldRequestId: draft.academicFieldRequestId ?? currentData.academicFieldRequestId,
+          academicFieldRequestName: draft.academicFieldRequestName ?? currentData.academicFieldRequestName,
           academicYear: draft.academicYear || currentData.academicYear,
           excellentCourses: draft.excellentCourses || currentData.excellentCourses,
           yearsOfExperience: draft.yearsOfExperience || currentData.yearsOfExperience,

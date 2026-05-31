@@ -16,22 +16,12 @@ export const mainLandingContent = {
       'בלי לעבור על מאות פרופילים ובלי לבזבז זמן. כמה קליקים, והמערכת תציג לכם את 3 המורים המתאימים ביותר למטרה שלכם.',
     context:
       'מהורים לתלמידי יסודי ועד סטודנטים בתואר –> כולם מוצאים כאן את המורה המדויק.',
-    roles: [
-      {
-        icon: 'student',
-        title: 'אני מחפש/ת עבור עצמי',
-        note: 'מפעיל מסלול תלמיד',
-        cta: 'מתחילים כאן',
-        to: '/onboarding/matching?role=student',
-      },
-      {
-        icon: 'parent',
-        title: 'אני הורה שמחפש עבור הילד/ה',
-        note: 'מפעיל מסלול הורה',
-        cta: 'מתחילים כאן',
-        to: '/onboarding/matching?role=parent',
-      },
-    ],
+    unifiedCta: {
+      title: 'מוכנים למצוא את המורה המדויק?',
+      body: 'תלמיד או הורה? השאלון החכם שלנו כבר ידע להתאים את עצמו אליכם.',
+      cta: 'מתחילים כאן',
+      to: '/onboarding/matching',
+    },
     teacherCta: {
       label: 'אני מורה ->',
       to: '/teachers',
@@ -260,7 +250,7 @@ export const mainLandingContent = {
   finalCta: {
     title: 'מרגישים מוכנים למצוא את המורה שמתאים לכם באמת?',
     label: 'אני רוצה להתחיל',
-    to: '/onboarding/matching?role=student',
+    to: '/onboarding/matching',
   },
   legal: {
     title: 'מידע משפטי ופרטיות',

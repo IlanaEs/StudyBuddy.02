@@ -10,6 +10,7 @@ export function MatchResultsPage() {
   const navigate = useNavigate();
   const { matchResults, intake, selectMatch } = useMatchingStore();
   const [previewMatch, setPreviewMatch] = useState<MatchResult | null>(null);
+  const userContext = intake.accountType === 'parent_for_child' ? 'parent' : 'student';
   const userContext: 'student' | 'parent' = intake.accountType === 'parent_for_child' ? 'parent' : 'student';
   const isParent = userContext === 'parent';
 

@@ -1,6 +1,7 @@
 // DB access only. No business logic. No scoring. No filtering decisions.
 
 import { AppError } from '../errors/AppError.js';
+import { env } from '../config/env.js';
 import { createSupabaseAdminClient } from '../supabase/supabaseClients.js';
 import type { TransactionSql } from '../db/transaction.js';
 import type {
@@ -89,14 +90,22 @@ export async function findInitialTeacherCandidates(
   // ── Query 2: teacher_profiles + availability_slots ────────────────────────
   // Filters pushed to SQL: is_active, is_verified, onboarding_completed.
   // availability_slots embedded in the same query — avoids a separate fetch per teacher.
-  const { data: profileData, error: profileError } = await adminClient()
+  let profileQuery = adminClient()
     .from('teacher_profiles')
-    .select('id,user_id,hourly_rate,location_type,city,rating_avg,rating_count,is_verified,is_active,last_active_at,availability_slots(day_of_week,start_time,end_time,is_active)')
+    .select('id,user_id,hourly_rate,bio,location_type,city,rating_avg,rating_count,is_verified,is_active,last_active_at,availability_slots(day_of_week,start_time,end_time,is_active)')
     .in('id', teacherIds)
     .eq('is_active', true)
     .eq('is_verified', true)
     .eq('onboarding_completed', true)
     .limit(MAX_CANDIDATE_POOL);
+
+  if (env.NODE_ENV === 'production') {
+    profileQuery = profileQuery
+      .eq('is_demo', false)
+      .neq('professional_status', 'dev_seed_teacher');
+  }
+
+  const { data: profileData, error: profileError } = await profileQuery;
 
   if (profileError) {
     throw new AppError('Failed to load teacher profiles', 500);
@@ -109,10 +118,10 @@ export async function findInitialTeacherCandidates(
   const activeProfileIds = profiles.map((p) => p.id as string);
   const userIds = profiles.map((p) => p.user_id as string);
 
-  // ── Query 3: user statuses (batch) ────────────────────────────────────────
+  // ── Query 3: user statuses + full names (batch) ──────────────────────────
   const { data: userData, error: userError } = await adminClient()
     .from('users')
-    .select('id,status')
+    .select('id,status,full_name')
     .in('id', userIds);
 
   if (userError) {
@@ -122,6 +131,10 @@ export async function findInitialTeacherCandidates(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const userStatusMap = new Map<string, string>(
     ((userData ?? []) as any[]).map((u) => [u.id as string, u.status as string]),
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const userFullNameMap = new Map<string, string>(
+    ((userData ?? []) as any[]).map((u) => [u.id as string, (u.full_name as string | null) ?? '']),
   );
 
   // ── Query 4: scheduled lesson counts this week (batch) ───────────────────
@@ -189,6 +202,8 @@ export async function findInitialTeacherCandidates(
       return {
         teacherProfileId: profile.id as string,
         userId: profile.user_id as string,
+        fullName: userFullNameMap.get(profile.user_id as string) ?? '',
+        bio: (profile.bio as string | null) ?? null,
         hourlyRate: profile.hourly_rate as number,
         locationType: profile.location_type as 'online' | 'frontal' | 'both',
         city: profile.city as string | null,
@@ -254,6 +269,76 @@ export async function insertMatchResults(
     INSERT INTO match_results ${sql(dbRows)}
     RETURNING id, teacher_id, rank, match_score, reason
   `) as any[];
+
+  return inserted.map((r) => ({
+    id: r.id as string,
+    teacherId: r.teacher_id as string,
+    rank: r.rank as number,
+    matchScore: parseFloat(r.match_score),
+    reason: r.reason as string,
+  }));
+}
+
+export async function replaceMatchResults(
+  intakeId: string,
+  rows: MatchResultRow[],
+): Promise<InsertedMatchRow[]> {
+  const { data: intake, error: intakeError } = await adminClient()
+    .from('student_intakes')
+    .select('id,status')
+    .eq('id', intakeId)
+    .maybeSingle();
+
+  if (intakeError) {
+    throw new AppError('Failed to load student intake', 500);
+  }
+  if (!intake) {
+    throw new AppError('Student intake not found', 404);
+  }
+  if (intake.status === 'closed') {
+    throw new AppError("Cannot run matching on a closed intake", 422);
+  }
+
+  const { error: deleteError } = await adminClient()
+    .from('match_results')
+    .delete()
+    .eq('intake_id', intakeId);
+
+  if (deleteError) {
+    throw new AppError('Failed to clear previous match results', 500);
+  }
+
+  let inserted: any[] = [];
+  if (rows.length > 0) {
+    const dbRows = rows.map((r) => ({
+      intake_id: r.intakeId,
+      teacher_id: r.teacherId,
+      rank: r.rank,
+      match_score: r.matchScore,
+      reason: r.reason,
+      was_selected: r.wasSelected,
+    }));
+
+    const { data, error } = await adminClient()
+      .from('match_results')
+      .insert(dbRows)
+      .select('id,teacher_id,rank,match_score,reason');
+
+    if (error) {
+      throw new AppError('Failed to insert match results', 500);
+    }
+    inserted = (data ?? []) as any[];
+  }
+
+  const nextStatus = rows.length > 0 ? 'matched' : 'open';
+  const { error: statusError } = await adminClient()
+    .from('student_intakes')
+    .update({ status: nextStatus })
+    .eq('id', intakeId);
+
+  if (statusError) {
+    throw new AppError('Failed to update student intake status', 500);
+  }
 
   return inserted.map((r) => ({
     id: r.id as string,

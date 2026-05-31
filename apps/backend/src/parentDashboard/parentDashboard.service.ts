@@ -20,6 +20,7 @@ import {
   getNextLesson,
   getRecentLessons,
   getStudentByIdAndParent,
+  getWeeklyFamilySchedule,
   updateHomeworkTaskStatus,
 } from './parentDashboard.repository.js';
 
@@ -52,11 +53,16 @@ export async function getParentDashboardService(
   const selectedStudent = children.find((c) => c.id === selectedStudentId)!;
 
   // ── Parallel data fetch ────────────────────────────────────────────────────
+  const childIds = children.map((c) => c.id);
+
+  const [nextLessonRaw, pendingConfirmationRaw, latestNoteRaw, recentLessonsRaw, weeklyLessonsRaw] =
   const [nextLessonRaw, pendingConfirmationRaw, latestNoteRaw, recentLessonsRaw] =
     await Promise.all([
       getNextLesson(selectedStudentId),
       getPendingConfirmationWithLesson(selectedStudentId),
       getLatestLessonNote(selectedStudentId),
+      getRecentLessons(selectedStudentId, 6),
+      getWeeklyFamilySchedule(childIds),
       getRecentLessons(selectedStudentId, 3),
     ]);
 
@@ -70,6 +76,7 @@ export async function getParentDashboardService(
   const teacherProfileIds = [
     ...(nextLessonRaw ? [nextLessonRaw.teacherProfileId] : []),
     ...recentLessonsRaw.map((l) => l.teacherProfileId),
+    ...weeklyLessonsRaw.map((l) => l.teacherProfileId),
   ];
   // Collect teacher user IDs (from lesson_confirmations, which use user IDs directly)
   const confirmationTeacherUserIds = pendingConfirmationRaw
@@ -86,12 +93,18 @@ export async function getParentDashboardService(
     ...(nextLessonRaw?.subjectId ? [nextLessonRaw.subjectId] : []),
     ...(pendingConfirmationRaw?.subjectId ? [pendingConfirmationRaw.subjectId] : []),
     ...recentLessonsRaw.flatMap((l) => (l.subjectId ? [l.subjectId] : [])),
+    ...weeklyLessonsRaw.flatMap((l) => (l.subjectId ? [l.subjectId] : [])),
   ];
   const subjectNames = await batchGetSubjectNamesByIds(subjectIds);
 
   // ── Confirmation statuses for recent lessons ──────────────────────────────
   const recentLessonIds = recentLessonsRaw.map((l) => l.id);
   const confirmationStatuses = await getConfirmationStatusesByLessonIds(recentLessonIds);
+
+  // ── Student name map (for weekly schedule) ────────────────────────────────
+  const studentNameMap = new Map<string, string>(
+    children.map((c) => [c.id, c.fullName]),
+  );
 
   // ── Assemble payload ───────────────────────────────────────────────────────
   return {
@@ -111,6 +124,8 @@ export async function getParentDashboardService(
             : null,
           teacher_name: teacherProfileNames.get(nextLessonRaw.teacherProfileId) ?? 'מורה לא ידוע',
           starts_at: nextLessonRaw.startsAt,
+          ends_at: nextLessonRaw.endsAt,
+          meeting_link: nextLessonRaw.meetingLink,
           status: nextLessonRaw.status,
         }
       : null,
@@ -158,6 +173,17 @@ export async function getParentDashboardService(
     quick_actions: {
       can_find_teacher: true,
     },
+
+    weekly_family_schedule: weeklyLessonsRaw.map((l) => ({
+      id: l.id,
+      student_id: l.studentId,
+      student_name: studentNameMap.get(l.studentId) ?? 'ילד לא ידוע',
+      subject_name: l.subjectId ? (subjectNames.get(l.subjectId) ?? null) : null,
+      teacher_name: teacherProfileNames.get(l.teacherProfileId) ?? 'מורה לא ידוע',
+      starts_at: l.startsAt,
+      ends_at: l.endsAt,
+      status: l.status,
+    })),
   };
 }
 
@@ -219,6 +245,7 @@ function emptyDashboard(
     latest_lesson_update: null,
     recent_lessons: [],
     quick_actions: { can_find_teacher: true },
+    weekly_family_schedule: [],
   };
 }
 

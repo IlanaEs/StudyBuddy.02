@@ -2,7 +2,8 @@
 
 import { assertStudentAccess } from '../auth/ownership.js';
 import type { LocalUser } from '../auth/authTypes.js';
-import { createStudentIntake as repoCreate } from './studentIntakes.repository.js';
+import { AppError } from '../errors/AppError.js';
+import { createStudentIntake as repoCreate, findSubjectIdByName } from './studentIntakes.repository.js';
 import type { CreateIntakeBody } from './studentIntakes.validation.js';
 import type { StudentIntakeSummary } from './studentIntakes.types.js';
 
@@ -21,10 +22,15 @@ export async function createIntake(
     body.preferred_days != null
       ? [...new Set(body.preferred_days)].sort((a, b) => a - b)
       : null;
+  const subjectId = body.subject_id ?? (body.subject_name ? await findSubjectIdByName(body.subject_name) : null);
+
+  if (!subjectId) {
+    throw new AppError('לא נמצא מקצוע מתאים במערכת. בחרו מקצוע מהרשימה ונסו שוב.', 422);
+  }
 
   return repoCreate({
     studentId: body.student_id,
-    subjectId: body.subject_id,
+    subjectId,
     level: body.level ?? null,
     goal: body.goal ?? null,
     locationPreference: body.location_preference,

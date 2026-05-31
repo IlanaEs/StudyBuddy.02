@@ -3,6 +3,22 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthProvider';
 
+function getRedirectPath(state: unknown): string {
+  if (
+    typeof state === 'object' &&
+    state !== null &&
+    'from' in state &&
+    typeof state.from === 'object' &&
+    state.from !== null &&
+    'pathname' in state.from &&
+    typeof state.from.pathname === 'string'
+  ) {
+    return state.from.pathname;
+  }
+
+  return '/dashboard';
+}
+
 export function LoginRoute() {
   const auth = useAuth();
   const location = useLocation();
@@ -11,7 +27,7 @@ export function LoginRoute() {
   const [password, setPassword] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
-  const redirectTo = typeof location.state === 'object' && location.state ? '/dashboard' : '/dashboard';
+  const redirectTo = getRedirectPath(location.state);
 
   if (auth.status === 'authenticated') {
     return <Navigate replace to={redirectTo} />;
@@ -23,7 +39,7 @@ export function LoginRoute() {
 
     try {
       await auth.login({ email, password });
-      navigate('/dashboard', { replace: true });
+      navigate(redirectTo, { replace: true });
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Unable to log in');
     }

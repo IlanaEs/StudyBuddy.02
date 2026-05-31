@@ -79,6 +79,81 @@ a {
   text-decoration: none;
 }
 
+.session-controls {
+  position: fixed;
+  inset: auto 18px 18px auto;
+  z-index: 80;
+  display: flex;
+  max-width: min(540px, calc(100vw - 36px));
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--bg-2) 86%, transparent);
+  box-shadow: 0 20px 56px -34px rgba(0, 0, 0, 0.74);
+  backdrop-filter: blur(18px) saturate(145%);
+}
+
+.session-controls__identity {
+  max-width: 230px;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-controls__button {
+  appearance: none;
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  background: color-mix(in oklab, var(--surface-2) 72%, transparent);
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.session-controls__button:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in oklab, var(--cyan) 38%, var(--line-2));
+  background: color-mix(in oklab, var(--surface-2) 90%, var(--cyan) 10%);
+}
+
+.session-controls__button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+  transform: none;
+}
+
+.session-controls__button--secondary {
+  color: var(--text-3);
+  background: transparent;
+}
+
+@media (max-width: 640px) {
+  .session-controls {
+    inset: auto 10px 10px 10px;
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+
+  .session-controls__identity {
+    max-width: 44vw;
+  }
+}
+
 button,
 summary,
 a {

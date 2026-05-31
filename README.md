@@ -76,9 +76,33 @@ npm run dev:backend
 
 Default local ports:
 
-- Frontend: `http://localhost:3000`
-- Backend: `http://localhost:4000`
-- Health: `http://localhost:4000/health`
+- Frontend: `http://127.0.0.1:3001`
+- Backend: `http://127.0.0.1:4000`
+- Health: `http://127.0.0.1:4000/api/health`
+
+Seed production-safe canonical taxonomy only:
+
+```bash
+npm run db:seed:taxonomy
+```
+
+Seed local/dev matching demo data:
+
+```bash
+npm run db:seed:local
+```
+
+For a remote development or staging Supabase project, make the environment
+explicit and acknowledge the dev/demo seed:
+
+```bash
+STUDYBUDDY_ENV=development npm run db:seed:demo -- --allow-remote-dev-seed
+```
+
+Demo/runtime seed data is blocked for ambiguous environments and production.
+Production taxonomy seeding requires `ALLOW_PRODUCTION_SEED=true`; production
+demo seeding is intentionally refused unless that same emergency override is
+set explicitly.
 
 ## Validation
 

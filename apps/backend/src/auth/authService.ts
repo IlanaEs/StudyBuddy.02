@@ -22,6 +22,10 @@ type AuthResponse = {
 const publicClient = createSupabasePublicClient;
 const adminClient = createSupabaseAdminClient;
 
+function roleForAccountType(accountType: CompleteOAuthSignupInput['account_type']): Extract<UserRole, 'student' | 'parent'> {
+  return accountType === 'parent_for_child' ? 'parent' : 'student';
+}
+
 function extractRole(user: User, fallbackRole?: UserRole): UserRole {
   const metadataRole = user.app_metadata?.role;
   const role = fallbackRole ?? metadataRole;
@@ -185,22 +189,25 @@ export async function completeOAuthSignup(
 
   const authUser = data.user;
   const existingRole = authUser.app_metadata?.role;
+  const expectedRole = roleForAccountType(input.account_type);
 
   if (!existingRole) {
     const { error: metadataError } = await adminClient().auth.admin.updateUserById(authUser.id, {
-      app_metadata: { role: input.role },
+      app_metadata: { role: expectedRole },
       user_metadata: { full_name: input.full_name },
     });
 
     if (metadataError) {
       throw new AppError('Unable to assign user role', 500);
     }
+  } else if (existingRole !== expectedRole) {
+    throw new AppError('החשבון המחובר לא מתאים למסלול שנבחר.', 403);
   }
 
   const user = await syncLocalUser({
     authUserId: authUser.id,
     email: authUser.email ?? '',
-    role: (existingRole ?? input.role) as LocalUser['role'],
+    role: (existingRole ?? expectedRole) as LocalUser['role'],
     fullName: input.full_name ?? authUser.user_metadata?.full_name ?? '',
   });
 

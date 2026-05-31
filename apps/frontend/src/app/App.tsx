@@ -15,6 +15,8 @@ import { BookingRequestPage } from '../features/matching/pages/BookingRequestPag
 import { BookingConfirmationPage } from '../features/matching/pages/BookingConfirmationPage';
 import { TeacherOnboardingPage } from '../pages/TeacherOnboardingPage';
 import { ParentDashboardPage } from '../pages/ParentDashboardPage';
+import { TeacherBookingInboxPage } from '../pages/TeacherBookingInboxPage';
+import { TeacherLessonManagePage } from '../pages/TeacherLessonManagePage';
 import { TeacherDashboardPage } from '../pages/TeacherDashboardPage';
 
 export function App() {
@@ -44,6 +46,22 @@ export function App() {
           element={
             <ProtectedRoute allowedRoles={['parent']}>
               <ParentDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teacher/inbox"
+          element={
+            <ProtectedRoute allowedRoles={['teacher']}>
+              <TeacherBookingInboxPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teacher/lessons"
+          element={
+            <ProtectedRoute allowedRoles={['teacher']}>
+              <TeacherLessonManagePage />
           path="/teacher/dashboard"
           element={
             <ProtectedRoute allowedRoles={['teacher']}>

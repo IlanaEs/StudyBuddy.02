@@ -1,3 +1,4 @@
+import { ensureActiveSupabaseSession } from '../auth/ensureActiveSession';
 import { getSupabaseBrowserClient } from '../auth/supabaseClient';
 
 const API = import.meta.env.VITE_API_BASE_URL;
@@ -5,7 +6,9 @@ if (!API) {
   throw new Error('VITE_API_BASE_URL is not set — calendar API calls will fail');
 }
 
-const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+// Full calendar scope — required for both read (freeBusy) and write (event/Meet creation).
+const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar';
+export const TEACHER_CALENDAR_REDIRECT_TO = 'http://localhost:3000/teacher-onboarding';
 
 export type GCalStatus = 'not_connected' | 'connecting' | 'connected' | 'syncing' | 'sync_failed' | 'manual_mode';
 
@@ -15,20 +18,22 @@ export type BusySlot = {
   source: 'google_calendar';
 };
 
+export async function ensureCalendarLinkSession() {
+  return ensureActiveSupabaseSession();
+}
+
 // Triggers Google OAuth via Supabase linkIdentity — causes a full-page redirect.
 // linkIdentity pre-checks the session via GET /auth/v1/user before redirecting.
 // A 403 from that pre-check means the session is expired or allow_manual_linking
 // is disabled in the Supabase dashboard (Auth → Advanced → Allow manual linking).
 //
-// redirectTo must use window.location.origin + '/teacher-onboarding' rather than
-// window.location.href so that:
-//   1. The URL is stable and predictable regardless of query params or hash fragments
-//      that may be present in href after a previous OAuth return.
-//   2. It matches exactly what is registered in Supabase → Auth → URL Configuration
-//      → Allowed Redirect URLs (e.g. http://localhost:3001/teacher-onboarding).
+// redirectTo is intentionally stable. Do not use window.location.href here; OAuth
+// callback URLs can include code/state fragments that must not be replayed.
 export async function initiateCalendarConnect(): Promise<void> {
   const supabase = getSupabaseBrowserClient();
-  const redirectTo = `${window.location.origin}/teacher-onboarding`;
+  await ensureCalendarLinkSession();
+  const redirectTo = TEACHER_CALENDAR_REDIRECT_TO;
+
   const { error } = await supabase.auth.linkIdentity({
     provider: 'google',
     options: {
@@ -38,13 +43,6 @@ export async function initiateCalendarConnect(): Promise<void> {
     },
   });
   if (error) {
-    if (import.meta.env.DEV) {
-      console.error('[initiateCalendarConnect] linkIdentity failed', {
-        status: (error as { status?: number }).status,
-        message: error.message,
-        redirectTo,
-      });
-    }
     throw error;
   }
 }

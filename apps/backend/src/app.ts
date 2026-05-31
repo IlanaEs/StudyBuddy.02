@@ -1,6 +1,7 @@
 import cors from 'cors';
 import express from 'express';
 
+import { academicRepositoriesRouter } from './academicRepositories/academicRepositories.routes.js';
 import { env } from './config/env.js';
 import { errorHandler } from './errors/errorHandler.js';
 import { authRouter } from './auth/authRoutes.js';
@@ -23,21 +24,23 @@ export function createApp() {
 
   app.use(cors({
     origin: env.FRONTEND_ORIGIN,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Provider-Token'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Provider-Token', 'X-Admin-QA-Role'],
   }));
   app.use(express.json());
 
   app.use('/api/auth', authRouter);
+  app.use('/api', academicRepositoriesRouter);
   app.use('/health', healthRouter);
+  app.use('/api/health', healthRouter);
   app.use('/api/booking-requests', bookingRequestsRouter);
   app.use('/api/lessons', lessonsRouter);
   app.use('/api/matching', matchingRouter);
   app.use('/api/student-intakes', studentIntakesRouter);
+  app.use('/api/teachers', teacherOnboardingRouter);
   app.use('/api/teachers', teacherRouter);
   app.use('/api/teacher-availability', teacherAvailabilityRouter);
   app.use('/api/teacher-scheduling-preferences', teacherSchedulingPreferencesRouter);
   app.use('/api/teacher-availability-exceptions', teacherAvailabilityExceptionsRouter);
-  app.use('/api/teachers', teacherOnboardingRouter);
   app.use('/api/students', studentsRouter);
   app.use('/api/student-availability', studentAvailabilityRouter);
   app.use('/api/parents/me', parentDashboardRouter);

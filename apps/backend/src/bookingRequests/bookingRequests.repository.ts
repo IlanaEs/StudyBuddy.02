@@ -415,6 +415,100 @@ export async function insertLesson(
   }
 }
 
+// ── Teacher Inbox ─────────────────────────────────────────────────────────────
+
+export type BookingRequestForTeacher = {
+  id: string;
+  studentId: string;
+  requestedStartAt: string;
+  requestedEndAt: string;
+  studentMessage: string | null;
+  status: BookingRequestRow['status'];
+  createdAt: string;
+};
+
+// Returns booking requests for the given teacher profile, newest first.
+// Pass status = 'pending' to scope to the inbox view.
+export async function getBookingRequestsByTeacherId(
+  teacherProfileId: string,
+  status?: string,
+): Promise<BookingRequestForTeacher[]> {
+  let query = adminClient()
+    .from('booking_requests')
+    .select('id,student_id,requested_start_at,requested_end_at,student_message,status,created_at')
+    .eq('teacher_id', teacherProfileId)
+    .order('created_at', { ascending: false });
+
+  if (status) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    query = (query as any).eq('status', status);
+  }
+
+  const { data, error } = await query;
+  if (error) throw new AppError('Failed to load booking requests', 500);
+  if (!data) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data as any[]).map((row) => ({
+    id: row.id as string,
+    studentId: row.student_id as string,
+    requestedStartAt: toISOString(row.requested_start_at),
+    requestedEndAt: toISOString(row.requested_end_at),
+    studentMessage: row.student_message as string | null,
+    status: row.status as BookingRequestRow['status'],
+    createdAt: toISOString(row.created_at),
+  }));
+}
+
+// Resolves student IDs → full names via the students → users join.
+export async function batchGetStudentNamesByStudentIds(
+  studentIds: string[],
+): Promise<Map<string, string>> {
+  const ids = [...new Set(studentIds)];
+  if (ids.length === 0) return new Map();
+
+  const { data: students, error: se } = await adminClient()
+    .from('students')
+    .select('id,user_id')
+    .in('id', ids);
+
+  if (se || !students) throw new AppError('Failed to load students', 500);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const userIds = [...new Set((students as any[]).map((s) => s.user_id as string))];
+  if (userIds.length === 0) return new Map();
+
+  const { data: users, error: ue } = await adminClient()
+    .from('users')
+    .select('id,full_name')
+    .in('id', userIds);
+
+  if (ue || !users) throw new AppError('Failed to load user names', 500);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const userNameMap = new Map<string, string>((users as any[]).map((u) => [u.id as string, u.full_name as string]));
+
+  const result = new Map<string, string>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const student of students as any[]) {
+    result.set(student.id as string, userNameMap.get(student.user_id as string) ?? 'תלמיד לא ידוע');
+  }
+  return result;
+}
+
+// Updates the meeting_link column on a lesson row after a successful
+// Google Calendar event creation. Non-fatal if it fails at call site.
+export async function updateLessonMeetingLink(
+  lessonId: string,
+  meetingLink: string,
+): Promise<void> {
+  const { error } = await adminClient()
+    .from('lessons')
+    .update({ meeting_link: meetingLink })
+    .eq('id', lessonId);
+  if (error) throw new AppError('Failed to update lesson meeting link', 500);
+}
+
 // Updates booking_request status to approved or rejected, persists the
 // optional teacher response message. updated_at is handled by DB trigger.
 export async function updateBookingRequestStatus(

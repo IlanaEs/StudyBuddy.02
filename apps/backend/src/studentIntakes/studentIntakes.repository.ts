@@ -6,6 +6,22 @@ import type { CreateIntakeInput, StudentIntakeSummary } from './studentIntakes.t
 
 const adminClient = createSupabaseAdminClient;
 
+export async function findSubjectIdByName(subjectName: string): Promise<string | null> {
+  const normalizedName = subjectName.trim();
+  const { data, error } = await adminClient()
+    .from('subjects')
+    .select('id')
+    .ilike('name', normalizedName)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (error) {
+    throw new AppError('Failed to resolve subject', 500);
+  }
+
+  return (data?.id as string) ?? null;
+}
+
 export async function createStudentIntake(
   input: CreateIntakeInput,
 ): Promise<StudentIntakeSummary> {

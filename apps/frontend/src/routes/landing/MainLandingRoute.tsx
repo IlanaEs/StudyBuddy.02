@@ -1,15 +1,14 @@
 import {
   AudienceListSection,
-  BentoAudienceGrid,
   BrutalComparisonTable,
   FAQAccordion,
-  ForkRoleCards,
   LandingCTA,
   LandingHero,
   LandingScreenNav,
   LegalFooter,
   ParentDashboardPreview,
   ProcessStepper,
+  UnifiedOnboardingCtaCard,
   ValueSection,
 } from '../../components/landing/LandingComponents';
 import { mainLandingContent } from '../../content/landing/mainLandingContent';
@@ -26,7 +25,7 @@ export function MainLandingRoute() {
         context={content.hero.context}
         teacherCta={content.hero.teacherCta}
       >
-        <ForkRoleCards roles={content.hero.roles} />
+        <UnifiedOnboardingCtaCard cta={content.hero.unifiedCta} />
       </LandingHero>
       <LandingScreenNav
         items={[

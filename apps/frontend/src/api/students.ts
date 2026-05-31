@@ -19,27 +19,50 @@ export type CreateStudentIntakeResult = {
   intake_id: string;
 };
 
+export type MatchingRunResult = {
+  intakeId: string;
+  matches: Array<{
+    id: string;
+    teacherId: string;
+    rank: number;
+    matchScore: number;
+    reason: string;
+    fallbackPhase: string;
+    teacherFullName: string;
+    teacherHourlyRate: number;
+    teacherBio: string | null;
+    teacherRatingAvg: number;
+    teacherRatingCount: number;
+    teacherIsVerified: boolean;
+  }>;
+  fallbackPhaseUsed: string;
+  matchingVersion: string;
+};
+
 export interface CreateStudentProfileInput {
-  full_name: string;
+  account_type: 'independent_student' | 'parent_for_child';
+  full_name?: string;
   grade_level?: string | null;
   child_name?: string;
 }
 
 export interface CreateStudentIntakeInput {
-  subject_name: string;
+  student_id: string;
+  subject_id?: string;
+  subject_name?: string;
   sub_level?: string;
   learning_goal?: string | null;
   location_preference: 'online' | 'frontal' | 'both';
   city?: string;
   budget_min?: number | null;
   budget_max?: number | null;
-  preferred_days?: string[];
-  preferred_time_ranges?: string[];
-  learning_style?: string[];
+  preferred_days?: number[];
+  preferred_time_ranges?: Array<{ start: string; end: string }>;
+  learning_style?: string | null;
 }
 
 export async function completeOAuthSignup(
-  role: 'student' | 'parent',
+  accountType: 'independent_student' | 'parent_for_child',
   fullName: string,
   accessToken: string,
 ): Promise<ApiResponse<OAuthSignupResult>> {
@@ -47,7 +70,7 @@ export async function completeOAuthSignup(
     '/auth/complete-oauth-signup',
     {
       method: 'POST',
-      body: JSON.stringify({ role, full_name: fullName }),
+      body: JSON.stringify({ account_type: accountType, full_name: fullName }),
     },
     accessToken,
   );
@@ -77,6 +100,17 @@ export async function createStudentIntake(
       method: 'POST',
       body: JSON.stringify(input),
     },
+    accessToken,
+  );
+}
+
+export async function runMatching(
+  intakeId: string,
+  accessToken: string,
+): Promise<ApiResponse<MatchingRunResult>> {
+  return apiRequest<MatchingRunResult>(
+    `/api/matching/${intakeId}/run`,
+    { method: 'POST' },
     accessToken,
   );
 }
