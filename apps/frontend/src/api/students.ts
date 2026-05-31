@@ -67,7 +67,7 @@ export async function completeOAuthSignup(
   accessToken: string,
 ): Promise<ApiResponse<OAuthSignupResult>> {
   return apiRequest<OAuthSignupResult>(
-    '/auth/complete-oauth-signup',
+    '/api/auth/complete-oauth-signup',
     {
       method: 'POST',
       body: JSON.stringify({ account_type: accountType, full_name: fullName }),
