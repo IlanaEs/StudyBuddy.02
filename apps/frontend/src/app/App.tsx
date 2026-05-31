@@ -15,6 +15,7 @@ import { BookingRequestPage } from '../features/matching/pages/BookingRequestPag
 import { BookingConfirmationPage } from '../features/matching/pages/BookingConfirmationPage';
 import { TeacherOnboardingPage } from '../pages/TeacherOnboardingPage';
 import { ParentDashboardPage } from '../pages/ParentDashboardPage';
+import { TeacherDashboardPage } from '../pages/TeacherDashboardPage';
 
 export function App() {
   return (
@@ -43,6 +44,10 @@ export function App() {
           element={
             <ProtectedRoute allowedRoles={['parent']}>
               <ParentDashboardPage />
+          path="/teacher/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['teacher']}>
+              <TeacherDashboardPage />
             </ProtectedRoute>
           }
         />

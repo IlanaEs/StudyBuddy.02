@@ -2,23 +2,32 @@ import { Navigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthProvider';
 
+// /dashboard is a catch-all for authenticated users.
+// Teachers are routed to their role-specific dashboard; other roles get a generic shell.
 export function DashboardPlaceholderRoute() {
   const auth = useAuth();
 
-  // Profile is resolved from /api/auth/me after login. Wait for it before
-  // deciding on routing — avoids a flicker to the wrong screen.
+  // Wait for profile to resolve before routing — avoids a flash to the wrong screen.
   if (auth.status === 'authenticated' && auth.user?.role === 'teacher' && auth.profile === null) {
     return <div className="text-white/72">Loading…</div>;
   }
 
-  // Teachers who have not completed onboarding should go to the onboarding
-  // wizard, not the dashboard. profile.status === 'onboarding' is equivalent.
+  // Incomplete teachers → onboarding wizard.
   if (
     auth.status === 'authenticated' &&
     auth.user?.role === 'teacher' &&
     auth.profile?.onboardingCompleted === false
   ) {
     return <Navigate replace to="/teacher-onboarding" />;
+  }
+
+  // Completed teachers → real teacher dashboard (keeps old /dashboard links working).
+  if (
+    auth.status === 'authenticated' &&
+    auth.user?.role === 'teacher' &&
+    auth.profile?.onboardingCompleted === true
+  ) {
+    return <Navigate replace to="/teacher/dashboard" />;
   }
 
   return (

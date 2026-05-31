@@ -875,7 +875,7 @@ export function TeacherOnboardingPage() {
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
   const [draftStatus, setDraftStatus] = useState<DraftStatus>('idle');
   const [completionError, setCompletionError] = useState<string | null>(null);
-  const [nextRoute, setNextRoute] = useState('/dashboard');
+  const [nextRoute, setNextRoute] = useState('/teacher/dashboard');
   // Initial draft fetch state — shown while the first GET /api/teachers/me/onboarding
   // is in-flight. After the fetch resolves (success or null draft) this becomes false.
   const [draftLoading, setDraftLoading] = useState(true);
@@ -2738,7 +2738,7 @@ export function TeacherOnboardingPage() {
   }
 
   // ── STEP 8: Success ───────────────────────────────────────────────────────────
-  // TODO: replace navigate('/dashboard') with the teacher-specific dashboard route once it exists
+  // ── STEP 8: Success ───────────────────────────────────────────────────────────
   return (
     <div
       dir="rtl"
