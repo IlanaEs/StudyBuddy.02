@@ -11,6 +11,11 @@ export const signupSchema = z.object({
     account_type: z.enum(accountTypes).optional(),
     full_name: z.string().min(1).max(150),
   }).superRefine((body, ctx) => {
+    if (body.account_type === 'independent_student' && body.role !== 'student') {
+      ctx.addIssue({ code: 'custom', path: ['role'], message: 'role must be student for independent_student account_type' });
+    }
+    if (body.account_type === 'parent_for_child' && body.role !== 'parent') {
+      ctx.addIssue({ code: 'custom', path: ['role'], message: 'role must be parent for parent_for_child account_type' });
     if (!body.account_type) return;
     const expectedRole = body.account_type === 'parent_for_child' ? 'parent' : 'student';
     if (body.role !== expectedRole) {

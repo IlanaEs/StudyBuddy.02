@@ -22,6 +22,8 @@ type AuthResponse = {
 const publicClient = createSupabasePublicClient;
 const adminClient = createSupabaseAdminClient;
 
+function roleForAccountType(accountType: 'independent_student' | 'parent_for_child'): UserRole {
+  return accountType === 'independent_student' ? 'student' : 'parent';
 function roleForAccountType(accountType: CompleteOAuthSignupInput['account_type']): Extract<UserRole, 'student' | 'parent'> {
   return accountType === 'parent_for_child' ? 'parent' : 'student';
 }
@@ -64,6 +66,12 @@ function mapSession(session: { access_token: string; refresh_token: string; expi
 }
 
 export async function signup(input: SignupInput): Promise<AuthResponse> {
+  const role = input.account_type ? roleForAccountType(input.account_type) : input.role;
+
+  if (input.account_type && input.role !== role) {
+    throw new AppError('Invalid account type for requested role', 422);
+  }
+
   const { data, error } = await publicClient().auth.signUp({
     email: input.email,
     password: input.password,
@@ -88,7 +96,7 @@ export async function signup(input: SignupInput): Promise<AuthResponse> {
 
   const { error: metadataError } = await adminClient().auth.admin.updateUserById(data.user.id, {
     app_metadata: {
-      role: input.role,
+      role,
     },
     user_metadata: {
       full_name: input.full_name,
@@ -102,7 +110,7 @@ export async function signup(input: SignupInput): Promise<AuthResponse> {
   const user = await syncLocalUser({
     authUserId: data.user.id,
     email: data.user.email,
-    role: input.role,
+    role,
     fullName: input.full_name,
   });
 
@@ -189,6 +197,15 @@ export async function completeOAuthSignup(
 
   const authUser = data.user;
   const existingRole = authUser.app_metadata?.role;
+  const requestedRole = roleForAccountType(input.account_type);
+
+  if (existingRole && existingRole !== requestedRole) {
+    throw new AppError('החשבון המחובר לא מתאים למסלול שנבחר.', 403);
+  }
+
+  if (!existingRole) {
+    const { error: metadataError } = await adminClient().auth.admin.updateUserById(authUser.id, {
+      app_metadata: { role: requestedRole },
   const expectedRole = roleForAccountType(input.account_type);
 
   if (!existingRole) {
@@ -207,9 +224,14 @@ export async function completeOAuthSignup(
   const user = await syncLocalUser({
     authUserId: authUser.id,
     email: authUser.email ?? '',
+    role: (existingRole ?? requestedRole) as LocalUser['role'],
     role: (existingRole ?? expectedRole) as LocalUser['role'],
     fullName: input.full_name ?? authUser.user_metadata?.full_name ?? '',
   });
+
+  if (user.role !== requestedRole) {
+    throw new AppError('החשבון המחובר לא מתאים למסלול שנבחר.', 403);
+  }
 
   return { user };
 }

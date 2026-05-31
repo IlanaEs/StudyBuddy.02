@@ -77,6 +77,24 @@ const SOFT_PREFS_PARENT = [
   { value: 'male_teacher', label: 'העדפה למורה גבר' },
 ];
 
+function toHebrewOnboardingError(error: unknown): string {
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  const lower = message.toLowerCase();
+
+  if (!message) return 'שגיאה. נסו שנית.';
+  if (message === 'CHECK_EMAIL') return 'שלחנו אליך מייל לאישור החשבון. לאחר האישור ניתן להתחבר ולהמשיך.';
+  if (lower.includes('failed to fetch') || lower.includes('network')) return 'לא הצלחנו להתחבר לשרת. בדקו חיבור ונסו שוב.';
+  if (lower.includes('invalid email') || lower.includes('invalid login') || lower.includes('password')) return 'האימייל או הסיסמה אינם תקינים.';
+  if (lower.includes('too many')) return 'בוצעו יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.';
+  if (lower.includes('child_name')) return 'יש להזין את שם הילד/ה.';
+  if (lower.includes('full_name')) return 'יש להזין שם מלא.';
+  if (lower.includes('subject')) return 'לא מצאנו את המקצוע שנבחר. נסו לבחור מקצוע מהרשימה.';
+  if (message.includes('החשבון המחובר לא מתאים למסלול שנבחר.')) return 'החשבון המחובר לא מתאים למסלול שנבחר.';
+  if (/^[\x00-\x7F\s.,'":;!?()/-]+$/.test(message)) return 'שגיאה. נסו שנית.';
+
+  return message;
+}
+
 export function MatchingWizardPage() {
   const navigate = useNavigate();
   const auth = useAuth();
@@ -380,6 +398,7 @@ export function MatchingWizardPage() {
 
       setStep(AUTH_STEP + 1);
     } catch (err) {
+      setAuthError(toHebrewOnboardingError(err));
       setAuthError(toHebrewOnboardingError(err instanceof Error ? err.message : 'שגיאה. נסו שנית.'));
     } finally {
       setAuthLoading(false);
@@ -597,6 +616,10 @@ export function MatchingWizardPage() {
         <WizardOptionCard
           icon={<Users size={20} />}
           label="אני הורה / אחראי/ת עבור תלמיד"
+          description="אני מחפש/ת מורה עבור ילד/ה או תלמיד/ה באחריותי"
+          selected={intake.accountType === 'parent_for_child'}
+          onClick={() => { updateIntake({ accountType: 'parent_for_child' }); setErrors({}); }}
+        />
           description="חשבון הורה למציאת מורה לילד/ה"
           selected={intake.accountType === 'parent_for_child'}
           onClick={() => updateIntake({ accountType: 'parent_for_child' })}
@@ -847,6 +870,9 @@ export function MatchingWizardPage() {
         <WizardProgress current={AUTH_STEP} total={TOTAL_STEPS} />
         <WizardStepHeader
           title={isParent ? 'צרו חשבון הורה' : 'צרו חשבון תלמיד/ה'}
+          subtitle="אחרי ההתחברות נמשיך לשאלון ההתאמה"
+        />
+
           subtitle="נשמור את ההתקדמות ונמשיך לשאלון ההתאמה."
         />
 

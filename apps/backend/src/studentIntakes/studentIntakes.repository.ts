@@ -7,6 +7,10 @@ import type { CreateIntakeInput, StudentIntakeSummary } from './studentIntakes.t
 const adminClient = createSupabaseAdminClient;
 
 export async function findSubjectIdByName(subjectName: string): Promise<string | null> {
+  const { data, error } = await adminClient()
+    .from('subjects')
+    .select('id')
+    .eq('name', subjectName.trim())
   const normalizedName = subjectName.trim();
   const { data, error } = await adminClient()
     .from('subjects')

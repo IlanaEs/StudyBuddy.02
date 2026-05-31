@@ -47,6 +47,7 @@ type LoginInput = {
 type SignupInput = LoginInput & {
   full_name: string;
   role: UserRole;
+  account_type?: 'independent_student' | 'parent_for_child';
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);

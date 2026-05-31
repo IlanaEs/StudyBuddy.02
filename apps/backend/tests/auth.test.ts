@@ -24,13 +24,13 @@ describe('auth foundation routes', () => {
     expect(response.body).toEqual({ error: 'Missing authentication token' });
   });
 
-  it('validates complete-oauth-signup: rejects invalid role', async () => {
+  it('validates complete-oauth-signup: rejects invalid account_type', async () => {
     const app = createApp();
 
     const response = await request(app)
       .post('/api/auth/complete-oauth-signup')
       .set('Authorization', 'Bearer fake-token')
-      .send({ role: 'admin', full_name: 'Test User' });
+      .send({ account_type: 'admin_super', full_name: 'Test User' });
 
     expect(response.status).toBe(422);
     expect(response.body).toEqual({ error: 'Request validation failed' });

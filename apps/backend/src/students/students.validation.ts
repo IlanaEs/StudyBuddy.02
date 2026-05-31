@@ -7,6 +7,8 @@ export const createStudentProfileSchema = z.object({
     grade_level: z.string().max(50).nullable().optional(),
     child_name: z.string().min(1).max(150).optional(),
   }).superRefine((body, ctx) => {
+    if (body.account_type === 'parent_for_child' && !body.child_name) {
+      ctx.addIssue({ code: 'custom', path: ['child_name'], message: 'child_name is required for parent_for_child' });
     if (body.account_type === 'independent_student' && !body.full_name?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

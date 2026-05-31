@@ -28,6 +28,10 @@ const bodySchema = z
     learning_style: z.string().max(100).nullable().optional(),
     urgency: z.string().max(50).nullable().optional(),
   })
+  .refine(({ subject_id, subject_name }) => !!subject_id || !!subject_name, {
+    message: 'subject_id or subject_name is required',
+    path: ['subject_id'],
+  })
   // Cross-field: frontal location requires a city.
   .refine(
     ({ location_preference, city }) =>
