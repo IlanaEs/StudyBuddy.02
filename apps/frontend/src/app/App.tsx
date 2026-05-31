@@ -14,6 +14,7 @@ import { MatchResultsPage } from '../features/matching/pages/MatchResultsPage';
 import { BookingRequestPage } from '../features/matching/pages/BookingRequestPage';
 import { BookingConfirmationPage } from '../features/matching/pages/BookingConfirmationPage';
 import { TeacherOnboardingPage } from '../pages/TeacherOnboardingPage';
+import { TeacherDashboardPage } from '../pages/TeacherDashboardPage';
 
 export function App() {
   return (
@@ -34,6 +35,14 @@ export function App() {
           element={
             <ProtectedRoute>
               <DashboardPlaceholderRoute />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teacher/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['teacher']}>
+              <TeacherDashboardPage />
             </ProtectedRoute>
           }
         />
