@@ -4,6 +4,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import type { UserRole } from '../auth/authTypes';
 import { getDashboardPathByRole } from '../utils/getDashboardPathByRole';
+import { FlowNav } from '../components/FlowNav';
 
 const signupRoles: UserRole[] = ['teacher', 'student', 'parent'];
 
@@ -40,7 +41,8 @@ export function SignupRoute() {
 
   if (needsEmailConfirmation) {
     return (
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md flow-shell-clear">
+        <FlowNav to="/" label="חזרה לדף הבית" />
         <p className="mb-3 text-sm uppercase text-studybuddy-lime">Almost there</p>
         <h1 className="font-display text-4xl font-semibold">Check your email</h1>
         <p className="mt-4 text-white/72">
@@ -56,7 +58,8 @@ export function SignupRoute() {
   }
 
   return (
-    <div className="w-full max-w-md">
+    <div className="w-full max-w-md flow-shell-clear">
+      <FlowNav to="/" label="חזרה לדף הבית" />
       <p className="mb-3 text-sm uppercase text-studybuddy-lime">Local user sync</p>
       <h1 className="font-display text-4xl font-semibold">Create account</h1>
       <form className="mt-8 space-y-4" onSubmit={handleSubmit}>

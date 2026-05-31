@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CheckCircle2, Mail, Check, Calendar, Clock } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthProvider';
+import { FlowNav } from '../../../components/FlowNav';
 
 type ConfirmationState = {
   bookingId: string;
@@ -43,6 +44,7 @@ export function BookingConfirmationPage() {
 
   return (
     <div dir="rtl" lang="he" className="min-h-screen flex flex-col items-center justify-center px-4 py-10" style={{ background: 'var(--bg)' }}>
+      <FlowNav to="/" label="חזרה לדף הבית" />
       <div className="w-full max-w-lg text-center">
         <div className="flex justify-center mb-4" style={{ color: 'var(--cyan)' }}>
           <CheckCircle2 size={56} />

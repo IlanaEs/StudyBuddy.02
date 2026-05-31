@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useMatchingStore } from '../store/matchingStore';
 import { WizardShell } from '../components/WizardShell';
+import { FlowNav } from '../../../components/FlowNav';
 import { WizardProgress } from '../components/WizardProgress';
 import { WizardStepHeader } from '../components/WizardStepHeader';
 import { WizardOptionCard } from '../components/WizardOptionCard';
@@ -518,6 +519,7 @@ export function MatchingWizardPage() {
   if (step === 0) {
     return (
       <div dir="rtl" lang="he" className="min-h-screen flex flex-col items-center justify-center px-4 py-10" style={{ background: 'var(--bg)' }}>
+        <FlowNav to="/" label="חזרה לדף הבית" />
         <div className="w-full max-w-lg text-center">
           <div
             className="flex items-center justify-center w-20 h-20 rounded-2xl mx-auto mb-6"

@@ -4,6 +4,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import { getSupabaseBrowserClient } from '../auth/supabaseClient';
 import { getDashboardPathByRole } from '../utils/getDashboardPathByRole';
+import { FlowNav } from '../components/FlowNav';
 
 const ONBOARDING_PREFIXES = ['/teacher-onboarding', '/onboarding'];
 
@@ -76,6 +77,7 @@ export function LoginRoute() {
 
   return (
     <div className="auth-page">
+      <FlowNav to="/" label="חזרה לדף הבית" />
       <div className="auth-card">
         <header className="auth-header">
           <span className="auth-brand">

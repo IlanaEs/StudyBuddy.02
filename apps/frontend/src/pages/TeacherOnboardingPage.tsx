@@ -8,6 +8,7 @@ import {
   CalendarCheck, CalendarX, RefreshCw, Link2Off,
   UserPlus, LogIn,
 } from 'lucide-react';
+import { FlowNav } from '../components/FlowNav';
 import { TeacherAvailabilityCalendar, makeBlockKey, AVAIL_DAYS } from '../components/onboarding/TeacherAvailabilityCalendar';
 import type { TimeBlockId } from '../components/onboarding/TeacherAvailabilityCalendar';
 import type { GCalStatus, BusySlot } from '../api/teacherCalendar';
@@ -368,15 +369,18 @@ function OnboardingShell({ children, wide = false }: { children: ReactNode; wide
     <div
       dir="rtl"
       lang="he"
+      className="flow-shell-clear"
       style={{
         minHeight: '100dvh',
         background: 'var(--bg)',
-        padding: '24px 16px 56px',
+        paddingInline: 16,
+        paddingBottom: 56,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
       }}
     >
+      <FlowNav to="/teachers" label="חזרה לעמוד המורים" />
       <div
         className="ob-step-enter"
         style={{
@@ -1863,6 +1867,7 @@ export function TeacherOnboardingPage() {
           padding: 24,
         }}
       >
+        <FlowNav to="/teachers" label="חזרה לעמוד המורים" />
         <div
           style={{
             maxWidth: 400,

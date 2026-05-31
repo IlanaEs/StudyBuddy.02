@@ -4,6 +4,7 @@ import { Award, SearchX, RotateCcw } from 'lucide-react';
 import { useMatchingStore } from '../store/matchingStore';
 import { TeacherMatchCard } from '../components/TeacherMatchCard';
 import { TeacherPreviewModal } from '../components/TeacherPreviewModal';
+import { FlowNav } from '../../../components/FlowNav';
 import type { MatchResult } from '../types/matching.types';
 
 export function MatchResultsPage() {
@@ -40,6 +41,7 @@ export function MatchResultsPage() {
   if (matchResults.length === 0) {
     return (
       <div dir="rtl" lang="he" className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg)' }}>
+        <FlowNav to="/" label="חזרה לדף הבית" />
         <div className="text-center">
           <div className="flex justify-center mb-4" style={{ color: 'var(--text-3)' }}>
             <SearchX size={48} />
@@ -55,6 +57,7 @@ export function MatchResultsPage() {
 
   return (
     <div dir="rtl" lang="he" className="min-h-screen px-4 py-10" style={{ background: 'var(--bg)' }}>
+      <FlowNav to="/" label="חזרה לדף הבית" />
       <div className="w-full max-w-lg mx-auto">
         <div className="mb-6">
           <div className="flex mb-3" style={{ color: 'var(--gold)' }}>

@@ -5,6 +5,7 @@ import { useMatchingStore } from '../store/matchingStore';
 import { BookingSlotPicker } from '../components/BookingSlotPicker';
 import { useAuth } from '../../../auth/AuthProvider';
 import { createBookingRequest } from '../../../api/bookingRequests';
+import { FlowNav } from '../../../components/FlowNav';
 
 // Hebrew weekday name → JS Date.getDay() (0 = Sunday)
 const HEBREW_DAY_TO_DOW: Record<string, number> = {
@@ -66,6 +67,7 @@ export function BookingRequestPage() {
   if (!match) {
     return (
       <div dir="rtl" lang="he" className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+        <FlowNav to="/" label="חזרה לדף הבית" />
         <div className="text-center">
           <p style={{ color: 'var(--text-2)' }}>לא נמצאה התאמה. חזור לתוצאות.</p>
           <button onClick={() => navigate('/onboarding/results')} className="mt-4 py-2 px-5 rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>חזרה לתוצאות</button>
@@ -129,6 +131,7 @@ export function BookingRequestPage() {
 
   return (
     <div dir="rtl" lang="he" className="min-h-screen px-4 py-10" style={{ background: 'var(--bg)' }}>
+      <FlowNav to="/" label="חזרה לדף הבית" />
       <div className="w-full max-w-lg mx-auto">
         <button
           onClick={() => navigate('/onboarding/results')}

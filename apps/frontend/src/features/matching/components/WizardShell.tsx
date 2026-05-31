@@ -1,5 +1,7 @@
 import type { PropsWithChildren } from 'react';
 
+import { FlowNav } from '../../../components/FlowNav';
+
 interface WizardShellProps {
   step?: number;
 }
@@ -9,9 +11,10 @@ export function WizardShell({ children, step }: PropsWithChildren<WizardShellPro
     <div
       dir="rtl"
       lang="he"
-      className="min-h-screen flex flex-col items-center justify-center px-4 py-6"
+      className="min-h-screen flex flex-col items-center justify-center px-4 py-6 flow-shell-clear"
       style={{ background: 'var(--bg)' }}
     >
+      <FlowNav to="/" label="חזרה לדף הבית" />
       <div
         key={step}
         className="w-full max-w-lg overflow-y-auto wizard-step-animate"

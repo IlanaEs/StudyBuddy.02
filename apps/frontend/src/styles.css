@@ -3778,3 +3778,82 @@ a {
     min-height: 56px;
   }
 }
+
+/* ============================================================
+   FLOW NAV — lightweight consistent back/home navigation
+   Used on auth + onboarding flow screens. Fixed top-start so it
+   never shifts page layout. z-index 40 keeps it above page
+   content but below modals (z-50), session controls (z-80) and
+   the bottom screen-nav (z-90).
+   ============================================================ */
+.flow-nav {
+  position: fixed;
+  top: 14px;
+  inset-inline-start: 14px;
+  z-index: 40;
+}
+
+.flow-nav__home {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 9px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--bg-2) 68%, transparent);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  box-shadow: 0 10px 28px -20px rgba(0, 0, 0, 0.7);
+  transition: transform 0.18s ease, border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+}
+
+.flow-nav__home img {
+  width: 30px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.flow-nav__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.flow-nav__home:hover,
+.flow-nav__home:focus-visible {
+  outline: none;
+  transform: translateY(-1px);
+  color: var(--text);
+  border-color: color-mix(in oklab, var(--cyan) 40%, var(--line-2));
+  background: color-mix(in oklab, var(--bg-2) 80%, var(--cyan) 8%);
+}
+
+@media (max-width: 560px) {
+  .flow-nav {
+    top: 10px;
+    inset-inline-start: 10px;
+  }
+  /* keep just the clickable logo on small screens to avoid crowding */
+  .flow-nav__back {
+    display: none;
+  }
+  .flow-nav__home {
+    padding: 6px 9px;
+  }
+}
+
+/* Mobile clearance so the fixed FlowNav never overlaps top-aligned
+   onboarding / wizard cards. Desktop keeps the original 24px top. */
+.flow-shell-clear {
+  padding-top: 24px;
+}
+@media (max-width: 560px) {
+  .flow-shell-clear {
+    padding-top: 68px;
+  }
+}
