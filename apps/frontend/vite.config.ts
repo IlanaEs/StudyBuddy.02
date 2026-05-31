@@ -6,5 +6,8 @@ export default defineConfig({
   server: {
     port: 3000,
     strictPort: false,
+    // Allow public dev tunnels (e.g. *.trycloudflare.com) to reach the dev
+    // server; Vite otherwise rejects non-localhost Host headers.
+    allowedHosts: ['.trycloudflare.com', '.loca.lt', '.ngrok-free.app', '.ngrok.io'],
   },
 });
