@@ -1,6 +1,7 @@
 import type { User } from '@supabase/supabase-js';
 
 import { AppError } from '../errors/AppError.js';
+import { devAuthBypassEnabled } from '../config/env.js';
 import { createSupabaseAdminClient, createSupabasePublicClient } from '../supabase/supabaseClients.js';
 import type { CompleteOAuthSignupInput, LoginInput, SignupInput } from './authValidation.js';
 import { findLocalUserByAuthId, syncLocalUser } from './authRepository.js';
@@ -63,7 +64,53 @@ function mapSession(session: { access_token: string; refresh_token: string; expi
   };
 }
 
+// ── Local QA bypass ─────────────────────────────────────────────────────────
+// Dev-only signup that auto-confirms the user (no email delivery) and mints a
+// real session via password sign-in. Gated by devAuthBypassEnabled, which is
+// false in production. Lets onboarding/signup be tested without Supabase email.
+async function devBypassSignup(input: SignupInput): Promise<AuthResponse> {
+  const { data: created, error: createError } = await adminClient().auth.admin.createUser({
+    email: input.email,
+    password: input.password,
+    email_confirm: true,
+    app_metadata: { role: input.role },
+    user_metadata: { full_name: input.full_name },
+  });
+
+  if (createError || !created?.user?.email) {
+    const code = (createError as { code?: string } | null)?.code;
+    const message = createError?.message ?? '';
+    if (code === 'email_exists' || /already|exists|registered/i.test(message)) {
+      throw new AppError('כבר קיים חשבון עם כתובת האימייל הזו.', 409);
+    }
+    throw new AppError('Unable to create account. Please check your details and try again.', 422);
+  }
+
+  const { data: signIn, error: signInError } = await publicClient().auth.signInWithPassword({
+    email: input.email,
+    password: input.password,
+  });
+
+  if (signInError || !signIn.session) {
+    throw new AppError('Unable to establish a local session for the new account.', 500);
+  }
+
+  const user = await syncLocalUser({
+    authUserId: created.user.id,
+    email: created.user.email,
+    role: input.role,
+    fullName: input.full_name,
+  });
+
+  return { user, session: mapSession(signIn.session) };
+}
+
 export async function signup(input: SignupInput): Promise<AuthResponse> {
+  // Local QA only — never reached in production (devAuthBypassEnabled is false there).
+  if (devAuthBypassEnabled) {
+    return devBypassSignup(input);
+  }
+
   const { data, error } = await publicClient().auth.signUp({
     email: input.email,
     password: input.password,

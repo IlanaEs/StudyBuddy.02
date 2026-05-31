@@ -11,12 +11,22 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   DATABASE_URL: z.string().min(1).optional(),
   ENABLE_ADMIN_QA_MODE: z.string().optional(),
+  DEV_AUTH_BYPASS: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);
 
 /** True only when explicitly opted in via ENABLE_ADMIN_QA_MODE=true. Never on by default. */
 export const adminQaModeEnabled = env.ENABLE_ADMIN_QA_MODE === 'true';
+
+/**
+ * Local QA signup bypass: auto-confirms new sign-ups so onboarding/signup can be
+ * tested without relying on Supabase email delivery.
+ * Hard double-gate — never active in production, and requires explicit opt-in via
+ * DEV_AUTH_BYPASS=true. Production keeps NODE_ENV=production and must never set it.
+ */
+export const devAuthBypassEnabled =
+  env.NODE_ENV !== 'production' && env.DEV_AUTH_BYPASS === 'true';
 
 export function requireEnv(name: keyof typeof env) {
   const value = env[name];
