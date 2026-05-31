@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { apiRequest } from '../api/client';
 import type { AuthPayload, LocalUser, MeProfile, UserRole } from './authTypes';
 import { getSupabaseBrowserClient } from './supabaseClient';
-import { GCAL_PROVIDER_TOKEN_KEY } from './sessionStorageKeys';
+import { clearAppSessionStorage } from './sessionStorageKeys';
 import {
   type QaRole,
   authorizeQaHeader,
@@ -335,8 +335,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     clearQaRoleOverride();
-    sessionStorage.removeItem(PROVIDER_TOKEN_KEY);
-    sessionStorage.removeItem(GCAL_PROVIDER_TOKEN_KEY);
+    // Clear all app onboarding/session draft storage (provider tokens, GCal
+    // return flags, QA override, guest onboarding drafts) so a sign-out fully
+    // resets local state and a different user on this browser never resumes a
+    // stale onboarding draft. Mirrors SessionControls' fallback logout path.
+    clearAppSessionStorage();
     const supabase = getSupabaseBrowserClient();
     await supabase.auth.signOut();
     setSession(null);

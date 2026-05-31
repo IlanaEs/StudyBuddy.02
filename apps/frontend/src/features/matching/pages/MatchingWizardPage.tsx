@@ -451,8 +451,8 @@ export function MatchingWizardPage() {
       {
         student_id: intake.studentId,
         subject_name: intake.subjectName,
-        sub_level: intake.subLevel,
-        learning_goal: intake.learningGoal,
+        level: intake.subLevel,
+        goal: intake.learningGoal,
         location_preference: (intake.locationPreference ?? 'online') as 'online' | 'frontal' | 'both',
         city: intake.city,
         budget_min: intake.budgetMin,

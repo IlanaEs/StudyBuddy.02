@@ -50,8 +50,8 @@ export interface CreateStudentIntakeInput {
   student_id: string;
   subject_id?: string;
   subject_name?: string;
-  sub_level?: string;
-  learning_goal?: string | null;
+  level?: string;
+  goal?: string | null;
   location_preference: 'online' | 'frontal' | 'both';
   city?: string;
   budget_min?: number | null;
@@ -67,7 +67,7 @@ export async function completeOAuthSignup(
   accessToken: string,
 ): Promise<ApiResponse<OAuthSignupResult>> {
   return apiRequest<OAuthSignupResult>(
-    '/auth/complete-oauth-signup',
+    '/api/auth/complete-oauth-signup',
     {
       method: 'POST',
       body: JSON.stringify({ account_type: accountType, full_name: fullName }),
