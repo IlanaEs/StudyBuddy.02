@@ -44,7 +44,11 @@ export async function requireAuth(request: Request, _response: Response, next: N
     request.auth = await verifyAccessToken(token);
     next();
   } catch (error) {
-    next(error);
+    if (error instanceof AppError) {
+      next(error);
+    } else {
+      next(new AppError('Invalid or expired authentication token', 401));
+    }
   }
 }
 
