@@ -1,0 +1,49 @@
+{
+  "name": "studybuddy-02",
+  "version": "0.1.0",
+  "private": true,
+  "description": "StudyBuddy.02 monorepo foundation.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "install:all": "npm install",
+    "dev": "npm run dev --workspace @studybuddy/backend & npm run dev --workspace @studybuddy/frontend",
+    "dev:frontend": "npm run dev --workspace @studybuddy/frontend",
+    "dev:backend": "npm run dev --workspace @studybuddy/backend",
+    "check:local": "node scripts/check-local-runtime.mjs",
+    "db:seed": "npm run db:seed:local",
+    "db:seed:taxonomy": "node scripts/seed-taxonomy.mjs",
+    "db:seed:demo": "node scripts/seed-demo-matching.mjs",
+    "db:seed:local": "node scripts/seed-local.mjs",
+    "db:seed:parent-dashboard": "node scripts/seed-parent-dashboard.mjs",
+    "db:reset:local-users": "node scripts/reset-local-users.mjs",
+    "db:bootstrap:admin": "node scripts/bootstrap-admin.mjs",
+    "db:bootstrap:test-users": "node scripts/bootstrap-test-users.mjs",
+    "verify:matching:e2e": "node scripts/verify-matching-e2e.mjs",
+    "verify:lifecycle:e2e": "node scripts/verify-lifecycle-e2e.mjs",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "db:validate": "node scripts/validate-supabase-migrations.mjs",
+    "qa:seed-users": "node scripts/seed-qa-users.mjs"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "dependencies": {
+    "@mantine/core": "^9.2.1",
+    "@mantine/form": "^9.2.1",
+    "@mantine/hooks": "^9.2.1",
+    "@mantine/modals": "^9.2.1",
+    "@mantine/notifications": "^9.2.1",
+    "@tabler/icons-react": "^3.44.0",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^1.16.0",
+    "tailwind-merge": "^3.6.0"
+  }
+}

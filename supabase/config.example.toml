@@ -1,0 +1,11 @@
+project_id = "ucptoyqlsysnxfjgqttq"
+
+[db]
+major_version = 15
+
+[api]
+enabled = true
+schemas = ["public"]
+
+[auth]
+enabled = true
