@@ -5,7 +5,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   HOST: z.string().min(1).default('127.0.0.1'),
   PORT: z.coerce.number().int().positive().default(4000),
-  FRONTEND_ORIGIN: z.string().url().default('http://localhost:3000'),
+  FRONTEND_ORIGIN: z.string().min(1).default('http://localhost:3001'),
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_ANON_KEY: z.string().min(1).optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
@@ -15,6 +15,31 @@ const envSchema = z.object({
 });
 
 export const env = envSchema.parse(process.env);
+
+/**
+ * Allowed frontend origins for CORS. Supports a single URL or comma-separated list.
+ * Always includes both localhost and 127.0.0.1 variants for the configured port(s)
+ * so that origin mismatches between the two never cause CORS failures.
+ */
+export const allowedOrigins: string[] = (() => {
+  const raw = env.FRONTEND_ORIGIN.split(',').map((s) => s.trim()).filter(Boolean);
+  const origins = new Set<string>();
+  for (const origin of raw) {
+    origins.add(origin);
+    // Auto-add the mirror origin so localhost ↔ 127.0.0.1 mismatches are covered.
+    try {
+      const url = new URL(origin);
+      if (url.hostname === 'localhost') {
+        url.hostname = '127.0.0.1';
+        origins.add(url.origin);
+      } else if (url.hostname === '127.0.0.1') {
+        url.hostname = 'localhost';
+        origins.add(url.origin);
+      }
+    } catch { /* non-URL value — keep as-is */ }
+  }
+  return [...origins];
+})();
 
 /** True only when explicitly opted in via ENABLE_ADMIN_QA_MODE=true. Never on by default. */
 export const adminQaModeEnabled = env.ENABLE_ADMIN_QA_MODE === 'true';

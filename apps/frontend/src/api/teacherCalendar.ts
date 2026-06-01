@@ -8,7 +8,7 @@ if (!API) {
 
 // Full calendar scope — required for both read (freeBusy) and write (event/Meet creation).
 const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar';
-export const TEACHER_CALENDAR_REDIRECT_TO = 'http://localhost:3000/teacher-onboarding';
+export const TEACHER_CALENDAR_REDIRECT_TO = `${window.location.origin}/teacher-onboarding`;
 
 export type GCalStatus = 'not_connected' | 'connecting' | 'connected' | 'syncing' | 'sync_failed' | 'manual_mode';
 

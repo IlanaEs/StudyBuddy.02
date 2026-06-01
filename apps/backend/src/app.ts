@@ -2,7 +2,7 @@ import cors from 'cors';
 import express from 'express';
 
 import { academicRepositoriesRouter } from './academicRepositories/academicRepositories.routes.js';
-import { env } from './config/env.js';
+import { allowedOrigins } from './config/env.js';
 import { errorHandler } from './errors/errorHandler.js';
 import { authRouter } from './auth/authRoutes.js';
 import { bookingRequestsRouter } from './bookingRequests/bookingRequests.routes.js';
@@ -23,7 +23,15 @@ export function createApp() {
   const app = express();
 
   app.use(cors({
-    origin: env.FRONTEND_ORIGIN,
+    origin(origin, callback) {
+      // Allow requests with no Origin header (e.g. server-to-server, curl, health checks)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
+    credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Provider-Token', 'X-Admin-QA-Role'],
   }));
   app.use(express.json());

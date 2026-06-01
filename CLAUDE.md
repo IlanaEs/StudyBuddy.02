@@ -14,7 +14,7 @@ Run from the repo root. This is an npm workspaces monorepo (`apps/backend` = `@s
 npm install              # install all workspaces
 
 npm run dev:backend      # backend only — tsx watch, http://localhost:4000
-npm run dev:frontend     # frontend only — vite, http://localhost:3000
+npm run dev:frontend     # frontend only — vite, http://localhost:3001
 npm run dev              # both (uses `&`; on Windows PowerShell run the two separately)
 
 npm run build            # build all workspaces
