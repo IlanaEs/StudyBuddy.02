@@ -1,8 +1,8 @@
 import type { Session } from '@supabase/supabase-js';
 import type { ReactNode } from 'react';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { apiRequest, setUnauthorizedHandler } from '../api/client';
+import { apiRequest } from '../api/client';
 import type { LocalUser, MeProfile, UserRole } from './authTypes';
 import { getSupabaseBrowserClient } from './supabaseClient';
 import { clearAppSessionStorage } from './sessionStorageKeys';
@@ -73,16 +73,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // token whose user no longer exists — so a normal browser self-recovers
   // (no incognito, no manual localStorage clearing) and the login/signup screen
   // becomes reachable via ProtectedRoute.
-  const clearingRef = useRef(false);
+  // Purges an invalid/stale session: a LOCAL-scope signOut clears the stored
+  // token from localStorage (no server round-trip, so it works even when the
+  // user no longer exists), then drops to the unauthenticated state. Called
+  // narrowly from the /me path on a 401 — never globally — so it can't tear
+  // down an in-progress Google sign-in.
   const clearInvalidSession = useCallback(async () => {
-    // Guard: a burst of 401s (the /me loop) must not spawn overlapping sign-outs.
-    if (clearingRef.current) return;
-    clearingRef.current = true;
     try {
-      // LOCAL scope only: just purge the stored session from localStorage. A
-      // global signOut would call the server to revoke the token, which FAILS
-      // for a deleted user and leaves the stale session in place — that's what
-      // kept /api/auth/me looping on 401. Local scope always clears.
       await getSupabaseBrowserClient().auth.signOut({ scope: 'local' });
     } catch {
       // Ignore — local state is still cleared below.
@@ -95,13 +92,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
     setStatus('unauthenticated');
   }, []);
-
-  // Register the global 401 handler before the session bootstrap runs, so the
-  // first failing /api/auth/me self-recovers. 403 is left as a normal forbidden.
-  useEffect(() => {
-    setUnauthorizedHandler(() => { void clearInvalidSession(); });
-    return () => setUnauthorizedHandler(null);
-  }, [clearInvalidSession]);
 
   const resolveSession = useCallback(async (nextSession: Session | null) => {
     if (!nextSession?.access_token) {
@@ -131,6 +121,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await apiRequest<{ user: LocalUser; profile: MeProfile }>('/api/auth/me', undefined, effectiveSession.access_token);
 
     if ('error' in response) {
+      if (response.status === 401) {
+        // Invalid/stale token (e.g. the user no longer exists): a normal
+        // logged-out state, not a fatal error. Purge the session so it can't
+        // loop; ProtectedRoute then shows login/signup.
+        await clearInvalidSession();
+        return;
+      }
+      // 403 / other (e.g. a valid session that isn't provisioned yet during
+      // signup): logged-out WITHOUT purging, so the Google onboarding flow can
+      // continue and assign the role.
       clearQaRoleOverride();
       setQaRoleState(null);
       setSession(null);
@@ -160,7 +160,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(resolvedUser);
     setProfile(response.data.profile ?? null);
     setStatus('authenticated');
-    clearingRef.current = false; // re-arm recovery for any future invalid session
     setError(null);
     if (isEligibleForAdminQa(resolvedUser.email, resolvedUser.role)) {
       setQaRoleState(getQaRoleOverride());
@@ -168,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearQaRoleOverride();
       setQaRoleState(null);
     }
-  }, []);
+  }, [clearInvalidSession]);
 
   useEffect(() => {
     let isMounted = true;

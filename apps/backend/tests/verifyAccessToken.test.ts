@@ -33,13 +33,15 @@ describe('verifyAccessToken', () => {
     await expect(verifyAccessToken('t')).rejects.toMatchObject({ statusCode: 401 });
   });
 
-  it('returns 401 when the token’s user no longer exists (deleted)', async () => {
-    // Auth user resolves but has no local row and no usable role metadata, so it
-    // cannot be re-provisioned — an invalid session, not a forbidden one.
-    getUser.mockResolvedValue({ data: { user: { id: 'auth-gone', email: 'x@e.com', app_metadata: {}, user_metadata: {} } }, error: null });
+  it('returns 403 (not 401) when an authenticated user is not provisioned (no role yet)', async () => {
+    // Valid token, no local row, no role metadata (e.g. mid OAuth signup before
+    // the role is assigned). This is "not provisioned / forbidden", NOT a 401
+    // logout — so the signup flow can proceed to assign the role. A genuinely
+    // invalid/expired token is the getUser-failure case above (401).
+    getUser.mockResolvedValue({ data: { user: { id: 'auth-new', email: 'x@e.com', app_metadata: {}, user_metadata: {} } }, error: null });
     vi.mocked(findLocalUserByAuthId).mockResolvedValue(null);
 
-    await expect(verifyAccessToken('t')).rejects.toMatchObject({ statusCode: 401 });
+    await expect(verifyAccessToken('t')).rejects.toMatchObject({ statusCode: 403 });
     expect(syncLocalUser).not.toHaveBeenCalled(); // extractRole fails before sync
   });
 
