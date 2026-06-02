@@ -36,7 +36,7 @@ export function RequestRow({
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 14, fontWeight: 800, color: T.text }}>{request.studentName}</span>
-        <span style={{ fontSize: 12, color: T.text2 }}>{request.subjectName ?? 'שיעור'}</span>
+        <span style={{ fontSize: 12, color: T.text2 }}>{request.subjectName ?? 'מקצוע לא צוין'}</span>
         <span style={{ marginInlineStart: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: T.fontMono, fontSize: 12, color: T.text3 }}>
           <Clock size={12} /> {formatWhen(request.requestedStartAt)}
         </span>

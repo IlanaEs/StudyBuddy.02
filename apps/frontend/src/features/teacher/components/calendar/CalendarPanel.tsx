@@ -132,7 +132,7 @@ function LessonDetail({ lesson }: { lesson: DashboardLesson }) {
     <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: T.radiusSm, border: `1px solid ${T.ink}`, background: 'color-mix(in oklab, #3f7e76 45%, transparent)', display: 'flex', alignItems: 'center', gap: 12 }}>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 13, fontWeight: 800, color: T.text }}>{lesson.studentName}</div>
-        <div style={{ fontSize: 12, color: T.text2 }}>{lesson.subjectName ?? 'שיעור'} · <span style={{ fontFamily: T.fontMono }}>{hhmm(lesson.startsAt)}–{hhmm(lesson.endsAt)}</span></div>
+        <div style={{ fontSize: 12, color: T.text2 }}>{lesson.subjectName ?? 'מקצוע לא צוין'} · <span style={{ fontFamily: T.fontMono }}>{hhmm(lesson.startsAt)}–{hhmm(lesson.endsAt)}</span></div>
       </div>
       {lesson.meetingLink && (
         <a href={lesson.meetingLink} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: T.neon, textDecoration: 'none' }}>

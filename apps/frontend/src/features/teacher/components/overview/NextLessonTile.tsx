@@ -55,7 +55,7 @@ export function NextLessonTile() {
           {/* Right column (RTL first): details + countdown */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: T.text }}>{next.studentName}</div>
-            <div style={{ fontSize: 13, color: T.text2 }}>{next.subjectName ?? 'שיעור'}</div>
+            <div style={{ fontSize: 13, color: T.text2 }}>{next.subjectName ?? 'מקצוע לא צוין'}</div>
             <div style={{ fontSize: 13, color: T.text2, fontFamily: T.fontMono }}>{formatTime(next.startsAt)}</div>
             <div style={{ marginTop: 6 }}>
               <div style={{ fontSize: 11, color: T.text3 }}>בעוד</div>
