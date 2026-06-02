@@ -53,6 +53,7 @@ export interface LedgerEntry {
 // Teacher configuration seeded from onboarding (subjects, availability, capacity, pricing).
 export interface TeacherConfig {
   fullName: string;
+  isVerified: boolean;
   subjects: string[];
   weeklyTimeBlocks: string[];
   maxActiveStudents: number | null;

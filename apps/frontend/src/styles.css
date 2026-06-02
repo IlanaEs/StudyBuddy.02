@@ -101,6 +101,18 @@
 
 @keyframes tow-burst { from { transform: scaleY(0); opacity: 0; } 40% { opacity: 1; } to { transform: scaleY(1); opacity: 0; } }
 
+/* Pending-verification banner: very subtle gold glow pulse (~2% opacity). */
+@keyframes tow-verify-pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--tow-gold) 2%, transparent); } 50% { box-shadow: 0 0 16px 1px color-mix(in oklab, var(--tow-gold) 10%, transparent); } }
+.tow-verify-pulse { animation: tow-verify-pulse 2.6s ease-in-out infinite; }
+
+@keyframes tow-jiggle { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-7deg); } 75% { transform: rotate(7deg); } }
+.tow-jiggle { animation: tow-jiggle 0.5s ease-in-out; }
+
+@keyframes tow-week-slide-l { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes tow-week-slide-r { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+.tow-week-slide-l { animation: tow-week-slide-l 200ms ease; }
+.tow-week-slide-r { animation: tow-week-slide-r 200ms ease; }
+
 * {
   box-sizing: border-box;
 }

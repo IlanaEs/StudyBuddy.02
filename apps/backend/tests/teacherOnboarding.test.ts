@@ -11,6 +11,7 @@ vi.mock('../src/auth/authService.js', () => ({
 // teacherOnboarding.service, which persists via this repository module.
 vi.mock('../src/teacherOnboarding/teacherOnboarding.repository.js', () => ({
   getOnboardingDraftByUserId: vi.fn(),
+  getTeacherProfileVerification: vi.fn(),
   upsertOnboardingDraft: vi.fn(),
   upsertTeacherProfile: vi.fn(),
   updateUserFullName: vi.fn(),
@@ -30,6 +31,7 @@ import { createApp } from '../src/app.js';
 import { verifyAccessToken } from '../src/auth/authService.js';
 import {
   getOnboardingDraftByUserId,
+  getTeacherProfileVerification,
   upsertOnboardingDraft,
   upsertTeacherProfile,
 } from '../src/teacherOnboarding/teacherOnboarding.repository.js';
@@ -140,6 +142,7 @@ describe('GET /api/teachers/me/onboarding', () => {
   it('returns 200 with onboarding state when teacher has an existing draft', async () => {
     vi.mocked(verifyAccessToken).mockResolvedValue(TEACHER_AUTH);
     vi.mocked(getOnboardingDraftByUserId).mockResolvedValue(FAKE_DRAFT_ROW);
+    vi.mocked(getTeacherProfileVerification).mockResolvedValue({ id: 'tp-1', isVerified: false });
 
     const res = await request(createApp())
       .get('/api/teachers/me/onboarding')
@@ -150,6 +153,7 @@ describe('GET /api/teachers/me/onboarding', () => {
       onboardingStep: 1,
       onboardingCompleted: false,
       fullName: 'ישראל ישראלי',
+      isVerified: false,
     });
     expect(res.body).not.toHaveProperty('success');
   });

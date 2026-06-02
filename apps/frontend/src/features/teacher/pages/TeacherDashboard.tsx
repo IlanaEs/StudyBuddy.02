@@ -5,6 +5,7 @@ import { useAuth } from '../../../auth/AuthProvider';
 import { useTeacherDashboardStore } from '../store/teacherDashboardStore';
 import { useTeacherDashboardSeed } from '../hooks/useTeacherDashboardSeed';
 import { DashboardShell } from '../components/DashboardShell';
+import { PendingVerificationBanner } from '../components/PendingVerificationBanner';
 import { DashboardHeader } from '../components/DashboardHeader';
 import { DashboardTabs } from '../components/DashboardTabs';
 import { OverviewTab } from '../tabs/OverviewTab';
@@ -32,6 +33,7 @@ export function TeacherDashboard() {
 
   return (
     <DashboardShell>
+      {config?.isVerified === false && <PendingVerificationBanner />}
       <DashboardHeader fullName={fullName} />
 
       {status === 'loading' || status === 'idle' ? (

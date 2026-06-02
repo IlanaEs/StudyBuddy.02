@@ -40,6 +40,7 @@ export type OnboardingDraftRemote = {
 
 export type OnboardingStateRemote = {
   teacherProfileId: string;
+  isVerified: boolean;
   fullName: string;
   hourlyRate: number;
   professionalStatus: string | null;
