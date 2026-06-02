@@ -36,18 +36,28 @@ describe('auth foundation routes', () => {
     expect(response.body).toEqual({ error: 'Request validation failed' });
   });
 
-  it('validates signup input before calling Supabase Auth', async () => {
+  it('returns 404 for removed POST /api/auth/signup endpoint', async () => {
     const app = createApp();
 
     const response = await request(app).post('/api/auth/signup').send({
-      email: 'not-an-email',
-      password: 'short',
-      role: 'admin',
-      full_name: '',
+      email: 'test@example.com',
+      password: '12345678',
+      role: 'student',
+      full_name: 'Test',
     });
 
-    expect(response.status).toBe(422);
-    expect(response.body).toEqual({ error: 'Request validation failed' });
+    expect(response.status).toBe(404);
+  });
+
+  it('returns 404 for removed POST /api/auth/login endpoint', async () => {
+    const app = createApp();
+
+    const response = await request(app).post('/api/auth/login').send({
+      email: 'test@example.com',
+      password: '12345678',
+    });
+
+    expect(response.status).toBe(404);
   });
 
   it('rejects POST /api/students without a bearer token', async () => {

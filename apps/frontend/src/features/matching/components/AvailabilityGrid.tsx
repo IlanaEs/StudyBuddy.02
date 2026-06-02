@@ -22,6 +22,8 @@ interface AvailabilityGridProps {
   selectedTimes: string[];
   onChangeDays: (days: string[]) => void;
   onChangeTimes: (times: string[]) => void;
+  /** Cell keys that are busy (format "day:time", e.g. "שני:morning"). Shown as blocked. */
+  busyKeys?: Set<string>;
 }
 
 function buildInitialCells(days: string[], times: string[]): Set<string> {
@@ -30,31 +32,34 @@ function buildInitialCells(days: string[], times: string[]): Set<string> {
   return s;
 }
 
-export function AvailabilityGrid({ selectedDays, selectedTimes, onChangeDays, onChangeTimes }: AvailabilityGridProps) {
+export function AvailabilityGrid({ selectedDays, selectedTimes, onChangeDays, onChangeTimes, busyKeys }: AvailabilityGridProps) {
   const [cells, setCells] = useState<Set<string>>(() =>
     buildInitialCells(selectedDays, selectedTimes),
   );
 
   function toggleCell(day: string, time: string) {
-    setCells((prev) => {
-      const key = `${day}:${time}`;
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+    const key = `${day}:${time}`;
+    // Block busy cells from being selected
+    if (busyKeys?.has(key)) return;
 
-      const days = new Set<string>();
-      const times = new Set<string>();
-      next.forEach((k) => {
-        const parts = k.split(':');
-        if (parts[0]) days.add(parts[0]);
-        if (parts[1]) times.add(parts[1]);
-      });
+    const next = new Set(cells);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
 
-      onChangeDays([...days]);
-      onChangeTimes([...times]);
-
-      return next;
+    const days = new Set<string>();
+    const times = new Set<string>();
+    next.forEach((k) => {
+      const parts = k.split(':');
+      if (parts[0]) days.add(parts[0]);
+      if (parts[1]) times.add(parts[1]);
     });
+
+    // Commit local cell state, then notify the parent. Calling the parent's
+    // setState OUTSIDE the updater avoids "cannot update a component while
+    // rendering a different component" — updaters run during React's render phase.
+    setCells(next);
+    onChangeDays([...days]);
+    onChangeTimes([...times]);
   }
 
   const totalSelected = cells.size;
@@ -63,7 +68,11 @@ export function AvailabilityGrid({ selectedDays, selectedTimes, onChangeDays, on
     <div className="avail-grid-reveal">
       {/* Helper + count */}
       <div className="flex items-center justify-between mb-3" dir="rtl">
-        <span style={{ color: 'var(--text-3)', fontSize: 12 }}>לחץ/י על התאים הרלוונטיים</span>
+        <span style={{ color: 'var(--text-3)', fontSize: 12 }}>
+          {busyKeys && busyKeys.size > 0
+            ? 'תאים אפורים = תפוסים ביומן. סמנו מהתאים הפנויים.'
+            : 'לחץ/י על התאים הרלוונטיים'}
+        </span>
         {totalSelected > 0 && (
           <span
             className="px-2 py-0.5 rounded-full text-xs font-semibold"
@@ -135,32 +144,42 @@ export function AvailabilityGrid({ selectedDays, selectedTimes, onChangeDays, on
               </div>
               {DAYS.map((day) => {
                 const key = `${day}:${value}`;
+                const isBusy = busyKeys?.has(key) ?? false;
                 const sel = cells.has(key);
                 return (
                   <button
                     key={key}
                     onClick={() => toggleCell(day, value)}
                     className="avail-cell"
-                    aria-label={`${day} ${label}`}
+                    aria-label={`${day} ${label}${isBusy ? ' (תפוס)' : ''}`}
                     aria-pressed={sel}
+                    aria-disabled={isBusy}
+                    disabled={isBusy}
                     style={{
                       height: 38,
                       borderRadius: 8,
-                      border: `1.5px solid ${sel ? 'var(--cyan)' : 'var(--line-2)'}`,
-                      background: sel
-                        ? 'color-mix(in oklab, var(--cyan) 22%, var(--surface-2))'
-                        : 'var(--surface-2)',
-                      boxShadow: sel
+                      border: `1.5px solid ${
+                        isBusy ? 'var(--line)'
+                        : sel ? 'var(--cyan)'
+                        : 'var(--line-2)'
+                      }`,
+                      background: isBusy
+                        ? 'repeating-linear-gradient(135deg, var(--surface-2), var(--surface-2) 4px, color-mix(in oklab, var(--text-3) 12%, var(--surface-2)) 4px, color-mix(in oklab, var(--text-3) 12%, var(--surface-2)) 8px)'
+                        : sel
+                          ? 'color-mix(in oklab, var(--cyan) 22%, var(--surface-2))'
+                          : 'var(--surface-2)',
+                      boxShadow: sel && !isBusy
                         ? '0 0 0 1px color-mix(in oklab, var(--cyan) 28%, transparent), inset 0 1px 0 rgba(220,245,240,0.08)'
                         : 'none',
                       padding: 0,
-                      cursor: 'pointer',
+                      cursor: isBusy ? 'not-allowed' : 'pointer',
+                      opacity: isBusy ? 0.5 : 1,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
                   >
-                    {sel && (
+                    {sel && !isBusy && (
                       <svg
                         width="11"
                         height="11"

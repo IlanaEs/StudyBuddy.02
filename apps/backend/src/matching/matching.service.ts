@@ -187,6 +187,8 @@ export async function runMatching(
       teacherRatingAvg: scoredMatch.candidate.ratingAvg,
       teacherRatingCount: scoredMatch.candidate.ratingCount,
       teacherIsVerified: scoredMatch.candidate.isVerified,
+      // Only active slots are bookable; the picker walks these into concrete times.
+      teacherAvailabilitySlots: scoredMatch.candidate.availabilitySlots.filter((slot) => slot.isActive),
     };
   });
 

@@ -36,6 +36,71 @@
   font-feature-settings: "ss01", "ss02";
 }
 
+/* ── Teacher Onboarding Wizard v2 — SCOPED redesign tokens ──────────────────
+   These variables apply only within a `.tow` wrapper so the rest of the app
+   (dashboards, student wizard, login) keeps its existing theme. */
+.tow {
+  --tow-bg: #175655;
+  --tow-card: #3f7e76;
+  --tow-card-2: #38716a;
+  --tow-ink: #016c7c;        /* headers / strong labels */
+  --tow-text: #eaf7f5;
+  --tow-text-2: #c4dbd7;
+  --tow-text-3: #93b4af;
+  --tow-neon: #00f6ff;       /* active / focus / progress */
+  --tow-gold: #ffd166;       /* accent pop */
+  --tow-orange: #fc6d17;     /* accent pop / primary CTA */
+  --tow-alert: #e22b57;
+  --tow-success: #bbe341;
+  --tow-line: rgba(234, 247, 245, 0.18);
+  --tow-line-2: rgba(234, 247, 245, 0.30);
+  --tow-radius: 12px;
+  --tow-radius-sm: 8px;
+  --tow-font: "Space Grotesk", Heebo, Inter, system-ui, sans-serif;
+  --tow-mono: "JetBrains Mono", ui-monospace, monospace;
+  color: var(--tow-text);
+  font-family: var(--tow-font);
+}
+
+/* Subtle centered radial glow behind the wizard surface. */
+.tow-bg-glow {
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 0%, rgba(0, 246, 255, 0.15), transparent 70%),
+    var(--tow-bg);
+}
+
+/* Neon focus ring for inputs (150ms). */
+.tow-focusable { transition: border-color 150ms ease, box-shadow 150ms ease; }
+.tow-focusable:focus-within,
+.tow-focusable:focus {
+  border-color: var(--tow-neon) !important;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--tow-neon) 28%, transparent);
+  outline: none;
+}
+
+@keyframes tow-chip-pop { 0% { transform: scale(0.9); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
+.tow-chip-pop { animation: tow-chip-pop 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+
+@keyframes tow-ripple { from { box-shadow: 0 0 0 0 color-mix(in oklab, var(--tow-gold) 55%, transparent); } to { box-shadow: 0 0 0 12px transparent; } }
+.tow-ripple { animation: tow-ripple 450ms ease-out; }
+
+@keyframes tow-draw { from { stroke-dashoffset: 22; } to { stroke-dashoffset: 0; } }
+.tow-check-draw { stroke-dasharray: 22; animation: tow-draw 260ms ease forwards; }
+
+@keyframes tow-step-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.tow-step-in { animation: tow-step-in 400ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+
+@keyframes tow-glitch { 0%, 100% { opacity: 1; transform: translateX(0); } 45% { opacity: 0.4; transform: translateX(-1px); } 55% { opacity: 0.4; transform: translateX(1px); } }
+.tow-glitch { animation: tow-glitch 360ms steps(2, end); }
+
+@keyframes tow-progress-glow { 0%, 100% { filter: drop-shadow(0 0 4px color-mix(in oklab, var(--tow-neon) 60%, transparent)); } 50% { filter: drop-shadow(0 0 12px color-mix(in oklab, var(--tow-neon) 90%, transparent)); } }
+.tow-progress-glow { animation: tow-progress-glow 2s ease-in-out infinite; }
+
+@keyframes tow-pulse-cta { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--tow-orange) 45%, transparent); } 50% { box-shadow: 0 0 0 10px transparent; } }
+.tow-pulse-cta { animation: tow-pulse-cta 1.8s ease-out infinite; }
+
+@keyframes tow-burst { from { transform: scaleY(0); opacity: 0; } 40% { opacity: 1; } to { transform: scaleY(1); opacity: 0; } }
+
 * {
   box-sizing: border-box;
 }

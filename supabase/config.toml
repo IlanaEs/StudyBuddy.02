@@ -9,3 +9,11 @@ schemas = ["public"]
 
 [auth]
 enabled = true
+
+[auth.email]
+enable_signup = false
+
+[auth.external.google]
+enabled = true
+client_id = "env(GOOGLE_CLIENT_ID)"
+secret = "env(GOOGLE_CLIENT_SECRET)"

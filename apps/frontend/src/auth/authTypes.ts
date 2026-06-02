@@ -16,15 +16,3 @@ export type MeProfile = {
   status: 'onboarding' | 'active';
   onboardingCompleted: boolean;
 } | null;
-
-export type AuthSessionPayload = {
-  access_token: string | null;
-  refresh_token: string | null;
-  expires_at: number | null;
-};
-
-export type AuthPayload = {
-  user: LocalUser;
-  session: AuthSessionPayload;
-  requiresEmailConfirmation?: boolean;
-};

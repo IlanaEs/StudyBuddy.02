@@ -149,7 +149,7 @@ export function BookingRequestPage() {
 
         <div className="rounded-2xl p-5 mb-5" style={{ background: 'var(--surface)', border: '1px solid var(--line-2)' }}>
           <h2 className="font-bold mb-4" style={{ color: 'var(--text)' }}>בחר/י זמן לשיעור הראשון:</h2>
-          <BookingSlotPicker selectedDay={selectedDay} selectedTime={selectedTime} onDayChange={setSelectedDay} onTimeChange={setSelectedTime} />
+          <BookingSlotPicker selectedDay={selectedDay} selectedTime={selectedTime} onDayChange={setSelectedDay} onTimeChange={setSelectedTime} availabilitySlots={match.teacher.availabilitySlots} />
           {error && <div className="mt-3" style={{ color: 'var(--coral)', fontSize: 13 }}>{error}</div>}
         </div>
 

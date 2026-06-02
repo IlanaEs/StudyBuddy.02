@@ -34,6 +34,11 @@ export type MatchingRunResult = {
     teacherRatingAvg: number;
     teacherRatingCount: number;
     teacherIsVerified: boolean;
+    teacherAvailabilitySlots: Array<{
+      dayOfWeek: number;
+      startTime: string;
+      endTime: string;
+    }>;
   }>;
   fallbackPhaseUsed: string;
   matchingVersion: string;

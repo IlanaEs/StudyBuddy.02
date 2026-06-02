@@ -19,7 +19,7 @@ const bodySchema = z
     subject_name: z.string().min(1).max(100).optional(),
     level: z.string().max(100).nullable().optional(),
     goal: z.string().nullable().optional(),
-    location_preference: z.enum(['online', 'frontal', 'both']),
+    location_preference: z.literal('online').default('online'),
     city: z.string().max(100).nullable().optional(),
     budget_min: z.number().nonnegative().nullable().optional(),
     budget_max: z.number().nonnegative().nullable().optional(),
@@ -28,12 +28,6 @@ const bodySchema = z
     learning_style: z.string().max(100).nullable().optional(),
     urgency: z.string().max(50).nullable().optional(),
   })
-  // Cross-field: frontal location requires a city.
-  .refine(
-    ({ location_preference, city }) =>
-      location_preference !== 'frontal' || !!(city && city.trim().length > 0),
-    { message: 'city is required when location_preference is frontal', path: ['city'] },
-  )
   .refine(({ subject_id, subject_name }) => !!subject_id || !!subject_name?.trim(), {
     message: 'subject_id or subject_name is required',
     path: ['subject_id'],

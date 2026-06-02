@@ -1,29 +1,17 @@
 import type { User } from '@supabase/supabase-js';
 
 import { AppError } from '../errors/AppError.js';
-import { devAuthBypassEnabled } from '../config/env.js';
 import { createSupabaseAdminClient, createSupabasePublicClient } from '../supabase/supabaseClients.js';
-import type { CompleteOAuthSignupInput, LoginInput, SignupInput } from './authValidation.js';
+import type { CompleteOAuthSignupInput } from './authValidation.js';
 import { findLocalUserByAuthId, syncLocalUser } from './authRepository.js';
 import type { LocalUser, UserRole } from './authTypes.js';
 import { userRoles } from './authTypes.js';
 
-type AuthSessionPayload = {
-  access_token: string | null;
-  refresh_token: string | null;
-  expires_at: number | null;
-};
-
-type AuthResponse = {
-  user: LocalUser;
-  session: AuthSessionPayload;
-  requiresEmailConfirmation?: true;
-};
-
 const publicClient = createSupabasePublicClient;
 const adminClient = createSupabaseAdminClient;
 
-function roleForAccountType(accountType: CompleteOAuthSignupInput['account_type']): Extract<UserRole, 'student' | 'parent'> {
+function roleForAccountType(accountType: CompleteOAuthSignupInput['account_type']): Extract<UserRole, 'student' | 'parent' | 'teacher'> {
+  if (accountType === 'teacher') return 'teacher';
   return accountType === 'parent_for_child' ? 'parent' : 'student';
 }
 
@@ -54,142 +42,6 @@ function extractEmail(user: User) {
   }
 
   return user.email;
-}
-
-function mapSession(session: { access_token: string; refresh_token: string; expires_at?: number } | null): AuthSessionPayload {
-  return {
-    access_token: session?.access_token ?? null,
-    refresh_token: session?.refresh_token ?? null,
-    expires_at: session?.expires_at ?? null,
-  };
-}
-
-// ── Local QA bypass ─────────────────────────────────────────────────────────
-// Dev-only signup that auto-confirms the user (no email delivery) and mints a
-// real session via password sign-in. Gated by devAuthBypassEnabled, which is
-// false in production. Lets onboarding/signup be tested without Supabase email.
-async function devBypassSignup(input: SignupInput): Promise<AuthResponse> {
-  const { data: created, error: createError } = await adminClient().auth.admin.createUser({
-    email: input.email,
-    password: input.password,
-    email_confirm: true,
-    app_metadata: { role: input.role },
-    user_metadata: { full_name: input.full_name },
-  });
-
-  if (createError || !created?.user?.email) {
-    const code = (createError as { code?: string } | null)?.code;
-    const message = createError?.message ?? '';
-    if (code === 'email_exists' || /already|exists|registered/i.test(message)) {
-      throw new AppError('כבר קיים חשבון עם כתובת האימייל הזו.', 409);
-    }
-    throw new AppError('Unable to create account. Please check your details and try again.', 422);
-  }
-
-  const { data: signIn, error: signInError } = await publicClient().auth.signInWithPassword({
-    email: input.email,
-    password: input.password,
-  });
-
-  if (signInError || !signIn.session) {
-    throw new AppError('Unable to establish a local session for the new account.', 500);
-  }
-
-  const user = await syncLocalUser({
-    authUserId: created.user.id,
-    email: created.user.email,
-    role: input.role,
-    fullName: input.full_name,
-  });
-
-  return { user, session: mapSession(signIn.session) };
-}
-
-export async function signup(input: SignupInput): Promise<AuthResponse> {
-  // Local QA only — never reached in production (devAuthBypassEnabled is false there).
-  if (devAuthBypassEnabled) {
-    return devBypassSignup(input);
-  }
-
-  const { data, error } = await publicClient().auth.signUp({
-    email: input.email,
-    password: input.password,
-    options: {
-      data: {
-        full_name: input.full_name,
-      },
-    },
-  });
-
-  if (error) {
-    // Surface rate-limit as a user-visible message, not an opaque 422.
-    if ((error as { code?: string }).code === 'over_email_send_rate_limit') {
-      throw new AppError('Too many sign-up attempts. Please wait a few minutes and try again.', 429);
-    }
-    throw new AppError('Unable to create account. Please check your details and try again.', 422);
-  }
-
-  if (!data.user?.email) {
-    throw new AppError('Unable to create account. Please check your details and try again.', 422);
-  }
-
-  const { error: metadataError } = await adminClient().auth.admin.updateUserById(data.user.id, {
-    app_metadata: {
-      role: input.role,
-    },
-    user_metadata: {
-      full_name: input.full_name,
-    },
-  });
-
-  if (metadataError) {
-    throw new AppError('Unable to assign authenticated user role', 500);
-  }
-
-  const user = await syncLocalUser({
-    authUserId: data.user.id,
-    email: data.user.email,
-    role: input.role,
-    fullName: input.full_name,
-  });
-
-  // Supabase returns a null session when email confirmation is required.
-  // Signal this to the frontend so it can show the correct message.
-  if (!data.session) {
-    return { user, session: mapSession(null), requiresEmailConfirmation: true };
-  }
-
-  return { user, session: mapSession(data.session) };
-}
-
-export async function login(input: LoginInput): Promise<AuthResponse> {
-  const { data, error } = await publicClient().auth.signInWithPassword({
-    email: input.email,
-    password: input.password,
-  });
-
-  if (error || !data.user?.email || !data.session) {
-    throw new AppError('Invalid email or password', 401);
-  }
-
-  const existingUser = await findLocalUserByAuthId(data.user.id);
-  const user =
-    existingUser ??
-    (await syncLocalUser({
-      authUserId: data.user.id,
-      email: data.user.email,
-      role: extractRole(data.user),
-      fullName: extractFullName(data.user),
-    }));
-
-  if (user.status !== 'active') {
-    throw new AppError('User is not active', 403);
-  }
-
-  return {
-    user,
-    session: mapSession(data.session),
-  };
 }
 
 export async function verifyAccessToken(accessToken: string) {

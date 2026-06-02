@@ -24,6 +24,8 @@ const expectedFiles = [
   '013_academic_repositories.sql',
   '014_parent_dashboard.sql',
   '015_demo_seed_flags.sql',
+  '016_google_only_auth.sql',
+  '017_online_only_location.sql',
 ];
 
 const migrationFiles = {
@@ -35,6 +37,8 @@ const migrationFiles = {
   availabilityExceptions: '011_availability_exceptions.sql',
   onboardingDrafts: '012_onboarding_drafts.sql',
   demoSeedFlags: '015_demo_seed_flags.sql',
+  googleOnlyAuth: '016_google_only_auth.sql',
+  onlineOnlyLocation: '017_online_only_location.sql',
 };
 
 const expectedTables = [
@@ -232,6 +236,18 @@ for (const index of ['users_is_demo_idx', 'teacher_profiles_is_demo_idx']) {
   if (!sqlByFile[migrationFiles.demoSeedFlags].includes(`create index ${index}`)) {
     fail(`missing demo flag index ${index}`);
   }
+}
+
+if (!sqlByFile[migrationFiles.googleOnlyAuth].includes('add column if not exists auth_provider text')) {
+  fail('missing users auth_provider column in google-only-auth migration');
+}
+
+if (!sqlByFile[migrationFiles.googleOnlyAuth].includes("default 'google'")) {
+  fail('missing auth_provider default google in google-only-auth migration');
+}
+
+if (!sqlByFile[migrationFiles.onlineOnlyLocation].includes('student_intakes.location_preference')) {
+  fail('missing online-only location comment in migration 017');
 }
 
 console.log('Supabase migration validation passed.');

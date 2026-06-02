@@ -93,7 +93,7 @@ export function SessionControls() {
             <LogIn size={14} />
             כניסה
           </Link>
-          <Link className="session-controls__button" to="/signup">
+          <Link className="session-controls__button" to="/onboarding/matching">
             <UserPlus size={14} />
             הרשמה
           </Link>

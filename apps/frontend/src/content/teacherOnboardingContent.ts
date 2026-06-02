@@ -100,3 +100,18 @@ export const ACADEMIC_PATH_STATUSES: ProfessionalStatus[] = [
   'academic_assistant',
   'excellent_courses',
 ];
+
+// ── v2 redesign: 8-screen progress (1 = Account Connection … 8 = Preview) ──────
+// Loading/Success are states 9/10 and not counted in the "Step X of 8" tracker.
+export const STEP_PROGRESS_V2: Record<number, number> = {
+  1: 8,
+  2: 22,
+  3: 38,
+  4: 52,
+  5: 66,
+  6: 80,
+  7: 92,
+  8: 100,
+};
+
+export const TOTAL_SCREENS_V2 = 8;

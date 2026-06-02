@@ -2,11 +2,14 @@
 
 import { AppError } from '../errors/AppError.js';
 import { withTransaction } from '../db/transaction.js';
+import { assertStudentAccess } from '../auth/ownership.js';
+import { createGoogleCalendarEvent } from '../calendar/googleCalendar.js';
 import type { LocalUser } from '../auth/authTypes.js';
 import type { UpdateLessonStatusBody, CompleteLessonBody } from './lessons.validation.js';
 import type { LessonRow, TeacherLessonListItem, CompleteLessonResult } from './lessons.types.js';
 import {
   getLessonById,
+  getSubjectNameById,
   getTeacherProfileByUserId,
   updateLessonStatus,
   getScheduledAndRecentLessonsByTeacherId,
@@ -35,6 +38,53 @@ export async function getMyLessonsService(
   if (!profile) throw new AppError('Teacher profile not found', 404);
 
   return getScheduledAndRecentLessonsByTeacherId(profile.id);
+}
+
+// ── Student/parent: add a confirmed lesson to their Google Calendar ───────────
+// Triggered by a button on the student/parent dashboard. The student grants a
+// fresh Google token (calendar.events scope) at click time, so the provider
+// token arrives via the X-Provider-Token header rather than being stored.
+export async function addLessonToStudentCalendarService(
+  lessonId: string,
+  currentUser: LocalUser,
+  providerToken: string,
+): Promise<{ added: true }> {
+  const lesson = await getLessonById(lessonId);
+  if (!lesson) {
+    throw new AppError('Lesson not found', 404);
+  }
+
+  // Ownership: student must own the lesson's student row (or be its parent).
+  await assertStudentAccess(currentUser.id, currentUser.role, lesson.studentId);
+
+  if (lesson.status !== 'scheduled') {
+    throw new AppError('ניתן להוסיף ליומן רק שיעורים מתוכננים.', 422);
+  }
+
+  const subjectName = lesson.subjectId ? await getSubjectNameById(lesson.subjectId) : null;
+  const summary = subjectName ? `שיעור ${subjectName} – StudyBuddy` : 'שיעור פרטי – StudyBuddy';
+  const description = lesson.meetingLink
+    ? `קישור לשיעור: ${lesson.meetingLink}`
+    : 'השיעור נקבע דרך StudyBuddy.';
+
+  const result = await createGoogleCalendarEvent(providerToken, {
+    summary,
+    startAt: lesson.scheduledStartAt,
+    endAt: lesson.scheduledEndAt,
+    description,
+  });
+
+  if (!result.ok) {
+    if (result.status === 401) {
+      throw new AppError('פג תוקף ההרשאה ליומן Google. התחבר/י שוב ונסה/י שנית.', 401);
+    }
+    if (result.status === 403) {
+      throw new AppError('אין הרשאה לכתוב ליומן Google. אשר/י גישה ליומן ונסה/י שנית.', 403);
+    }
+    throw new AppError('לא ניתן להוסיף את השיעור ליומן כרגע. נסה/י שוב.', 502);
+  }
+
+  return { added: true };
 }
 
 // ── Lesson status update (cancellation / no_show) ─────────────────────────────

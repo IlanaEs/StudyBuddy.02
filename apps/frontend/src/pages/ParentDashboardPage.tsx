@@ -5,6 +5,7 @@ import { Calendar, CreditCard, Sun, BookOpen, ChevronLeft, CalendarDays, Video }
 import { useAuth } from '../auth/AuthProvider';
 import { useParentDashboard } from '../features/parent/hooks/useParentDashboard';
 import type { ParentDashboardPayload, HomeworkTaskStatus } from '../features/parent/api/types';
+import { AddLessonToCalendarButton } from '../components/AddLessonToCalendarButton';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -49,6 +50,7 @@ function formatTimeOnly(iso: string): string {
 // ── Data transformation ───────────────────────────────────────────────────────
 
 type UpcomingLessonData = {
+  id: string;
   subject: string;
   teacherName: string;
   day: string;
@@ -100,6 +102,7 @@ function transformPayload(payload: ParentDashboardPayload) {
   const upcomingLesson: UpcomingLessonData = payload.next_lesson
     ? {
         ...formatLessonTime(payload.next_lesson.starts_at),
+        id: payload.next_lesson.id,
         subject: payload.next_lesson.subject_name ?? 'שיעור',
         teacherName: payload.next_lesson.teacher_name,
         startsAt: payload.next_lesson.starts_at,
@@ -460,6 +463,7 @@ function UpcomingLessonCard({
               {live ? 'הצטרף לשיעור' : 'כניסה תתאפשר 2 דקות לפני השיעור'}
             </a>
           )}
+          <AddLessonToCalendarButton lessonId={data.id} />
         </>
       ) : (
         <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--text-3)', lineHeight: 1.65 }}>
