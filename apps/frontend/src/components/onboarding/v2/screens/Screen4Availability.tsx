@@ -24,11 +24,11 @@ export function Screen4Availability({ syncCard, grid, error, removedNotice }: Sc
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
         <div>
-          <SectionLabel>סנכרון יומן</SectionLabel>
+          <SectionLabel>סנכרון יומן (Calendar Sync)</SectionLabel>
           {syncCard}
         </div>
         <div>
-          <SectionLabel>זמינות שבועית</SectionLabel>
+          <SectionLabel>זמינות שבועית (Weekly Availability)</SectionLabel>
           <div style={{ background: T.card, border: `2px solid ${T.line2}`, borderRadius: T.radius, padding: 14 }}>
             {grid}
           </div>

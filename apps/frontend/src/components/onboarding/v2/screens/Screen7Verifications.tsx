@@ -28,7 +28,7 @@ export function Screen7Verifications({ data, update, errors }: Screen7Props) {
       <BentoCard accent={T.line2} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <Shield size={16} style={{ color: T.neon }} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>הצהרות חובה</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>הצהרות חובה (Required Declarations)</span>
           <span style={{ marginInlineStart: 'auto', fontFamily: T.fontMono, fontSize: 12, color: T.text3 }}>
             {LEGAL_ITEMS.filter((i) => data[i.key]).length}/{LEGAL_ITEMS.length}
           </span>
@@ -58,7 +58,7 @@ export function Screen7Verifications({ data, update, errors }: Screen7Props) {
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13.5, fontWeight: 700, color: T.text }}>
             מסמך אימות
-            <span style={{ marginInlineStart: 8, fontSize: 11, fontWeight: 700, color: T.text3, fontFamily: T.fontMono }}>אופציונלי</span>
+            <span style={{ marginInlineStart: 8, fontSize: 11, fontWeight: 700, color: T.text3, fontFamily: T.fontMono }}>אופציונלי (Optional)</span>
           </div>
           <div style={{ fontSize: 12, color: T.text3, marginTop: 2 }}>תעודה / אישור הוראה — יעלה את אמינות הפרופיל.</div>
         </div>

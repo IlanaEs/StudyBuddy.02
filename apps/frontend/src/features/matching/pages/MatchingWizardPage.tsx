@@ -1111,7 +1111,7 @@ export function MatchingWizardPage() {
           className="flex-1 py-4 rounded-xl text-lg wizard-cta-primary"
           style={ctaPrimary}
         >
-          מצאו לי מורים
+          מצאו לי מורים (Find Teachers)
         </button>
       </div>
     </WizardShell>

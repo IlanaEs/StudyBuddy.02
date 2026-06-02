@@ -83,7 +83,7 @@ export function MatchResultsPage() {
           style={{ background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--text-3)', cursor: 'pointer' }}
         >
           <RotateCcw size={14} />
-          חיפוש מחדש עם קריטריונים שונים
+          חיפוש מחדש עם קריטריונים שונים (New Search)
         </button>
       </div>
 

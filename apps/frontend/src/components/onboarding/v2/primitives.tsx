@@ -270,7 +270,7 @@ export function SquareCheckbox({
         {label}
         {required != null && (
           <span style={{ marginInlineStart: 8, fontSize: 11, fontWeight: 700, color: required ? T.gold : T.text3, fontFamily: T.fontMono }}>
-            {required ? 'חובה' : 'אופציונלי'}
+            {required ? 'חובה (Mandatory)' : 'אופציונלי (Optional)'}
           </span>
         )}
       </span>

@@ -49,7 +49,7 @@ export function BookingConfirmationPage() {
         <div className="flex justify-center mb-4" style={{ color: 'var(--cyan)' }}>
           <CheckCircle2 size={56} />
         </div>
-        <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)' }}>הבקשה נשלחה בהצלחה!</h1>
+        <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)' }}>הבקשה נשלחה בהצלחה! (Request Sent)</h1>
         <p className="mb-6" style={{ color: 'var(--text-2)', fontSize: 15 }}>
           המורה {teacherName} יקבל/תקבל את בקשת השיעור ויאשר/תאשר בהקדם.
         </p>
@@ -75,7 +75,7 @@ export function BookingConfirmationPage() {
 
         <div className="flex flex-col gap-3">
           <button onClick={() => navigate(dashboardRoute)} className="w-full py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>
-            לדשבורד שלי
+            לדשבורד שלי (My Dashboard)
           </button>
           <button onClick={() => navigate('/onboarding/matching')} className="w-full py-3 rounded-xl font-medium text-sm" style={{ background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--text-3)', cursor: 'pointer' }}>
             חיפוש מורה נוסף

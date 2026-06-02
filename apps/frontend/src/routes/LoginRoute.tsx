@@ -63,7 +63,7 @@ export function LoginRoute() {
           <span className="auth-brand">
             <img alt="StudyBuddy" src="/assets/logo_s.png" />
           </span>
-          <h1 className="auth-title">ברוכים השבים</h1>
+          <h1 className="auth-title">ברוכים השבים (Welcome Back)</h1>
           <p className="auth-subtitle">היכנסו כדי להמשיך לנהל את הלמידה, השיעורים והלו״ז שלכם.</p>
         </header>
 

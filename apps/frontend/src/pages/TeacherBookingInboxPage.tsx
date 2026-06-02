@@ -176,7 +176,7 @@ function BookingCard({
           }}
         >
           <Check size={14} />
-          {isApproving ? 'מאשר...' : 'אשר שיעור'}
+          {isApproving ? 'מאשר...' : 'אשר שיעור (Approve)'}
         </button>
         <button
           type="button"
@@ -202,7 +202,7 @@ function BookingCard({
           }}
         >
           <X size={14} />
-          {isRejecting ? 'דוחה...' : 'דחה'}
+          {isRejecting ? 'דוחה...' : 'דחה (Reject)'}
         </button>
       </div>
     </div>
@@ -329,7 +329,7 @@ export function TeacherBookingInboxPage() {
             borderRight: '1px solid var(--line)',
           }}
         >
-          בקשות שיעור
+          בקשות שיעור (Booking Requests)
         </span>
         <nav style={{ marginRight: 'auto', display: 'flex', gap: 8 }}>
           <Link
@@ -345,7 +345,7 @@ export function TeacherBookingInboxPage() {
               background: `color-mix(in oklab, ${SB_NEON} 8%, transparent)`,
             }}
           >
-            תיבת דואר
+            תיבת דואר (Inbox)
           </Link>
           <Link
             to="/teacher/lessons"
@@ -359,7 +359,7 @@ export function TeacherBookingInboxPage() {
               border: '1px solid var(--line)',
             }}
           >
-            שיעורים שלי
+            שיעורים שלי (My Lessons)
           </Link>
         </nav>
       </header>
@@ -388,7 +388,7 @@ export function TeacherBookingInboxPage() {
               letterSpacing: '-0.025em',
             }}
           >
-            בקשות שיעור ממתינות
+            בקשות שיעור ממתינות (Pending Requests)
           </h1>
           <p style={{ margin: 0, fontSize: 14, color: 'var(--text-3)', fontWeight: 500 }}>
             אשר או דחה בקשות שיעור שנשלחו אליך מתלמידים.

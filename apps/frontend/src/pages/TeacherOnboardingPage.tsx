@@ -1606,7 +1606,7 @@ export function TeacherOnboardingPage() {
           onRequestAdd={(name) => requestAcademicRepositoryValue('field', name)}
         />
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: TOW.text3, fontFamily: TOW.fontMono, marginBottom: 8 }}>שנת לימוד</div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: TOW.text3, fontFamily: TOW.fontMono, marginBottom: 8 }}>שנת לימוד (Academic Year)</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {ACADEMIC_YEAR_OPTIONS.map((yr) => (
               <TowChipSelect key={yr} small label={yr} selected={data.academicYear === yr} onClick={() => update({ academicYear: yr })} />
@@ -1731,6 +1731,7 @@ export function TeacherOnboardingPage() {
               onNext={next}
               hideBack={step === 1}
               nextLabel={step === 6 ? 'לתצוגה מקדימה' : 'המשך'}
+              nextEnglish={step === 6 ? 'Preview' : 'Continue'}
             />
           )}
         </WizardShell>

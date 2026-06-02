@@ -421,7 +421,7 @@ function UpcomingLessonCard({
       className={className}
       style={{ ...CARD_BASE, padding: '20px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 14 }}
     >
-      <CardHeader icon={<Calendar size={16} />} title='הלו"ז הקרוב' accentColor={SB_NEON} />
+      <CardHeader icon={<Calendar size={16} />} title='הלו"ז הקרוב (Upcoming Schedule)' accentColor={SB_NEON} />
       {data ? (
         <>
           <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--text)', lineHeight: 1.65 }}>
@@ -498,7 +498,7 @@ function PendingApprovalCard({
     >
       <CardHeader
         icon={<CreditCard size={16} />}
-        title="מחכה לטיפולך"
+        title="מחכה לטיפולך (Action Required)"
         accentColor={data ? SB_ORANGE : 'var(--text-3)'}
       />
       {data ? (
@@ -586,7 +586,7 @@ function LatestLessonCard({
     >
       <CardHeader
         icon={<BookOpen size={16} />}
-        title={`עדכון מהשיעור האחרון של ${childName}`}
+        title={`עדכון מהשיעור האחרון של ${childName} (Latest Lesson Update)`}
         accentColor={SB_NEON}
       />
 
@@ -700,7 +700,7 @@ function FindTeacherCard({
       <div>
         <CardHeader
           icon={<ChevronLeft size={16} />}
-          title="צריכים עזרה במשהו חדש?"
+          title="צריכים עזרה במשהו חדש? (New Request)"
           accentColor={SB_NEON}
         />
         <p style={{ margin: '0 0 20px', fontSize: 13, fontWeight: 500, color: 'var(--text-2)', lineHeight: 1.65 }}>
@@ -768,7 +768,7 @@ function PreviousLessonsCard({
     >
       <CardHeader
         icon={<Calendar size={16} />}
-        title={`שיעורים קודמים של ${childName}`}
+        title={`שיעורים קודמים של ${childName} (Past Lessons)`}
         accentColor={SB_ORANGE}
       />
 
@@ -892,7 +892,7 @@ function WeeklyScheduleCard({
     >
       <CardHeader
         icon={<CalendarDays size={16} />}
-        title="לוח שבועי משפחתי"
+        title="לוח שבועי משפחתי (Weekly Schedule)"
         accentColor={SB_PURPLE}
       />
 

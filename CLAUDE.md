@@ -6,6 +6,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 StudyBuddy.02 is a **CRM-driven matchmaking operating system for private education** — explicitly *not* a tutor marketplace. The product philosophy (curated matching over infinite browsing, lifecycle integrity, backend-enforced permissions) is binding architecture, not aspiration. Read `agents/00_AGENTS.md` (the "operating constitution") and `agents/API_Contracts.md` before making non-trivial product decisions; they override implementation convenience when they conflict.
 
+## Bilingual UI Labeling (CRITICAL — read before editing ANY UI text)
+
+StudyBuddy is **Hebrew-first (RTL)**. A defined subset of UI labels carries a concise **English term in parentheses** alongside the Hebrew. **This is an intentional product requirement — NOT a bug, typo, leftover, or duplication to clean up.** A platform stakeholder does not read Hebrew, and a full English locale is deliberately out of scope; the English term is purely a supporting label for international readability and academic presentation.
+
+**Non-negotiable rules**
+- **NEVER remove** the English term in parentheses next to a Hebrew label.
+- **NEVER treat** `עברית (English)` labels as mistakes, errors, or redundancy.
+- **NEVER translate** the platform into English or create a separate English version/locale.
+- **NEVER produce** bilingual paragraphs or duplicate descriptions in two languages.
+- **Hebrew remains the primary language** everywhere.
+
+**Format:** `<Hebrew label> (<English term>)` — e.g. `דשבורד מורה (Teacher Dashboard)`.
+
+**WHERE to add an English term (ONLY these element types):** page titles · navigation items · dashboard cards · key actions / buttons · important statuses · major section headers · KPI labels · core system entities.
+
+**WHERE NOT to add English (Hebrew only):** long descriptions · helper text · chat messages · onboarding questions · any body / paragraph copy.
+
+**Style:** short, professional SaaS / EdTech / CRM terminology; keep the UI clean (avoid clutter).
+
+**Reference vocabulary (baseline):** דשבורד מורה (Teacher Dashboard) · תלמידים (Students) · שיעורים (Lessons) · זמינות (Availability) · בקשות חדשות (New Requests) · שידוכים (Matches) · פרופיל (Profile) · הגדרות (Settings) · שיעור הבא (Next Lesson) · דירוג ממוצע (Average Rating).
+
 ## Commands
 
 Run from the repo root. This is an npm workspaces monorepo (`apps/backend` = `@studybuddy/backend`, `apps/frontend` = `@studybuddy/frontend`).
@@ -83,7 +104,7 @@ React 19 + Vite + TypeScript. **Mantine** is the component library and **Tailwin
 
 ### Teacher onboarding wizard (v2)
 
-`pages/TeacherOnboardingPage.tsx` is a single `step`-state machine rendered as **8 screens** (Hebrew-primary RTL; English in parens **only** on main headers and core action buttons):
+`pages/TeacherOnboardingPage.tsx` is a single `step`-state machine rendered as **8 screens** (Hebrew-primary RTL; bilingual labels per the **Bilingual UI Labeling** rule below):
 
 1. Account Connection (Google-only auth-gate overlay) · 2. Experience & Expertise · 3. Subjects, Levels & Style · 4. Availability & Synchronization · 5. Teaching Operations Engine · 6. Pricing Framework · 7. Verifications & Compliance · 8. Profile Preview — then **Processing** (`step === 8`) and **Success** (`step === 9`).
 

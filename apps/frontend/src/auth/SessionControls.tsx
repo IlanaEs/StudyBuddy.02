@@ -84,25 +84,25 @@ export function SessionControls() {
           <span className="session-controls__identity">{sessionLabel}</span>
           <button className="session-controls__button" type="button" onClick={() => void handleLogout()} disabled={isSigningOut}>
             <LogOut size={14} />
-            התנתקות
+            התנתקות (Sign Out)
           </button>
         </>
       ) : (
         <>
           <Link className="session-controls__button" to="/login">
             <LogIn size={14} />
-            כניסה
+            כניסה (Sign In)
           </Link>
           <Link className="session-controls__button" to="/onboarding/matching">
             <UserPlus size={14} />
-            הרשמה
+            הרשמה (Sign Up)
           </Link>
         </>
       )}
       {import.meta.env.DEV && (
         <button className="session-controls__button session-controls__button--secondary" type="button" onClick={handleResetAuth}>
           <RotateCcw size={14} />
-          איפוס התחברות
+          איפוס התחברות (Reset)
         </button>
       )}
     </aside>

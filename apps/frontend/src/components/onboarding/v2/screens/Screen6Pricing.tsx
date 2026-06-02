@@ -52,7 +52,7 @@ export function Screen6Pricing({ data, update, errors }: Screen6Props) {
 
       {rate > 0 && (
         <div style={{ marginTop: 16 }}>
-          <SectionLabel>שיעור היכרות</SectionLabel>
+          <SectionLabel>שיעור היכרות (Trial Lesson)</SectionLabel>
           <div style={{ display: 'grid', gap: 8 }}>
             {INTRO_PRICING_OPTIONS.map((opt) => {
               const computed = opt.value === 'half_price' ? Math.round(rate / 2) : opt.value === 'twenty_percent' ? Math.round(rate * 0.8) : rate;
@@ -72,7 +72,7 @@ export function Screen6Pricing({ data, update, errors }: Screen6Props) {
       )}
 
       <div style={{ marginTop: 16 }}>
-        <SectionLabel>מרתון מבחנים</SectionLabel>
+        <SectionLabel>מרתון מבחנים (Exam Marathon)</SectionLabel>
         <ChipSelect
           label={hasMarathon ? 'מציע/ה מרתוני מבחנים' : 'הוסף/י מרתוני מבחנים'}
           selected={hasMarathon}

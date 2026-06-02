@@ -32,7 +32,7 @@ export function Screen3SubjectsStyle({ data, update, errors }: Screen3Props) {
     <div className="tow-step-in">
       <ScreenHeader title="מקצועות, רמות וסגנון" english="Subjects, Levels & Style" subtitle="בחרו את הרמות שאתם מלמדים, ואז את המקצועות והסגנון." />
 
-      <SectionLabel>רמות הוראה</SectionLabel>
+      <SectionLabel>רמות הוראה (Teaching Levels)</SectionLabel>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
         {TEACHING_LEVELS.map((lvl) => (
           <CardSelect
@@ -47,7 +47,7 @@ export function Screen3SubjectsStyle({ data, update, errors }: Screen3Props) {
 
       {subjectPool.length > 0 && (
         <div style={{ marginTop: 18 }}>
-          <SectionLabel>מקצועות</SectionLabel>
+          <SectionLabel>מקצועות (Subjects)</SectionLabel>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {subjectPool.map((s) => (
               <ChipSelect
@@ -68,7 +68,7 @@ export function Screen3SubjectsStyle({ data, update, errors }: Screen3Props) {
       )}
 
       <div style={{ marginTop: 18 }}>
-        <SectionLabel>סגנון הוראה</SectionLabel>
+        <SectionLabel>סגנון הוראה (Teaching Style)</SectionLabel>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {TEACHING_STYLES.map((style) => (
             <ChipSelect

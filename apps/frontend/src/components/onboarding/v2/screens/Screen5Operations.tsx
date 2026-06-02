@@ -62,7 +62,7 @@ export function Screen5Operations({ data, update, errors }: Screen5Props) {
     <div className="tow-step-in">
       <ScreenHeader title="מנוע ההוראה שלך" english="Teaching Operations Engine" subtitle="כוונון הקיבולת, אישור ההזמנות וסוגי המחויבות." />
 
-      <OpsCard icon={<Users size={16} />} color={T.neon} title="קיבולת">
+      <OpsCard icon={<Users size={16} />} color={T.neon} title="קיבולת (Capacity)">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <BrutalistSlider label="שעות הוראה שבועיות" value={data.weeklyTeachingHours} options={WEEKLY_HOURS_OPTIONS} onChange={(v) => update({ weeklyTeachingHours: v })} suffix="שעות" />
           <BrutalistSlider label="מקסימום תלמידים פעילים" value={data.maxActiveStudents} options={MAX_STUDENTS_OPTIONS} onChange={(v) => update({ maxActiveStudents: v })} suffix="תלמידים" />
@@ -71,7 +71,7 @@ export function Screen5Operations({ data, update, errors }: Screen5Props) {
         <FieldError>{errors.weeklyTeachingHours || errors.maxActiveStudents}</FieldError>
       </OpsCard>
 
-      <OpsCard icon={<BookOpen size={16} />} color={T.gold} title="אישור הזמנות">
+      <OpsCard icon={<BookOpen size={16} />} color={T.gold} title="אישור הזמנות (Booking Approval)">
         <div style={{ display: 'grid', gap: 8 }}>
           <CardSelect label="אישור אוטומטי" description="הזמנות מאושרות מיידית" selected={data.bookingApproval === 'automatic'} onClick={() => update({ bookingApproval: 'automatic' })} />
           <CardSelect label="אישור ידני" description="אני מאשר/ת כל הזמנה" selected={isManual} onClick={() => update({ bookingApproval: 'manual' })} />
@@ -98,7 +98,7 @@ export function Screen5Operations({ data, update, errors }: Screen5Props) {
         )}
       </OpsCard>
 
-      <OpsCard icon={<Award size={16} />} color={T.success} title="סוגי מחויבות">
+      <OpsCard icon={<Award size={16} />} color={T.success} title="סוגי מחויבות (Commitment Types)">
         <div style={{ display: 'grid', gap: 8 }}>
           {COMMITMENT_TYPES.map((c) => (
             <CardSelect key={c.value} label={c.label} selected={data.commitmentTypes.includes(c.value)} onClick={() => update({ commitmentTypes: toggle(data.commitmentTypes, c.value) })} />
@@ -118,7 +118,7 @@ export function Screen5Operations({ data, update, errors }: Screen5Props) {
         )}
       </OpsCard>
 
-      <OpsCard icon={<Zap size={16} />} color={T.orange} title="זמינות לשיעורי חירום">
+      <OpsCard icon={<Zap size={16} />} color={T.orange} title="זמינות לשיעורי חירום (Emergency Availability)">
         <div style={{ display: 'flex', gap: 8 }}>
           {EMERGENCY_AVAILABILITY_OPTIONS.map((opt) => (
             <ChipSelect key={opt.value} small label={opt.label} selected={data.emergencyAvailability === opt.value} onClick={() => update({ emergencyAvailability: opt.value })} />

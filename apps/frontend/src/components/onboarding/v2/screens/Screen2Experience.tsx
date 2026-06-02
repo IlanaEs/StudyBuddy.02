@@ -52,7 +52,7 @@ export function Screen2Experience({ data, update, errors, onPickImage, academicS
 
       {/* Professional status (multi-select cards) */}
       <div style={{ marginTop: 8 }}>
-        <SectionLabel>מעמד מקצועי</SectionLabel>
+        <SectionLabel>מעמד מקצועי (Professional Status)</SectionLabel>
         <div style={{ display: 'grid', gap: 8 }}>
           {PROFESSIONAL_STATUS_OPTIONS.map((opt) => (
             <CardSelect
@@ -71,7 +71,7 @@ export function Screen2Experience({ data, update, errors, onPickImage, academicS
       {/* Conditional inputs unlocked by status */}
       {data.professionalStatus && (
         <div style={{ marginTop: 18 }}>
-          <SectionLabel>{academic ? 'רקע אקדמי' : 'ניסיון ומומחיות'}</SectionLabel>
+          <SectionLabel>{academic ? 'רקע אקדמי (Academic Background)' : 'ניסיון ומומחיות (Experience & Expertise)'}</SectionLabel>
           {academic ? (
             academicSlot
           ) : (
