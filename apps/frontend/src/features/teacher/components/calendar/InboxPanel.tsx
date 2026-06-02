@@ -7,6 +7,7 @@ import { BentoTile } from '../BentoGrid';
 import { EmptyState } from '../EmptyState';
 import { useTeacherDashboardStore } from '../../store/teacherDashboardStore';
 import type { DashboardLesson, LessonStatus } from '../../types/teacherDashboard.types';
+import { isMockId } from '../../dev/devSeed';
 import { RequestRow } from './RequestRow';
 
 /**
@@ -28,8 +29,35 @@ export function InboxPanel() {
   const [error, setError] = useState<string | null>(null);
 
   async function respond(requestId: string, response: 'approve' | 'reject') {
+    if (busyId) return;
+
+    // DEV seed: mock requests have no real backend booking, so resolve them
+    // locally through the same store actions the calendar reads. No-op in prod
+    // (mock ids never exist there).
+    if (isMockId(requestId)) {
+      const req = requests.find((r) => r.id === requestId);
+      if (!req) return;
+      if (response === 'reject') {
+        declineRequest(requestId);
+      } else {
+        const lesson: DashboardLesson = {
+          id: `mock-lesson-${req.id}`,
+          studentId: req.studentId, // may be '' for the missing-studentId mock
+          studentName: req.studentName,
+          subjectName: req.subjectName,
+          startsAt: req.requestedStartAt,
+          endsAt: req.requestedEndAt,
+          status: 'scheduled',
+          meetingLink: null,
+          amount: config?.hourlyRate ?? null,
+        };
+        acceptRequest(requestId, lesson);
+      }
+      return;
+    }
+
     const token = session?.access_token;
-    if (!token || busyId) return;
+    if (!token) return;
     setBusyId(requestId);
     setError(null);
     try {

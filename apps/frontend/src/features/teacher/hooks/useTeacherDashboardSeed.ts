@@ -4,6 +4,7 @@ import { fetchOnboardingDraft, type OnboardingStateRemote } from '../../../api/t
 import { getTeacherLessons } from '../../../api/lessons';
 import { getTeacherPendingBookings } from '../../../api/bookingRequests';
 import { useTeacherDashboardStore } from '../store/teacherDashboardStore';
+import { isDashboardSeedEnabled, buildDevSeed } from '../dev/devSeed';
 import type {
   TeacherConfig,
   DashboardLesson,
@@ -48,6 +49,18 @@ export function useTeacherDashboardSeed() {
     startedRef.current = true;
 
     const { setStatus, setConfig, setLessons, setRequests } = useTeacherDashboardStore.getState();
+
+    // DEV-only QA seed (opt-in flag). Populates the store and skips the network
+    // so the tiles render real-looking content without a backend. No-op in prod.
+    if (isDashboardSeedEnabled()) {
+      const seed = buildDevSeed();
+      setConfig(seed.config);
+      setLessons(seed.lessons);
+      setRequests(seed.requests);
+      setStatus('ready');
+      return;
+    }
+
     setStatus('loading');
 
     void (async () => {
