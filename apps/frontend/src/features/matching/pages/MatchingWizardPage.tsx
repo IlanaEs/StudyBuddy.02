@@ -129,17 +129,24 @@ export function MatchingWizardPage() {
   }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── OAuth return ──────────────────────────────────────────────────────────────
+  // A brand-new Google user returns here 'unauthenticated' (their /me 403'd —
+  // no role/local user yet) but WITH a valid Supabase session token. That is
+  // exactly who needs to complete-oauth-signup, so fire on token + pending flag
+  // rather than requiring 'authenticated'. Returning users arrive authenticated
+  // and run the same path. Only 'loading' should wait. handlePostOAuthReturn
+  // calls refreshProfile() after provisioning to flip to 'authenticated'.
   useEffect(() => {
-    if (auth.status !== 'authenticated') return;
+    if (auth.status === 'loading') return;
     if (oauthReturnHandled.current) return;
     const oauthPending = localStorage.getItem(OAUTH_PENDING_KEY);
     if (!oauthPending) return;
+    if (!auth.session?.access_token) return;
 
     oauthReturnHandled.current = true;
     localStorage.removeItem(OAUTH_PENDING_KEY);
     void handlePostOAuthReturn();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.status]);
+  }, [auth.status, auth.session?.access_token]);
 
   // ── Guard: unauthenticated user must not bypass auth step ─────────────────────
   useEffect(() => {
@@ -296,6 +303,13 @@ export function MatchingWizardPage() {
         setAuthError(toHebrewOnboardingError(oauthResult.error));
         return;
       }
+
+      // Provisioning succeeded (role assigned + local user row created). Re-run
+      // /api/auth/me so a fresh user flips from the unprovisioned
+      // 'unauthenticated' state to 'authenticated' — otherwise they'd stay gated
+      // even though they now have a role, and createStudentProfile (role-guarded)
+      // would be rejected.
+      await auth.refreshProfile();
 
       const profileResult = await createStudentProfile(
         {
