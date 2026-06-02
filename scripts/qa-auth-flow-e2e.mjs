@@ -56,7 +56,7 @@ function check(flow, name, cond, detail = '') {
 
 const PASSWORD = 'QaFlow123!';
 const ROLES = [
-  { role: 'teacher', email: 'qaflow.teacher@studybuddy.local', fullName: 'QA Flow Teacher', accountType: 'independent_student' },
+  { role: 'teacher', email: 'qaflow.teacher@studybuddy.local', fullName: 'QA Flow Teacher', accountType: 'teacher' },
   { role: 'parent', email: 'qaflow.parent@studybuddy.local', fullName: 'QA Flow Parent', accountType: 'parent_for_child' },
   { role: 'student', email: 'qaflow.student@studybuddy.local', fullName: 'QA Flow Student', accountType: 'independent_student' },
 ];

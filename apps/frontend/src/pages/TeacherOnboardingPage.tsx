@@ -977,7 +977,12 @@ export function TeacherOnboardingPage() {
   // Once status becomes 'authenticated' and the session token is available,
   // this effect completes the OAuth signup, pushes/pulls the draft, then advances.
   useEffect(() => {
-    if (status !== 'authenticated') return;
+    // Wait only for the initial session resolution. A brand-new Google user is
+    // 'unauthenticated' here (their /me 403'd because they have no role/local
+    // user yet) but DOES have a valid Supabase session token — that's exactly
+    // who needs to complete-oauth-signup. Returning teachers arrive as
+    // 'authenticated'. Both must run this; only 'loading' should wait.
+    if (status === 'loading') return;
     const token = session?.access_token;
     if (!token) return;
 
@@ -1010,6 +1015,12 @@ export function TeacherOnboardingPage() {
           setAuthGateLoading(false);
           return;
         }
+
+        // Provisioning succeeded (role assigned + local user row created). Re-run
+        // /api/auth/me so AuthProvider flips this fresh user from the
+        // unprovisioned 'unauthenticated' state to 'authenticated' — otherwise
+        // they'd stay gated even though they now have a role.
+        await refreshProfile();
 
         // Try to fetch an existing backend draft (returning user)
         const draftResponse = await fetchOnboardingDraft(token);

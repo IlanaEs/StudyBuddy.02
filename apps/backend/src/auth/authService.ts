@@ -52,27 +52,37 @@ export async function verifyAccessToken(accessToken: string) {
   }
 
   const existingUser = await findLocalUserByAuthId(data.user.id);
-  const localUser =
-    existingUser ??
-    (await syncLocalUser({
-      authUserId: data.user.id,
-      email: extractEmail(data.user),
-      role: extractRole(data.user),
-      fullName: extractFullName(data.user),
-    }));
 
-  if (!localUser) {
-    throw new AppError('Authenticated user is not synchronized', 403);
+  if (existingUser) {
+    // Existing-but-suspended stays 403 (deserves a real "account suspended" flow
+    // later — not a silent re-login).
+    if (existingUser.status !== 'active') {
+      throw new AppError('User is not active', 403);
+    }
+    return { access_token: accessToken, auth_user_id: data.user.id, user: existingUser };
   }
 
-  if (localUser.status !== 'active') {
+  // No local user for this token: provision a brand-new authenticated user. If
+  // the token lacks the metadata needed to establish a user (e.g. the role isn't
+  // assigned yet during OAuth signup), extract* throws a 4xx — surfaced as a
+  // normal "not provisioned / forbidden" (403/422), NOT a 401 logout, so the
+  // signup flow can proceed to assign the role. A genuinely invalid/expired
+  // token is already caught above (getUser → 401).
+  const synced = await syncLocalUser({
+    authUserId: data.user.id,
+    email: extractEmail(data.user),
+    role: extractRole(data.user),
+    fullName: extractFullName(data.user),
+  });
+
+  if (synced.status !== 'active') {
     throw new AppError('User is not active', 403);
   }
 
   return {
     access_token: accessToken,
     auth_user_id: data.user.id,
-    user: localUser,
+    user: synced,
   };
 }
 

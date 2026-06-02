@@ -4,6 +4,8 @@ type ApiSuccess<T> = {
 
 type ApiFailure = {
   error: string;
+  /** HTTP status of the failed response (undefined for network errors). */
+  status?: number;
 };
 
 export type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
@@ -27,5 +29,22 @@ export async function apiRequest<T>(
     ...init,
   });
 
-  return response.json() as Promise<ApiResponse<T>>;
+  // Parse defensively — an error response may not be JSON.
+  let body: unknown = null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+
+  const bodyError =
+    body && typeof body === 'object' && 'error' in body
+      ? String((body as { error: unknown }).error)
+      : null;
+
+  if (!response.ok || bodyError) {
+    return { error: bodyError ?? `HTTP ${response.status}`, status: response.status };
+  }
+
+  return body as ApiResponse<T>;
 }

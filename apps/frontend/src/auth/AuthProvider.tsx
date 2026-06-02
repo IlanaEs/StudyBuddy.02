@@ -67,6 +67,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setQaRoleState(role);
   }, [user]);
 
+  // Purges an invalid session (signOut clears the stored token from
+  // localStorage) and drops to the unauthenticated state. Triggered by a 401
+  // from any auth-protected request — including the /api/auth/me bootstrap for a
+  // token whose user no longer exists — so a normal browser self-recovers
+  // (no incognito, no manual localStorage clearing) and the login/signup screen
+  // becomes reachable via ProtectedRoute.
+  // Purges an invalid/stale session: a LOCAL-scope signOut clears the stored
+  // token from localStorage (no server round-trip, so it works even when the
+  // user no longer exists), then drops to the unauthenticated state. Called
+  // narrowly from the /me path on a 401 — never globally — so it can't tear
+  // down an in-progress Google sign-in.
+  const clearInvalidSession = useCallback(async () => {
+    try {
+      await getSupabaseBrowserClient().auth.signOut({ scope: 'local' });
+    } catch {
+      // Ignore — local state is still cleared below.
+    }
+    clearAppSessionStorage();
+    clearQaRoleOverride();
+    setQaRoleState(null);
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+    setStatus('unauthenticated');
+  }, []);
+
   const resolveSession = useCallback(async (nextSession: Session | null) => {
     if (!nextSession?.access_token) {
       clearQaRoleOverride();
@@ -95,13 +121,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await apiRequest<{ user: LocalUser; profile: MeProfile }>('/api/auth/me', undefined, effectiveSession.access_token);
 
     if ('error' in response) {
+      if (response.status === 401) {
+        // Invalid/stale token (e.g. the user no longer exists): a normal
+        // logged-out state, not a fatal error. Purge the session so it can't
+        // loop; ProtectedRoute then shows login/signup.
+        await clearInvalidSession();
+        return;
+      }
+      // 403 / other: a VALID Supabase session that is not provisioned in our app
+      // yet (no role/local user — the normal state mid Google signup). KEEP the
+      // session so the onboarding flow can use its token to call
+      // complete-oauth-signup and assign the role; stay 'unauthenticated' (not
+      // yet allowed into the app) WITHOUT purging. Don't surface the 403 as an
+      // error — it's an expected step, not a failure. Once provisioning
+      // succeeds, refreshProfile() re-runs /me and flips to 'authenticated'.
       clearQaRoleOverride();
       setQaRoleState(null);
-      setSession(null);
+      setSession(effectiveSession);
       setUser(null);
       setProfile(null);
       setStatus('unauthenticated');
-      setError(response.error);
+      setError(null);
       return;
     }
 
@@ -131,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearQaRoleOverride();
       setQaRoleState(null);
     }
-  }, []);
+  }, [clearInvalidSession]);
 
   useEffect(() => {
     let isMounted = true;
