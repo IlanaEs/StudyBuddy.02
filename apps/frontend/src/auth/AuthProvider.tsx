@@ -1,6 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 import type { ReactNode } from 'react';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { apiRequest, setUnauthorizedHandler } from '../api/client';
 import type { LocalUser, MeProfile, UserRole } from './authTypes';
@@ -73,9 +73,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // token whose user no longer exists — so a normal browser self-recovers
   // (no incognito, no manual localStorage clearing) and the login/signup screen
   // becomes reachable via ProtectedRoute.
+  const clearingRef = useRef(false);
   const clearInvalidSession = useCallback(async () => {
+    // Guard: a burst of 401s (the /me loop) must not spawn overlapping sign-outs.
+    if (clearingRef.current) return;
+    clearingRef.current = true;
     try {
-      await getSupabaseBrowserClient().auth.signOut();
+      // LOCAL scope only: just purge the stored session from localStorage. A
+      // global signOut would call the server to revoke the token, which FAILS
+      // for a deleted user and leaves the stale session in place — that's what
+      // kept /api/auth/me looping on 401. Local scope always clears.
+      await getSupabaseBrowserClient().auth.signOut({ scope: 'local' });
     } catch {
       // Ignore — local state is still cleared below.
     }
@@ -152,6 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(resolvedUser);
     setProfile(response.data.profile ?? null);
     setStatus('authenticated');
+    clearingRef.current = false; // re-arm recovery for any future invalid session
     setError(null);
     if (isEligibleForAdminQa(resolvedUser.email, resolvedUser.role)) {
       setQaRoleState(getQaRoleOverride());
