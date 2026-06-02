@@ -13,6 +13,12 @@ The QA/seed scripts mint sessions directly via the Supabase admin client
 (`auth.admin.createUser` + `signInWithPassword`). This is a dev-only fixture
 that never goes through the app's auth endpoints.
 
+> **Re-testing onboarding as a brand-new user with the same Google account?**
+> Follow the canonical reset runbook in [QA_RESET.md](./QA_RESET.md). Deleting the
+> Supabase `auth.users` row alone is **not** enough (and is blocked once a profile
+> exists) — use `scripts/delete-user-account.mjs --email=<addr> --confirm` plus a
+> browser reset, in that order.
+
 ## Setup
 
 1. Seed the deterministic QA users:
