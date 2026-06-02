@@ -2,7 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { apiRequest } from '../api/client';
+import { apiRequest, setUnauthorizedHandler } from '../api/client';
 import type { LocalUser, MeProfile, UserRole } from './authTypes';
 import { getSupabaseBrowserClient } from './supabaseClient';
 import { clearAppSessionStorage } from './sessionStorageKeys';
@@ -66,6 +66,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setQaRoleState(role);
   }, [user]);
+
+  // Purges an invalid session (signOut clears the stored token from
+  // localStorage) and drops to the unauthenticated state. Triggered by a 401
+  // from any auth-protected request — including the /api/auth/me bootstrap for a
+  // token whose user no longer exists — so a normal browser self-recovers
+  // (no incognito, no manual localStorage clearing) and the login/signup screen
+  // becomes reachable via ProtectedRoute.
+  const clearInvalidSession = useCallback(async () => {
+    try {
+      await getSupabaseBrowserClient().auth.signOut();
+    } catch {
+      // Ignore — local state is still cleared below.
+    }
+    clearAppSessionStorage();
+    clearQaRoleOverride();
+    setQaRoleState(null);
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+    setStatus('unauthenticated');
+  }, []);
+
+  // Register the global 401 handler before the session bootstrap runs, so the
+  // first failing /api/auth/me self-recovers. 403 is left as a normal forbidden.
+  useEffect(() => {
+    setUnauthorizedHandler(() => { void clearInvalidSession(); });
+    return () => setUnauthorizedHandler(null);
+  }, [clearInvalidSession]);
 
   const resolveSession = useCallback(async (nextSession: Session | null) => {
     if (!nextSession?.access_token) {
