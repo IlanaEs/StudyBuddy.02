@@ -52,27 +52,44 @@ export async function verifyAccessToken(accessToken: string) {
   }
 
   const existingUser = await findLocalUserByAuthId(data.user.id);
-  const localUser =
-    existingUser ??
-    (await syncLocalUser({
+
+  if (existingUser) {
+    // Existing-but-suspended stays 403 (deserves a real "account suspended" flow
+    // later — not a silent re-login).
+    if (existingUser.status !== 'active') {
+      throw new AppError('User is not active', 403);
+    }
+    return { access_token: accessToken, auth_user_id: data.user.id, user: existingUser };
+  }
+
+  // No local user for this token: either a brand-new OAuth user to provision, or
+  // a token whose user has been deleted/torn down. Attempt to provision; if the
+  // token can't establish a valid user (e.g. missing role/name/email metadata),
+  // treat it as an invalid session (401) so the client clears it and the user
+  // can re-authenticate. Genuine server errors (>=500) still propagate.
+  let synced: LocalUser;
+  try {
+    synced = await syncLocalUser({
       authUserId: data.user.id,
       email: extractEmail(data.user),
       role: extractRole(data.user),
       fullName: extractFullName(data.user),
-    }));
-
-  if (!localUser) {
-    throw new AppError('Authenticated user is not synchronized', 403);
+    });
+  } catch (provisionError) {
+    if (provisionError instanceof AppError && provisionError.statusCode >= 500) {
+      throw provisionError;
+    }
+    throw new AppError('Authenticated user no longer exists', 401);
   }
 
-  if (localUser.status !== 'active') {
+  if (synced.status !== 'active') {
     throw new AppError('User is not active', 403);
   }
 
   return {
     access_token: accessToken,
     auth_user_id: data.user.id,
-    user: localUser,
+    user: synced,
   };
 }
 
