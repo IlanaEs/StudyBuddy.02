@@ -32,11 +32,14 @@ interface TeacherDashboardStore {
   setStudents: (students: DashboardStudent[]) => void;
   setLedgerEntries: (entries: LedgerEntry[]) => void;
   /**
-   * Cross-tab mechanism: approving a request schedules a lesson AND records a
-   * ledger entry from a single write, so the (future) Calendar and Finance tabs
-   * both reflect it. No UI triggers this in T0 — it defines the source of truth.
+   * Cross-tab source of truth: accepting a request marks it approved, adds the
+   * (backend-created) lesson, and records a ledger entry — from a single write,
+   * so the Calendar, the Overview weekly tile, and the Finance tab all reflect
+   * it. The lesson is passed in by the caller (mapped from the respond API).
    */
-  approveRequest: (requestId: string) => void;
+  acceptRequest: (requestId: string, lesson: DashboardLesson) => void;
+  /** Declining a request marks it rejected (no lesson/ledger side effects). */
+  declineRequest: (requestId: string) => void;
   reset: () => void;
 }
 
@@ -80,36 +83,32 @@ export const useTeacherDashboardStore = create<TeacherDashboardStore>((set, get)
   setStudents: (students) => set({ students }),
   setLedgerEntries: (ledgerEntries) => set({ ledgerEntries }),
 
-  approveRequest: (requestId) => {
+  acceptRequest: (requestId, lesson) => {
     const { requests, lessons, ledgerEntries, config } = get();
     const request = requests.find((r) => r.id === requestId);
     if (!request) return;
 
-    const lesson: DashboardLesson = {
-      id: `lesson-${request.id}`,
-      studentId: request.studentId,
-      studentName: request.studentName,
-      subjectName: request.subjectName,
-      startsAt: request.requestedStartAt,
-      endsAt: request.requestedEndAt,
-      status: 'scheduled',
-      meetingLink: null,
-      amount: config?.hourlyRate ?? null,
-    };
-
     const entry: LedgerEntry = {
-      id: `ledger-${request.id}`,
+      id: `ledger-${lesson.id}`,
       type: 'lesson_earned',
       lessonId: lesson.id,
-      amount: config?.hourlyRate ?? 0,
-      description: request.subjectName,
-      createdAt: request.requestedStartAt,
+      amount: lesson.amount ?? config?.hourlyRate ?? 0,
+      description: lesson.subjectName ?? request.subjectName,
+      createdAt: lesson.startsAt,
     };
 
     set({
       requests: requests.map((r) => (r.id === requestId ? { ...r, status: 'approved' } : r)),
-      lessons: [...lessons, lesson],
-      ledgerEntries: [...ledgerEntries, entry],
+      // Dedupe by id so a later lessons refetch can't double-insert.
+      lessons: lessons.some((l) => l.id === lesson.id) ? lessons : [...lessons, lesson],
+      ledgerEntries: ledgerEntries.some((e) => e.id === entry.id) ? ledgerEntries : [...ledgerEntries, entry],
+    });
+  },
+
+  declineRequest: (requestId) => {
+    const { requests } = get();
+    set({
+      requests: requests.map((r) => (r.id === requestId ? { ...r, status: 'rejected' } : r)),
     });
   },
 

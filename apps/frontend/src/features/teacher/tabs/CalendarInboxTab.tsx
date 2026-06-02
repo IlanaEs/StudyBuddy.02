@@ -1,17 +1,17 @@
-import { CalendarClock, Inbox } from 'lucide-react';
-import { BentoGrid, BentoTile } from '../components/BentoGrid';
-import { EmptyState } from '../components/EmptyState';
+import { BentoGrid } from '../components/BentoGrid';
+import { CalendarPanel } from '../components/calendar/CalendarPanel';
+import { InboxPanel } from '../components/calendar/InboxPanel';
 
-/** Calendar & Inbox — placeholder; real lessons/requests wired in a later task. */
+/**
+ * Calendar & Inbox — the week calendar and the booking inbox, both bound to the
+ * shared T0 store. Accepting/declining in the Inbox writes to the same lessons/
+ * requests the Calendar (and the Overview tiles) read, keeping them in sync.
+ */
 export function CalendarInboxTab() {
   return (
     <BentoGrid>
-      <BentoTile size="2x2" title="יומן שיעורים" english="Lessons Calendar" icon={<CalendarClock size={16} />}>
-        <EmptyState icon={<CalendarClock size={26} />} message="היומן יוצג כאן בקרוב." />
-      </BentoTile>
-      <BentoTile size="1x2" title="בקשות ממתינות" english="Pending Requests" icon={<Inbox size={16} />}>
-        <EmptyState icon={<Inbox size={26} />} message="אין בקשות שיעור ממתינות." />
-      </BentoTile>
+      <CalendarPanel />
+      <InboxPanel />
     </BentoGrid>
   );
 }
