@@ -313,40 +313,41 @@ describe('POST /api/student-intakes', () => {
     expect(vi_createStudentIntake).not.toHaveBeenCalled();
   });
 
-  // ── Case 6: frontal without city rejected ─────────────────────────────────
+  // ── Case 6: only 'online' location_preference accepted ────────────────────
 
-  it('returns 422 when location_preference is frontal but city is missing', async () => {
+  it('returns 422 when location_preference is frontal (online-only)', async () => {
     vi_verifyAccessToken.mockResolvedValue(STUDENT_AUTH);
-
-    const res = await request(app)
-      .post('/api/student-intakes')
-      .set('Authorization', 'Bearer student-token')
-      .send({ ...VALID_BODY, location_preference: 'frontal', city: undefined });
-
-    expect(res.status).toBe(422);
-    expect(vi_createStudentIntake).not.toHaveBeenCalled();
-  });
-
-  it('returns 422 when location_preference is frontal but city is empty string', async () => {
-    vi_verifyAccessToken.mockResolvedValue(STUDENT_AUTH);
-
-    const res = await request(app)
-      .post('/api/student-intakes')
-      .set('Authorization', 'Bearer student-token')
-      .send({ ...VALID_BODY, location_preference: 'frontal', city: '' });
-
-    expect(res.status).toBe(422);
-    expect(vi_createStudentIntake).not.toHaveBeenCalled();
-  });
-
-  it('accepts frontal with a valid city', async () => {
-    vi_verifyAccessToken.mockResolvedValue(STUDENT_AUTH);
-    vi_createStudentIntake.mockResolvedValue(makeIntakeSummary());
 
     const res = await request(app)
       .post('/api/student-intakes')
       .set('Authorization', 'Bearer student-token')
       .send({ ...VALID_BODY, location_preference: 'frontal', city: 'תל אביב' });
+
+    expect(res.status).toBe(422);
+    expect(vi_createStudentIntake).not.toHaveBeenCalled();
+  });
+
+  it('returns 422 when location_preference is both (online-only)', async () => {
+    vi_verifyAccessToken.mockResolvedValue(STUDENT_AUTH);
+
+    const res = await request(app)
+      .post('/api/student-intakes')
+      .set('Authorization', 'Bearer student-token')
+      .send({ ...VALID_BODY, location_preference: 'both' });
+
+    expect(res.status).toBe(422);
+    expect(vi_createStudentIntake).not.toHaveBeenCalled();
+  });
+
+  it('defaults location_preference to online when omitted', async () => {
+    vi_verifyAccessToken.mockResolvedValue(STUDENT_AUTH);
+    vi_createStudentIntake.mockResolvedValue(makeIntakeSummary());
+
+    const { location_preference: _, ...bodyWithout } = VALID_BODY;
+    const res = await request(app)
+      .post('/api/student-intakes')
+      .set('Authorization', 'Bearer student-token')
+      .send(bodyWithout);
 
     expect(res.status).toBe(201);
   });

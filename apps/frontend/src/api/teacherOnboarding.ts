@@ -108,6 +108,27 @@ function buildSaveBody(data: TeacherOnboardingData, step: number) {
 
 // ── API functions ──────────────────────────────────────────────────────────────
 
+/**
+ * Assigns the `teacher` role to a freshly-authenticated Google user.
+ * Mirrors the student wizard's completeOAuthSignup but for teachers — the
+ * backend (POST /api/auth/complete-oauth-signup) maps account_type 'teacher'
+ * to role 'teacher'. Returns an error envelope if the connected account
+ * already has a different (non-teacher) role.
+ */
+export async function completeTeacherOAuthSignup(
+  fullName: string,
+  accessToken: string,
+): Promise<ApiResponse<{ user: { id: string; role: string } }>> {
+  return apiRequest(
+    '/api/auth/complete-oauth-signup',
+    {
+      method: 'POST',
+      body: JSON.stringify({ account_type: 'teacher', full_name: fullName }),
+    },
+    accessToken,
+  );
+}
+
 export async function fetchOnboardingDraft(
   accessToken: string,
 ): Promise<ApiResponse<{ onboarding: OnboardingStateRemote | null }>> {

@@ -8,7 +8,7 @@ export function TeacherDashboardPage() {
 
   return (
     <div className="w-full max-w-2xl">
-      <p className="mb-3 text-sm uppercase text-studybuddy-lime">לוח בקרה</p>
+      <p className="mb-3 text-sm uppercase text-studybuddy-lime">לוח בקרה (Dashboard)</p>
       <h1 className="font-display text-4xl font-semibold leading-tight">
         שלום, {user?.full_name ?? 'מורה'}
       </h1>
@@ -19,7 +19,7 @@ export function TeacherDashboardPage() {
         >
           <Inbox className="h-6 w-6 shrink-0 text-studybuddy-turquoise" />
           <div>
-            <p className="font-semibold">תיבת דואר</p>
+            <p className="font-semibold">תיבת דואר (Inbox)</p>
             <p className="mt-0.5 text-sm text-white/64">בקשות שיעור ממתינות</p>
           </div>
         </Link>
@@ -29,7 +29,7 @@ export function TeacherDashboardPage() {
         >
           <BookOpen className="h-6 w-6 shrink-0 text-studybuddy-turquoise" />
           <div>
-            <p className="font-semibold">שיעורים</p>
+            <p className="font-semibold">שיעורים (Lessons)</p>
             <p className="mt-0.5 text-sm text-white/64">ניהול שיעורים קבועים</p>
           </div>
         </Link>

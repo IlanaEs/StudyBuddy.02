@@ -403,9 +403,10 @@ describe('scoreAndRankCandidates — deterministic ordering', () => {
   });
 
   it('breaks score ties by availability overlap descending', () => {
-    // Both have identical scores except for overlap.
+    // Both have identical scores except for overlap. Pin lastActiveAt so activity scores match.
+    const now = new Date().toISOString();
     const highOverlap = makeFilteredCandidate(
-      makeCandidate({ teacherProfileId: 'a', ratingAvg: 4.0, ratingCount: 10, availabilitySlots: [makeSlot(1, '09:00', '17:00')] }),
+      makeCandidate({ teacherProfileId: 'a', ratingAvg: 4.0, ratingCount: 10, lastActiveAt: now, availabilitySlots: [makeSlot(1, '09:00', '17:00')] }),
       {
         _availabilityOverlap: {
           totalMinutes: 480,
@@ -417,7 +418,7 @@ describe('scoreAndRankCandidates — deterministic ordering', () => {
       },
     );
     const lowOverlap = makeFilteredCandidate(
-      makeCandidate({ teacherProfileId: 'b', ratingAvg: 4.0, ratingCount: 10, availabilitySlots: [makeSlot(1, '09:00', '10:00')] }),
+      makeCandidate({ teacherProfileId: 'b', ratingAvg: 4.0, ratingCount: 10, lastActiveAt: now, availabilitySlots: [makeSlot(1, '09:00', '10:00')] }),
       {
         _availabilityOverlap: {
           totalMinutes: 60,

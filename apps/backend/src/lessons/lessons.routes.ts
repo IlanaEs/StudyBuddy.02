@@ -7,8 +7,9 @@ import {
   getMyLessonsController,
   updateLessonStatusController,
   completeLessonController,
+  addLessonToCalendarController,
 } from './lessons.controller.js';
-import { updateLessonStatusSchema, completeLessonSchema } from './lessons.validation.js';
+import { updateLessonStatusSchema, completeLessonSchema, addLessonToCalendarSchema } from './lessons.validation.js';
 
 export const lessonsRouter = Router();
 
@@ -43,4 +44,15 @@ lessonsRouter.post(
   requireAnyRole(['teacher', 'admin']),
   validateRequest(completeLessonSchema),
   asyncHandler(completeLessonController),
+);
+
+// POST /api/lessons/:id/calendar-event
+// Adds a confirmed (scheduled) lesson to the student's/parent's own Google
+// Calendar. Requires an X-Provider-Token header with calendar.events scope.
+// Allowed: student (own lesson), parent (linked child's lesson).
+lessonsRouter.post(
+  '/:id/calendar-event',
+  requireAnyRole(['student', 'parent']),
+  validateRequest(addLessonToCalendarSchema),
+  asyncHandler(addLessonToCalendarController),
 );

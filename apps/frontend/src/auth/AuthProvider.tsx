@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { apiRequest } from '../api/client';
-import type { AuthPayload, LocalUser, MeProfile, UserRole } from './authTypes';
+import type { LocalUser, MeProfile, UserRole } from './authTypes';
 import { getSupabaseBrowserClient } from './supabaseClient';
 import { clearAppSessionStorage } from './sessionStorageKeys';
 import {
@@ -23,8 +23,6 @@ type AuthContextValue = {
   profile: MeProfile;
   session: Session | null;
   error: string | null;
-  login: (input: LoginInput) => Promise<void>;
-  signup: (input: SignupInput) => Promise<void>;
   logout: () => Promise<void>;
   /** Re-fetches /api/auth/me and updates user + profile in-place.
    *  Call this after any operation that changes the user's profile status
@@ -39,23 +37,9 @@ type AuthContextValue = {
   effectiveRole: UserRole | null;
 };
 
-type LoginInput = {
-  email: string;
-  password: string;
-};
-
-type SignupInput = LoginInput & {
-  full_name: string;
-  role: UserRole;
-};
-
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const PROVIDER_TOKEN_KEY = 'sb_provider_token';
-
-function getResponseError(response: { error?: string }) {
-  return response.error ?? 'Authentication request failed';
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
@@ -63,12 +47,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<MeProfile>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Never initialized from sessionStorage directly — restored only after
-  // resolveSession confirms an eligible authenticated user.
   const [qaRole, setQaRoleState] = useState<QaRole | null>(null);
 
-  // Sync the module-level authorized header store whenever qaRole changes.
-  // This keeps client.ts header injection in sync without needing auth context.
   useEffect(() => {
     authorizeQaHeader(qaRole);
   }, [qaRole]);
@@ -99,8 +79,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Restore provider_token from sessionStorage when it is absent from the
-    // restored session (Supabase strips it after the initial SIGNED_IN event).
     let effectiveSession = nextSession;
     if (!nextSession.provider_token && nextSession.user?.id) {
       const stored = sessionStorage.getItem(PROVIDER_TOKEN_KEY);
@@ -128,8 +106,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setSession((prev) => {
-      // Keep provider_token from prev in-memory session if effectiveSession
-      // still lacks it (e.g. TOKEN_REFRESHED fires before sessionStorage is read).
       const willPreserve = !effectiveSession.provider_token && !!prev?.provider_token && prev.user?.id === effectiveSession.user?.id;
       if (import.meta.env.DEV) {
         console.debug('[AuthProvider] setSession', {
@@ -149,8 +125,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(response.data.profile ?? null);
     setStatus('authenticated');
     setError(null);
-    // Restore QA role from sessionStorage only if the confirmed user is eligible.
-    // Clears any stale override if the user changed or is no longer eligible.
     if (isEligibleForAdminQa(resolvedUser.email, resolvedUser.role)) {
       setQaRoleState(getQaRoleOverride());
     } else {
@@ -192,7 +166,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               userId: nextSession?.user?.id ?? null,
             });
           }
-          // Persist provider_token on SIGNED_IN so it survives a same-tab refresh.
           if (event === 'SIGNED_IN' && nextSession?.provider_token && nextSession.user?.id) {
             sessionStorage.setItem(
               PROVIDER_TOKEN_KEY,
@@ -230,96 +203,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [resolveSession]);
 
-  const login = useCallback(
-    async (input: LoginInput) => {
-      setStatus('loading');
-      const response = await apiRequest<AuthPayload>('/api/auth/login', {
-        body: JSON.stringify(input),
-        method: 'POST',
-      });
-
-      if ('error' in response) {
-        setStatus('unauthenticated');
-        setError(getResponseError(response));
-        throw new Error(getResponseError(response));
-      }
-
-      const { session: authSession } = response.data;
-
-      if (!authSession.access_token || !authSession.refresh_token) {
-        setUser(null);
-        setSession(null);
-        setProfile(null);
-        setStatus('unauthenticated');
-        return;
-      }
-
-      const supabase = getSupabaseBrowserClient();
-      const { data, error: supabaseError } = await supabase.auth.setSession({
-        access_token: authSession.access_token,
-        refresh_token: authSession.refresh_token,
-      });
-
-      if (supabaseError) {
-        setStatus('unauthenticated');
-        setError(supabaseError.message);
-        throw supabaseError;
-      }
-
-      // Use resolveSession to set user, profile, and status atomically via
-      // /api/auth/me — avoids a window where user is set but profile is null.
-      await resolveSession(data.session);
-    },
-    [resolveSession],
-  );
-
-  const signup = useCallback(
-    async (input: SignupInput) => {
-      setStatus('loading');
-      const response = await apiRequest<AuthPayload>('/api/auth/signup', {
-        body: JSON.stringify(input),
-        method: 'POST',
-      });
-
-      if ('error' in response) {
-        setStatus('unauthenticated');
-        setError(getResponseError(response));
-        throw new Error(getResponseError(response));
-      }
-
-      const { session: authSession, requiresEmailConfirmation } = response.data;
-
-      if (requiresEmailConfirmation || !authSession.access_token || !authSession.refresh_token) {
-        setUser(null);
-        setSession(null);
-        setProfile(null);
-        setStatus('unauthenticated');
-        setError(null);
-        // Signal to the caller that the user must confirm their email.
-        throw new Error('CHECK_EMAIL');
-      }
-
-      const supabase = getSupabaseBrowserClient();
-      const { data, error: supabaseError } = await supabase.auth.setSession({
-        access_token: authSession.access_token,
-        refresh_token: authSession.refresh_token,
-      });
-
-      if (supabaseError) {
-        setStatus('unauthenticated');
-        setError(supabaseError.message);
-        throw supabaseError;
-      }
-
-      // Use resolveSession to set user, profile, and status atomically via
-      // /api/auth/me — avoids a window where user is set but profile is null.
-      await resolveSession(data.session);
-    },
-    [resolveSession],
-  );
-
-  // Re-runs resolveSession with the current session so AuthProvider.profile
-  // and AuthProvider.user reflect any DB changes made since last load.
   const refreshProfile = useCallback(async () => {
     if (session) {
       await resolveSession(session);
@@ -334,10 +217,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     clearQaRoleOverride();
-    // Clear all app onboarding/session draft storage (provider tokens, GCal
-    // return flags, QA override, guest onboarding drafts) so a sign-out fully
-    // resets local state and a different user on this browser never resumes a
-    // stale onboarding draft. Mirrors SessionControls' fallback logout path.
     clearAppSessionStorage();
     const supabase = getSupabaseBrowserClient();
     await supabase.auth.signOut();
@@ -352,12 +231,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => {
       const eligibleQaRole = isEligibleForAdminQa(user?.email, user?.role) ? qaRole : null;
       return {
-        status, user, profile, session, error, login, signup, logout, refreshProfile,
+        status, user, profile, session, error, logout, refreshProfile,
         qaRole, setQaRole,
         effectiveRole: (eligibleQaRole ?? user?.role) ?? null,
       };
     },
-    [error, login, logout, profile, refreshProfile, session, signup, status, user, qaRole, setQaRole],
+    [error, logout, profile, refreshProfile, session, status, user, qaRole, setQaRole],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

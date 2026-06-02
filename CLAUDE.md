@@ -6,6 +6,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 StudyBuddy.02 is a **CRM-driven matchmaking operating system for private education** — explicitly *not* a tutor marketplace. The product philosophy (curated matching over infinite browsing, lifecycle integrity, backend-enforced permissions) is binding architecture, not aspiration. Read `agents/00_AGENTS.md` (the "operating constitution") and `agents/API_Contracts.md` before making non-trivial product decisions; they override implementation convenience when they conflict.
 
+## Bilingual UI Labeling (CRITICAL — read before editing ANY UI text)
+
+StudyBuddy is **Hebrew-first (RTL)**. A defined subset of UI labels carries a concise **English term in parentheses** alongside the Hebrew. **This is an intentional product requirement — NOT a bug, typo, leftover, or duplication to clean up.** A platform stakeholder does not read Hebrew, and a full English locale is deliberately out of scope; the English term is purely a supporting label for international readability and academic presentation.
+
+**Non-negotiable rules**
+- **NEVER remove** the English term in parentheses next to a Hebrew label.
+- **NEVER treat** `עברית (English)` labels as mistakes, errors, or redundancy.
+- **NEVER translate** the platform into English or create a separate English version/locale.
+- **NEVER produce** bilingual paragraphs or duplicate descriptions in two languages.
+- **Hebrew remains the primary language** everywhere.
+
+**Format:** `<Hebrew label> (<English term>)` — e.g. `דשבורד מורה (Teacher Dashboard)`.
+
+**WHERE to add an English term (ONLY these element types):** page titles · navigation items · dashboard cards · key actions / buttons · important statuses · major section headers · KPI labels · core system entities.
+
+**WHERE NOT to add English (Hebrew only):** long descriptions · helper text · chat messages · onboarding questions · any body / paragraph copy.
+
+**Style:** short, professional SaaS / EdTech / CRM terminology; keep the UI clean (avoid clutter).
+
+**Reference vocabulary (baseline):** דשבורד מורה (Teacher Dashboard) · תלמידים (Students) · שיעורים (Lessons) · זמינות (Availability) · בקשות חדשות (New Requests) · שידוכים (Matches) · פרופיל (Profile) · הגדרות (Settings) · שיעור הבא (Next Lesson) · דירוג ממוצע (Average Rating).
+
 ## Commands
 
 Run from the repo root. This is an npm workspaces monorepo (`apps/backend` = `@studybuddy/backend`, `apps/frontend` = `@studybuddy/frontend`).
@@ -80,6 +101,18 @@ React 19 + Vite + TypeScript. **Mantine** is the component library and **Tailwin
 - **Auth** (`auth/AuthProvider.tsx`): Supabase browser session is the source of truth; on every auth-state change it calls `/api/auth/me` to resolve the local user + profile *atomically* (avoids a user-set/profile-null window). `ProtectedRoute` gates routes and accepts `allowedRoles`. Call `refreshProfile()` after operations that change profile state (e.g. completing onboarding).
 - `api/client.ts`: `apiRequest<T>()` returns a discriminated `{ data } | { error }` — always narrow with `'error' in response` before using `.data`. Pass the Supabase access token to authenticate.
 - Feature-first organisation: `features/matching/` bundles its own `pages/`, `components/`, `store/`, `types/`, `utils/`, `data/` (mock data lives here, clearly named `mock*`). Shared/page-level routes live in `routes/` and `pages/`.
+
+### Teacher onboarding wizard (v2)
+
+`pages/TeacherOnboardingPage.tsx` is a single `step`-state machine rendered as **8 screens** (Hebrew-primary RTL; bilingual labels per the **Bilingual UI Labeling** rule below):
+
+1. Account Connection (Google-only auth-gate overlay) · 2. Experience & Expertise · 3. Subjects, Levels & Style · 4. Availability & Synchronization · 5. Teaching Operations Engine · 6. Pricing Framework · 7. Verifications & Compliance · 8. Profile Preview — then **Processing** (`step === 8`) and **Success** (`step === 9`).
+
+- **Account Connection is the `showAuthGate` overlay**, not a numbered content step. Content steps are `step` 1–7 → screens 2–8; the progress tracker shows `screen = step + 1` of `TOTAL_SCREENS_V2`.
+- Screen UIs live in `components/onboarding/v2/screens/Screen{1..8}*.tsx`; shared primitives (`WizardShell`, `BentoCard`, `ScreenHeader`, `ChipSelect`, `CardSelect`, `SquareCheckbox`, `NavButtons`, `NeonProgressTracker`, `FloatingLabelInput`, `BrutalistSlider`) in `components/onboarding/v2/`.
+- Screens are presentational (`data`/`update`/`errors`/nav props). The page keeps all wired logic and injects the **GCal sync card + weekly grid** (Screen 4) and the **academic autocomplete** (Screen 2) as slots, so OAuth/draft/calendar wiring is unchanged.
+- Validation is per content step in `validateTeacherOnboardingStep` (1–6 carry rules; 7 = Preview); the submit payload (`completeOnboarding`) is field-based and independent of the step split. The Availability auto-sync effect is keyed to `step === 3`.
+- **Design tokens are scoped**, not global: the new palette/animations live under a `.tow` wrapper class in `styles.css` (`--tow-bg #175655`, `--tow-card #3f7e76`, `--tow-ink #016c7c`, `--tow-neon #00f6ff`, `--tow-gold #ffd166`, `--tow-orange #fc6d17`, `--tow-alert #e22b57`, `--tow-success #bbe341`; monospace for numeric states) with a TS mirror `towTokens` in `design/tokens.ts`. The app-wide `:root` theme is untouched.
 
 ## Non-negotiable conventions
 

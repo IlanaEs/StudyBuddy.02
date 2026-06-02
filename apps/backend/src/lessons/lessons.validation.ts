@@ -45,3 +45,9 @@ export const completeLessonSchema = z.object({
 });
 
 export type CompleteLessonBody = z.infer<typeof completeLessonBodySchema>;
+
+// ── POST /api/lessons/:id/calendar-event ──────────────────────────────────────
+// No body — the Google provider token arrives via the X-Provider-Token header.
+export const addLessonToCalendarSchema = z.object({
+  params: paramsSchema,
+});

@@ -143,13 +143,13 @@ export function BookingRequestPage() {
         </button>
 
         <div className="rounded-2xl p-5 mb-5" style={{ background: 'var(--surface)', border: '1px solid var(--line-2)' }}>
-          <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)' }}>קביעת שיעור עם {match.teacher.fullName}</h1>
+          <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)' }}>קביעת שיעור עם {match.teacher.fullName} (Book a Lesson)</h1>
           <p style={{ color: 'var(--text-2)', fontSize: 14 }}>{match.teacher.subjects?.join(', ')} | ₪{match.teacher.hourlyRate}/שעה</p>
         </div>
 
         <div className="rounded-2xl p-5 mb-5" style={{ background: 'var(--surface)', border: '1px solid var(--line-2)' }}>
           <h2 className="font-bold mb-4" style={{ color: 'var(--text)' }}>בחר/י זמן לשיעור הראשון:</h2>
-          <BookingSlotPicker selectedDay={selectedDay} selectedTime={selectedTime} onDayChange={setSelectedDay} onTimeChange={setSelectedTime} />
+          <BookingSlotPicker selectedDay={selectedDay} selectedTime={selectedTime} onDayChange={setSelectedDay} onTimeChange={setSelectedTime} availabilitySlots={match.teacher.availabilitySlots} />
           {error && <div className="mt-3" style={{ color: 'var(--coral)', fontSize: 13 }}>{error}</div>}
         </div>
 
@@ -176,7 +176,7 @@ export function BookingRequestPage() {
           className="w-full py-4 font-bold rounded-xl text-lg"
           style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}
         >
-          {isSubmitting ? 'שולח בקשה...' : 'שלח בקשת שיעור'}
+          {isSubmitting ? 'שולח בקשה...' : 'שלח בקשת שיעור (Send Request)'}
         </button>
       </div>
     </div>

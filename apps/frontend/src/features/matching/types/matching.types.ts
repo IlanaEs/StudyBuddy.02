@@ -29,6 +29,12 @@ export interface StudentIntakeState {
   softPreferences: string[];
 }
 
+export interface TeacherAvailabilitySlot {
+  dayOfWeek: number;  // 0 = Sunday … 6 = Saturday
+  startTime: string;  // HH:MM
+  endTime: string;    // HH:MM
+}
+
 export interface MatchResult {
   id: string;
   rank: number;
@@ -44,6 +50,7 @@ export interface MatchResult {
     isVerified: boolean;
     subjects?: string[];
     availabilityPreview?: string;
+    availabilitySlots?: TeacherAvailabilitySlot[];
   };
   matchBadges?: MatchBadge[];
 }

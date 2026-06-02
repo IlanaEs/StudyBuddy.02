@@ -79,6 +79,8 @@ function nextDateForDow(dow, hour) {
   return base;
 }
 
+// pubClient is set in main() after reading env
+let _pubClient;
 async function createUser(admin, role, fullName, tag) {
   const email = `lifecycle-${tag}-${stamp}@example.com`;
   const { error } = await admin.auth.admin.createUser({
@@ -89,10 +91,15 @@ async function createUser(admin, role, fullName, tag) {
     user_metadata: { full_name: fullName, dev_seed: true, dev_seed_type: 'lifecycle_e2e' },
   });
   if (error) throw new Error(`create ${role} user failed: ${error.message}`);
-  const login = await api('/api/auth/login', { method: 'POST', body: { email, password } });
-  const token = login.json?.data?.session?.access_token;
-  if (!token) throw new Error(`login ${role} failed: ${JSON.stringify(login.json)}`);
-  return { email, token, userId: login.json.data.user.id };
+  // Sign in via Supabase client directly (dev fixture — app login endpoint removed)
+  const { data: session, error: sessionErr } = await _pubClient.auth.signInWithPassword({ email, password });
+  const token = session?.session?.access_token;
+  if (!token) throw new Error(`signIn ${role} failed: ${sessionErr?.message ?? 'no session'}`);
+  // Call complete-oauth-signup to create the public.users row
+  const accountType = role === 'parent' ? 'parent_for_child' : 'independent_student';
+  const oauthRes = await api('/api/auth/complete-oauth-signup', { method: 'POST', token, body: { account_type: accountType, full_name: fullName } });
+  if (oauthRes.status !== 200) throw new Error(`complete-oauth-signup ${role} failed: ${JSON.stringify(oauthRes.json)}`);
+  return { email, token, userId: oauthRes.json.data.user.id };
 }
 
 async function main() {
@@ -108,6 +115,8 @@ async function main() {
     args: { ...args, allowRemoteDevSeed: args.allowRemoteDevSeed || envInfo.kind === 'development' || envInfo.kind === 'staging' },
   });
   const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const anonKey = env.SUPABASE_ANON_KEY ?? serviceRoleKey;
+  _pubClient = createClient(supabaseUrl, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
   console.log(`\nStudyBuddy.02 lifecycle E2E  ->  ${backendBaseUrl}\n`);
 

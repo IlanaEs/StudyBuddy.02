@@ -58,6 +58,19 @@ export async function getLessonById(lessonId: string): Promise<LessonRow | null>
   return mapLessonRow(data as any);
 }
 
+// Resolves a subject name for display (e.g. calendar event titles). Null when unknown.
+export async function getSubjectNameById(subjectId: string): Promise<string | null> {
+  const { data, error } = await adminClient()
+    .from('subjects')
+    .select('name')
+    .eq('id', subjectId)
+    .maybeSingle();
+
+  if (error) throw new AppError('Failed to load subject', 500);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return data ? ((data as any).name as string) : null;
+}
+
 // ── Teacher Profile Lookup ────────────────────────────────────────────────────
 
 // Resolves teacher ownership: finds the teacher_profiles row for a given

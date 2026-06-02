@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   GraduationCap, Users, Target, Calendar, Zap, Repeat, BookOpen,
-  ShieldCheck, Search, Monitor, Home, ArrowLeftRight, Clock,
-  Loader2, Check, Circle, Mail, Lock, Eye, EyeOff, CalendarDays,
+  ShieldCheck, Search, Monitor, Clock,
+  Loader2, Check, Circle, CalendarDays,
   Sparkles,
 } from 'lucide-react';
 import { useMatchingStore } from '../store/matchingStore';
@@ -16,7 +16,7 @@ import { WizardSummaryCard } from '../components/WizardSummaryCard';
 import { DualRangeSlider } from '../components/DualRangeSlider';
 import { AvailabilityGrid } from '../components/AvailabilityGrid';
 import { subjectsByLevel, gradesByLevel } from '../data/subjectsByLevel';
-import type { EducationLevel, LearningGoal, LocationPreference, TimeSlot } from '../types/matching.types';
+import type { EducationLevel, LearningGoal, TimeSlot } from '../types/matching.types';
 import { useAuth } from '../../../auth/AuthProvider';
 import { getSupabaseBrowserClient } from '../../../auth/supabaseClient';
 import { completeOAuthSignup, createStudentProfile, createStudentIntake, runMatching } from '../../../api/students';
@@ -26,6 +26,7 @@ import {
   GCAL_SYNC_RETURN_KEY,
 } from '../../../api/studentCalendar';
 import { consumeEarlyProviderToken } from '../../../auth/supabaseClient';
+import { mapBusySlotsToGridCellKeys } from '../../../utils/mapBusySlotsToBlockKeys';
 
 const TOTAL_STEPS = 10;
 const AUTH_STEP = 2;
@@ -90,10 +91,6 @@ export function MatchingWizardPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Auth step local state
-  const [authTab, setAuthTab] = useState<'signup' | 'login'>('signup');
-  const [authEmail, setAuthEmail] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
   const oauthReturnHandled = useRef(false);
@@ -103,6 +100,7 @@ export function MatchingWizardPage() {
   const [availMode, setAvailMode] = useState<'sync' | 'manual' | 'synced'>('sync');
   const [calSyncing, setCalSyncing] = useState(false);
   const [calSyncError, setCalSyncError] = useState<string | null>(null);
+  const [busyCellKeys, setBusyCellKeys] = useState<Set<string>>(new Set());
   const isParent = intake.accountType === 'parent_for_child';
   const expectedRole = intake.accountType === 'parent_for_child' ? 'parent' : 'student';
   const hasRoleConflict =
@@ -225,10 +223,11 @@ export function MatchingWizardPage() {
   async function doCalendarSync(accessToken: string, providerToken: string) {
     try {
       const result = await syncStudentCalendarAvailability(accessToken, providerToken);
-      updateIntake({
-        preferredDays: result.preferredDays,
-        preferredTimeRanges: result.preferredTimeRanges as TimeSlot[],
-      });
+      // Map busy periods to grid cell keys so the AvailabilityGrid can show them as blocked
+      const busyKeys = new Set(mapBusySlotsToGridCellKeys(result.busyPeriods));
+      setBusyCellKeys(busyKeys);
+      // Don't auto-select days/times — let the user pick from the free cells
+      updateIntake({ preferredDays: [], preferredTimeRanges: [] });
       setAvailMode('synced');
       setCalSyncError(null);
     } catch (err) {
@@ -246,10 +245,23 @@ export function MatchingWizardPage() {
     }
   }
 
-  // ── GCal sync: initiate OAuth → redirect → return handled by useEffect above ──
+  // ── GCal sync: try existing provider token first, fall back to OAuth redirect ──
   async function handleCalSync() {
     setCalSyncing(true);
     setCalSyncError(null);
+
+    // Try using the provider token already in the session (from the initial Google sign-in
+    // that requested calendar.readonly scope).
+    const existingToken =
+      consumeEarlyProviderToken() ??
+      (auth.session as { provider_token?: string } | null)?.provider_token;
+
+    if (existingToken && auth.session?.access_token) {
+      void doCalendarSync(auth.session.access_token, existingToken);
+      return;
+    }
+
+    // No provider token available — redirect to Google with calendar scope
     try {
       localStorage.setItem(GCAL_SYNC_RETURN_KEY, '1');
       await initiateCalendarOAuth();
@@ -308,73 +320,6 @@ export function MatchingWizardPage() {
     }
   }
 
-  // ── Email/password auth ───────────────────────────────────────────────────────
-  async function handleEmailAuth() {
-    setAuthError(null);
-    if (!intake.accountType) {
-      setAuthError('יש לבחור סוג חשבון לפני ההתחברות.');
-      return;
-    }
-    if (hasRoleConflict) {
-      setAuthError('החשבון המחובר לא מתאים למסלול שנבחר.');
-      return;
-    }
-    if (!authEmail.trim() || !authPassword.trim()) {
-      setAuthError('נא למלא אימייל וסיסמה');
-      return;
-    }
-    if (authTab === 'signup' && !intake.fullName.trim()) {
-      setAuthError('נא להכניס שם מלא');
-      return;
-    }
-    if (authTab === 'signup' && authPassword.length < 8) {
-      setAuthError('הסיסמה חייבת להכיל לפחות 8 תווים');
-      return;
-    }
-    if (isParent && authTab === 'signup' && !intake.childName.trim()) {
-      setAuthError('נא להכניס את שם הילד/ה');
-      return;
-    }
-    setAuthLoading(true);
-    try {
-      if (authTab === 'signup') {
-        await auth.signup({
-          email: authEmail,
-          full_name: intake.fullName,
-          password: authPassword,
-          role: expectedRole,
-        });
-      } else {
-        await auth.login({ email: authEmail, password: authPassword });
-      }
-
-      const supabase = getSupabaseBrowserClient();
-      const { data: { session: freshSession } } = await supabase.auth.getSession();
-      if (freshSession?.access_token) {
-        const profileResult = await createStudentProfile(
-          {
-            account_type: intake.accountType,
-            full_name: intake.fullName,
-            grade_level: intake.gradeLevel ?? null,
-            ...(isParent && intake.childName ? { child_name: intake.childName } : {}),
-          },
-          freshSession.access_token,
-        );
-        if ('error' in profileResult) {
-          setAuthError(toHebrewOnboardingError(profileResult.error));
-          return;
-        }
-        updateIntake({ studentId: profileResult.data.student_id });
-      }
-
-      setStep(AUTH_STEP + 1);
-    } catch (err) {
-      setAuthError(toHebrewOnboardingError(err instanceof Error ? err.message : 'שגיאה. נסו שנית.'));
-    } finally {
-      setAuthLoading(false);
-    }
-  }
-
   // ── Google OAuth ──────────────────────────────────────────────────────────────
   async function handleGoogleOAuth() {
     if (!intake.accountType) {
@@ -401,7 +346,11 @@ export function MatchingWizardPage() {
     const supabase = getSupabaseBrowserClient();
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/onboarding/matching` },
+      options: {
+        scopes: 'https://www.googleapis.com/auth/calendar.readonly',
+        queryParams: { access_type: 'offline', prompt: 'consent' },
+        redirectTo: `${window.location.origin}/onboarding/matching`,
+      },
     });
   }
 
@@ -423,8 +372,7 @@ export function MatchingWizardPage() {
         subject_name: intake.subjectName,
         level: intake.subLevel,
         goal: intake.learningGoal,
-        location_preference: (intake.locationPreference ?? 'online') as 'online' | 'frontal' | 'both',
-        city: intake.city,
+        location_preference: 'online' as const,
         budget_min: intake.budgetMin,
         budget_max: intake.budgetMax,
         preferred_days: intake.preferredDays.map((day) => DAY_TO_INDEX[day]).filter((day): day is number => typeof day === 'number'),
@@ -455,6 +403,7 @@ export function MatchingWizardPage() {
         ratingAvg: match.teacherRatingAvg,
         ratingCount: match.teacherRatingCount,
         isVerified: match.teacherIsVerified,
+        availabilitySlots: match.teacherAvailabilitySlots,
       },
     })));
     clearStorage();
@@ -473,8 +422,6 @@ export function MatchingWizardPage() {
     if (s === 4 && !intake.gradeLevel) e.gradeLevel = 'נא לבחור רמה';
     if (s === 6 && !intake.subjectName) e.subjectName = 'נא לבחור מקצוע';
     if (s === 8 && intake.preferredDays.length === 0) e.days = 'נא לסמן לפחות יום אחד';
-    if (s === 8 && intake.locationPreference === null) e.location = 'נא לבחור מיקום';
-    if (s === 8 && (intake.locationPreference === 'frontal' || intake.locationPreference === 'both') && !intake.city) e.city = 'נא להכניס עיר';
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -847,85 +794,32 @@ export function MatchingWizardPage() {
           </div>
         )}
 
-        {isParent && (
-          <div className="mb-4">
-            <div className="font-semibold mb-1 text-sm" style={{ color: 'var(--text-2)' }}>שם הילד/ה</div>
+        <div className="flex flex-col gap-3 mb-4">
+          <div>
+            <div className="font-semibold mb-1 text-sm" style={{ color: 'var(--text-2)' }}>שם מלא</div>
             <input
               type="text"
-              placeholder="שם מלא של הילד/ה..."
-              value={intake.childName}
-              onChange={(e) => updateIntake({ childName: e.target.value })}
+              placeholder="שם מלא"
+              value={intake.fullName}
+              onChange={(e) => updateIntake({ fullName: e.target.value })}
               className="w-full p-3 rounded-xl wizard-input"
               style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 15, outline: 'none', transition: 'border-color 0.18s, box-shadow 0.18s' }}
             />
           </div>
-        )}
 
-        <div className="flex mb-4 rounded-xl overflow-hidden" style={{ border: '1px solid var(--line-2)' }}>
-          {(['signup', 'login'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setAuthTab(tab)}
-              className="flex-1 py-2 text-sm font-medium"
-              style={{
-                background: authTab === tab ? 'var(--cyan)' : 'var(--surface-2)',
-                color: authTab === tab ? '#0f4544' : 'var(--text-2)',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'background 0.18s, color 0.18s',
-              }}
-            >
-              {tab === 'signup' ? 'יצירת חשבון' : 'כניסה קיימת'}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex flex-col gap-3 mb-4">
-          {authTab === 'signup' && (
+          {isParent && (
             <div>
+              <div className="font-semibold mb-1 text-sm" style={{ color: 'var(--text-2)' }}>שם הילד/ה</div>
               <input
                 type="text"
-                placeholder="שם מלא"
-                value={intake.fullName}
-                onChange={(e) => updateIntake({ fullName: e.target.value })}
+                placeholder="שם מלא של הילד/ה..."
+                value={intake.childName}
+                onChange={(e) => updateIntake({ childName: e.target.value })}
                 className="w-full p-3 rounded-xl wizard-input"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 15, outline: 'none', transition: 'border-color 0.18s, box-shadow 0.18s' }}
               />
             </div>
           )}
-          <div className="relative">
-            <Mail size={15} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-3)' }} />
-            <input
-              type="email"
-              placeholder="כתובת אימייל"
-              value={authEmail}
-              onChange={(e) => setAuthEmail(e.target.value)}
-              className="w-full p-3 pr-9 rounded-xl wizard-input"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 15, outline: 'none', transition: 'border-color 0.18s, box-shadow 0.18s' }}
-              dir="ltr"
-            />
-          </div>
-          <div className="relative">
-            <Lock size={15} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-3)' }} />
-            <input
-              type={showPassword ? 'text' : 'password'}
-              placeholder={authTab === 'signup' ? 'סיסמה (לפחות 8 תווים)' : 'סיסמה'}
-              value={authPassword}
-              onChange={(e) => setAuthPassword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && void handleEmailAuth()}
-              className="w-full p-3 pr-9 rounded-xl wizard-input"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 15, outline: 'none', transition: 'border-color 0.18s, box-shadow 0.18s' }}
-              dir="ltr"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              className="absolute left-3 top-1/2 -translate-y-1/2"
-              style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: 0 }}
-            >
-              {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-            </button>
-          </div>
         </div>
 
         {authError && (
@@ -935,26 +829,12 @@ export function MatchingWizardPage() {
         )}
 
         <button
-          onClick={() => void handleEmailAuth()}
-          className="w-full py-3 rounded-xl mb-3 wizard-cta-primary"
+          onClick={() => void handleGoogleOAuth()}
+          className="w-full py-3 font-medium rounded-xl flex items-center justify-center gap-2 mb-4 wizard-cta-primary"
           style={{ ...ctaPrimary, fontSize: 16 }}
         >
-          {authTab === 'signup' ? 'צרו חשבון' : 'כניסה'}
-        </button>
-
-        <div className="flex items-center gap-3 mb-3">
-          <div className="flex-1 h-px" style={{ background: 'var(--line-2)' }} />
-          <span className="text-xs" style={{ color: 'var(--text-3)' }}>או</span>
-          <div className="flex-1 h-px" style={{ background: 'var(--line-2)' }} />
-        </div>
-
-        <button
-          onClick={() => void handleGoogleOAuth()}
-          className="w-full py-3 font-medium rounded-xl flex items-center justify-center gap-2 mb-4"
-          style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--line-2)', cursor: 'pointer', fontSize: 15, transition: 'background 0.18s, border-color 0.18s' }}
-        >
           <GoogleIcon />
-          המשך עם גוגל
+          המשך עם Google
         </button>
 
         <button onClick={prevStep} className="w-full text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזור</button>
@@ -964,12 +844,6 @@ export function MatchingWizardPage() {
 
   // ── STEP 8: Availability — GCal sync or manual grid ───────────────────────────
   if (step === 8) {
-    const locationOptions: { value: LocationPreference; label: string; icon: React.ReactNode }[] = [
-      { value: 'online', label: 'אונליין', icon: <Monitor size={15} /> },
-      { value: 'frontal', label: 'פרונטלי (פנים אל פנים)', icon: <Home size={15} /> },
-      { value: 'both', label: 'שניהם', icon: <ArrowLeftRight size={15} /> },
-    ];
-
     return (
       <WizardShell step={step}>
         <WizardProgress current={8} total={TOTAL_STEPS} />
@@ -1100,50 +974,17 @@ export function MatchingWizardPage() {
               selectedTimes={intake.preferredTimeRanges as string[]}
               onChangeDays={(days) => updateIntake({ preferredDays: days })}
               onChangeTimes={(times) => updateIntake({ preferredTimeRanges: times as TimeSlot[] })}
+              busyKeys={busyCellKeys.size > 0 ? busyCellKeys : undefined}
             />
             {errors.days && <div style={{ color: 'var(--coral)', fontSize: 13, marginTop: 4 }}>{errors.days}</div>}
           </div>
         )}
 
-        {/* ── Location type ───────────────────────────────────────── */}
-        <div className="mb-4">
-          <div className="font-semibold mb-2 text-sm" style={{ color: 'var(--text-2)' }}>סוג שיעור:</div>
-          <div className="flex flex-col gap-2">
-            {locationOptions.map((loc) => (
-              <button
-                key={loc.value}
-                onClick={() => updateIntake({ locationPreference: loc.value })}
-                className="text-right px-3 py-2 rounded-lg text-sm flex items-center gap-2"
-                style={{
-                  background: intake.locationPreference === loc.value ? 'color-mix(in oklab, var(--cyan) 15%, var(--surface-2))' : 'var(--surface-2)',
-                  border: `1px solid ${intake.locationPreference === loc.value ? 'var(--cyan)' : 'var(--line-2)'}`,
-                  color: 'var(--text)',
-                  cursor: 'pointer',
-                  transition: 'background 0.15s, border-color 0.15s',
-                }}
-              >
-                <span style={{ color: intake.locationPreference === loc.value ? 'var(--cyan)' : 'var(--text-3)', flexShrink: 0, transition: 'color 0.15s' }}>{loc.icon}</span>
-                {loc.label}
-              </button>
-            ))}
-          </div>
-          {errors.location && <div style={{ color: 'var(--coral)', fontSize: 13, marginTop: 4 }}>{errors.location}</div>}
+        {/* ── Lesson type: online only ──────────────────────────── */}
+        <div className="mb-4 p-3 rounded-lg flex items-center gap-2 text-sm" style={{ background: 'color-mix(in oklab, var(--cyan) 8%, var(--surface-2))', border: '1px solid color-mix(in oklab, var(--cyan) 20%, var(--line-2))' }}>
+          <Monitor size={15} style={{ color: 'var(--cyan)', flexShrink: 0 }} />
+          <span style={{ color: 'var(--text)' }}>שיעורים אונליין בלבד</span>
         </div>
-
-        {(intake.locationPreference === 'frontal' || intake.locationPreference === 'both') && (
-          <div className="mb-4">
-            <div className="font-semibold mb-2 text-sm" style={{ color: 'var(--text-2)' }}>עיר:</div>
-            <input
-              type="text"
-              placeholder="הכנס/י עיר..."
-              value={intake.city}
-              onChange={(e) => updateIntake({ city: e.target.value })}
-              className="w-full p-3 rounded-xl wizard-input"
-              style={{ background: 'var(--surface-2)', border: `1px solid ${errors.city ? 'var(--coral)' : 'var(--line-2)'}`, color: 'var(--text)', fontSize: 15, outline: 'none', transition: 'border-color 0.18s, box-shadow 0.18s' }}
-            />
-            {errors.city && <div style={{ color: 'var(--coral)', fontSize: 13, marginTop: 4 }}>{errors.city}</div>}
-          </div>
-        )}
 
         {isParent && (
           <div className="mb-4 p-3 rounded-lg flex items-start gap-2 text-sm" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>
@@ -1228,7 +1069,6 @@ export function MatchingWizardPage() {
   // ── STEP 10: Review / Summary ─────────────────────────────────────────────────
   const levelLabels: Record<string, string> = { elementary: 'יסודי', middle: 'חטיבה', high: 'תיכון', academic: 'אקדמיה' };
   const goalLabels: Record<string, string> = { single_session: 'שיעור חד-פעמי', ongoing: 'מורה קבוע', exam_prep: 'מרתון לבחינה' };
-  const locationLabels: Record<string, string> = { online: 'אונליין', frontal: 'פרונטלי', both: 'אונליין + פרונטלי' };
 
   if (isLoading) {
     return <MatchingLoadingScreen name={intake.fullName} />;
@@ -1253,8 +1093,7 @@ export function MatchingWizardPage() {
           { label: 'תקציב', value: intake.budgetMax === null ? 'לא צוין' : intake.budgetMax >= BUDGET_MAX ? `₪${intake.budgetMin}+` : `₪${intake.budgetMin} – ₪${intake.budgetMax}` },
           { label: 'ימים', value: intake.preferredDays.join(', ') || '—' },
           { label: 'שעות', value: intake.preferredTimeRanges.map((t) => ({ morning: 'בוקר', afternoon: 'צהריים', evening: 'ערב' } as Record<TimeSlot, string>)[t]).join(', ') || '—' },
-          { label: 'מיקום', value: locationLabels[intake.locationPreference ?? ''] ?? '—' },
-          ...(intake.city ? [{ label: 'עיר', value: intake.city }] : []),
+          { label: 'מיקום', value: 'אונליין' },
         ]}
         onEdit={() => setStep(3)}
       />
@@ -1272,7 +1111,7 @@ export function MatchingWizardPage() {
           className="flex-1 py-4 rounded-xl text-lg wizard-cta-primary"
           style={ctaPrimary}
         >
-          מצאו לי מורים
+          מצאו לי מורים (Find Teachers)
         </button>
       </div>
     </WizardShell>

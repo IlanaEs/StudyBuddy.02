@@ -136,6 +136,9 @@ export type MatchApiEntry = {
   teacherRatingAvg: number;
   teacherRatingCount: number;
   teacherIsVerified: boolean;
+  // Active weekly availability slots, so the booking picker can offer the
+  // teacher's real bookable hours instead of a generic grid.
+  teacherAvailabilitySlots: AvailabilitySlot[];
 };
 
 // Full result returned by runMatching.

@@ -1,19 +1,7 @@
 import type { Request, Response } from 'express';
 
-import { completeOAuthSignup, login, logout, signup } from './authService.js';
+import { completeOAuthSignup, logout } from './authService.js';
 import { getProfileForUser } from './authRepository.js';
-
-export async function signupController(request: Request, response: Response) {
-  const result = await signup(request.body);
-
-  response.status(201).json({ data: result });
-}
-
-export async function loginController(request: Request, response: Response) {
-  const result = await login(request.body);
-
-  response.status(200).json({ data: result });
-}
 
 export async function logoutController(request: Request, response: Response) {
   const result = await logout(request.auth?.access_token ?? '');

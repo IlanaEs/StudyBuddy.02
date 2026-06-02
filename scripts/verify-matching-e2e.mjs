@@ -56,12 +56,16 @@ async function fetchTable(supabaseUrl, serviceRoleKey, table, query) {
 async function runFlow({ admin, supabaseUrl, serviceRoleKey, kind, role, profileBody }) {
   const fullName = role === 'parent' ? 'QA Final Parent' : 'QA Final Student';
   const email = await createAuthUser(admin, kind, role, fullName);
-  const login = await api('/api/auth/login', {
-    method: 'POST',
-    body: { email, password },
-  });
-  const token = login.json?.data?.session?.access_token;
-  const localUserId = login.json?.data?.user?.id;
+  // Sign in via Supabase client directly (dev fixture — app login endpoint removed)
+  const anonKey = readBackendEnv().SUPABASE_ANON_KEY ?? serviceRoleKey;
+  const pubClient = createClient(supabaseUrl, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data: signIn, error: signInErr } = await pubClient.auth.signInWithPassword({ email, password });
+  const token = signIn?.session?.access_token;
+  if (!token) throw new Error(`signIn ${role} failed: ${signInErr?.message ?? 'no session'}`);
+  // Call complete-oauth-signup to create the public.users row
+  const accountType = role === 'parent' ? 'parent_for_child' : 'independent_student';
+  const oauthRes = await api('/api/auth/complete-oauth-signup', { method: 'POST', token, body: { account_type: accountType, full_name: fullName } });
+  const localUserId = oauthRes.json?.data?.user?.id;
 
   if (localUserId && await hasColumn(admin, 'users', 'is_demo')) {
     await admin.from('users').update({ is_demo: true }).eq('id', localUserId);

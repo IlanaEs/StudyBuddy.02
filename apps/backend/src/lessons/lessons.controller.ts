@@ -1,9 +1,11 @@
 import type { Request, Response } from 'express';
 
+import { AppError } from '../errors/AppError.js';
 import {
   getMyLessonsService,
   updateLessonStatusService,
   completeLessonService,
+  addLessonToStudentCalendarService,
 } from './lessons.service.js';
 import type { UpdateLessonStatusBody, CompleteLessonBody } from './lessons.validation.js';
 
@@ -29,6 +31,20 @@ export async function completeLessonController(request: Request, response: Respo
   const currentUser = request.auth!.user;
 
   const result = await completeLessonService(id, body, currentUser);
+
+  response.status(200).json({ data: result });
+}
+
+export async function addLessonToCalendarController(request: Request, response: Response) {
+  const id = request.params['id'] as string;
+  const currentUser = request.auth!.user;
+
+  const providerToken = request.headers['x-provider-token'];
+  if (!providerToken || typeof providerToken !== 'string' || !providerToken.trim()) {
+    throw new AppError('חסר חיבור ל-Google. התחבר/י ליומן ונסה/י שוב.', 400);
+  }
+
+  const result = await addLessonToStudentCalendarService(id, currentUser, providerToken.trim());
 
   response.status(200).json({ data: result });
 }

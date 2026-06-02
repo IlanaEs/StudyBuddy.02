@@ -1,17 +1,13 @@
 import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Upload, GraduationCap, Briefcase, Award, BookOpen,
-  Calendar, Clock, Users, Zap, Check, ChevronLeft, Shield,
-  ShieldCheck, DollarSign, FileText, ToggleLeft, ToggleRight,
-  Loader2, CheckCircle2, ArrowRight, BarChart2,
+  Check, Loader2, CheckCircle2,
   CalendarCheck, CalendarX, RefreshCw, Link2Off,
-  UserPlus, LogIn,
 } from 'lucide-react';
 import { FlowNav } from '../components/FlowNav';
-import { TeacherAvailabilityCalendar, makeBlockKey, AVAIL_DAYS } from '../components/onboarding/TeacherAvailabilityCalendar';
-import type { TimeBlockId } from '../components/onboarding/TeacherAvailabilityCalendar';
+import { TeacherAvailabilityCalendar, AVAIL_DAYS } from '../components/onboarding/TeacherAvailabilityCalendar';
 import type { GCalStatus, BusySlot } from '../api/teacherCalendar';
+import { mapBusySlotsToBlockKeys as mapBusySlotsToBlockKeysShared } from '../utils/mapBusySlotsToBlockKeys';
 import {
   ensureCalendarLinkSession,
   initiateCalendarConnect,
@@ -23,10 +19,6 @@ import {
 import { ReauthRequiredError } from '../auth/ensureActiveSession';
 import { consumeEarlyProviderToken } from '../auth/supabaseClient';
 
-import { SelectableChip } from '../components/onboarding/SelectableChip';
-import { SelectableCard } from '../components/onboarding/SelectableCard';
-import { TeacherOnboardingProgress } from '../components/onboarding/TeacherOnboardingProgress';
-import { TeacherPreviewCard } from '../components/onboarding/TeacherPreviewCard';
 import { useAuth } from '../auth/AuthProvider';
 import {
   fetchOnboardingDraft,
@@ -45,25 +37,26 @@ import {
   SB_ORANGE,
   SB_ORANGE_SOFT,
   SB_NEON,
-  PROFESSIONAL_STATUS_OPTIONS,
   ACADEMIC_YEAR_OPTIONS,
-  TEACHING_LEVELS,
-  SUBJECTS_BY_LEVEL,
-  TEACHING_STYLES,
-  WEEKLY_AVAILABILITY_DAYS,
-  MAX_STUDENTS_OPTIONS,
-  WEEKLY_HOURS_OPTIONS,
-  SLA_HOURS_OPTIONS,
-  COMMITMENT_TYPES,
-  MARATHON_SESSION_OPTIONS,
-  EMERGENCY_AVAILABILITY_OPTIONS,
-  INTRO_PRICING_OPTIONS,
   LOADING_MESSAGES,
-  STEP_PROGRESS,
+  STEP_PROGRESS_V2,
+  TOTAL_SCREENS_V2,
   ACADEMIC_PATH_STATUSES,
   type TeachingLevel,
   type ProfessionalStatus,
 } from '../content/teacherOnboardingContent';
+// v2 redesign — scoped wizard primitives + per-screen components.
+import { WizardShell, NavButtons as TowNavButtons, ChipSelect as TowChipSelect } from '../components/onboarding/v2/primitives';
+import { NeonProgressTracker } from '../components/onboarding/v2/NeonProgressTracker';
+import { Screen1AccountConnection } from '../components/onboarding/v2/screens/Screen1AccountConnection';
+import { Screen2Experience } from '../components/onboarding/v2/screens/Screen2Experience';
+import { Screen3SubjectsStyle } from '../components/onboarding/v2/screens/Screen3SubjectsStyle';
+import { Screen4Availability } from '../components/onboarding/v2/screens/Screen4Availability';
+import { Screen5Operations } from '../components/onboarding/v2/screens/Screen5Operations';
+import { Screen6Pricing } from '../components/onboarding/v2/screens/Screen6Pricing';
+import { Screen7Verifications } from '../components/onboarding/v2/screens/Screen7Verifications';
+import { Screen8Preview } from '../components/onboarding/v2/screens/Screen8Preview';
+import { towTokens as TOW } from '../design/tokens';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -153,10 +146,6 @@ const INITIAL_DATA: TeacherOnboardingData = {
   legalCommunity: false,
 };
 
-function toggleItem(arr: string[], item: string): string[] {
-  return arr.includes(item) ? arr.filter((x) => x !== item) : [...arr, item];
-}
-
 function isAcademicPath(status: ProfessionalStatus | null): boolean {
   return status !== null && ACADEMIC_PATH_STATUSES.includes(status);
 }
@@ -172,29 +161,33 @@ function validateTeacherOnboardingStep(step: number, formState: TeacherOnboardin
   const errors: StepValidationErrors = {};
   const rate = Number(formState.hourlyRate);
 
+  // v2 content-step indices (Account Connection is the auth-gate overlay = screen 1):
+  //   1 Experience  2 Subjects  3 Availability  4 Operations  5 Pricing  6 Verifications  7 Preview
   if (step === 1) {
     if (formState.fullName.trim().length < 2) errors.fullName = 'יש להזין שם מלא.';
     if (!formState.professionalStatus) errors.professionalStatus = 'יש לבחור מעמד מקצועי.';
-  }
-
-  if (step === 2) {
-    if (isAcademicPath(formState.professionalStatus)) {
-      if (!formState.academicInstitutionId && !formState.academicInstitutionRequestId) errors.institution = 'יש לבחור מוסד לימודים מתוך הרשימה או לשלוח בקשת הוספה.';
-      if (!formState.academicFieldId && !formState.academicFieldRequestId) errors.degree = 'יש לבחור תחום לימוד מתוך הרשימה או לשלוח בקשת הוספה.';
-      if (!formState.academicYear) errors.academicYear = 'יש לבחור שנת לימוד.';
-    } else {
-      if (!formState.yearsOfExperience.trim()) errors.yearsOfExperience = 'יש להזין שנות ניסיון.';
-      if (!formState.expertiseAreas.trim()) errors.expertiseAreas = 'יש להזין תחומי מומחיות.';
+    if (formState.professionalStatus) {
+      if (isAcademicPath(formState.professionalStatus)) {
+        if (!formState.academicInstitutionId && !formState.academicInstitutionRequestId) errors.institution = 'יש לבחור מוסד לימודים מתוך הרשימה או לשלוח בקשת הוספה.';
+        if (!formState.academicFieldId && !formState.academicFieldRequestId) errors.degree = 'יש לבחור תחום לימוד מתוך הרשימה או לשלוח בקשת הוספה.';
+        if (!formState.academicYear) errors.academicYear = 'יש לבחור שנת לימוד.';
+      } else {
+        if (!formState.yearsOfExperience.trim()) errors.yearsOfExperience = 'יש להזין שנות ניסיון.';
+        if (!formState.expertiseAreas.trim()) errors.expertiseAreas = 'יש להזין תחומי מומחיות.';
+      }
     }
   }
 
-  if (step === 3) {
+  if (step === 2) {
     if (formState.teachingLevels.length === 0) errors.teachingLevels = 'יש לבחור לפחות רמת הוראה אחת.';
     if (formState.selectedSubjects.length === 0) errors.selectedSubjects = 'יש לבחור לפחות מקצוע אחד.';
   }
 
-  if (step === 4) {
+  if (step === 3) {
     if (formState.weeklyTimeBlocks.length === 0) errors.weeklyTimeBlocks = 'יש לבחור לפחות חלון זמינות אחד.';
+  }
+
+  if (step === 4) {
     if (formState.maxActiveStudents === null) errors.maxActiveStudents = 'יש לבחור מספר תלמידים פעילים.';
     if (formState.weeklyTeachingHours === null) errors.weeklyTeachingHours = 'יש לבחור מספר שעות שבועיות.';
     if (!formState.bookingApproval) errors.bookingApproval = 'יש לבחור אופן אישור הזמנות.';
@@ -210,6 +203,9 @@ function validateTeacherOnboardingStep(step: number, formState: TeacherOnboardin
   if (step === 5) {
     if (!Number.isFinite(rate) || rate <= 0) errors.hourlyRate = 'יש להזין מחיר שעתי גבוה מ־0.';
     if (!formState.introSessionPricing) errors.introSessionPricing = 'יש לבחור תמחור לשיעור מבוא.';
+  }
+
+  if (step === 6) {
     if (!formState.legalTax || !formState.legalContractor || !formState.legalMinors || !formState.legalCommunity) {
       errors.legal = 'יש לאשר את כל ארבע ההצהרות להמשך.';
     }
@@ -222,7 +218,7 @@ function validateTeacherOnboardingAll(formState: TeacherOnboardingData): { isVal
   const errorsByStep: Record<number, StepValidationErrors> = {};
   let firstInvalidStep: number | null = null;
 
-  for (const step of [1, 2, 3, 4, 5]) {
+  for (const step of [1, 2, 3, 4, 5, 6]) {
     const result = validateTeacherOnboardingStep(step, formState);
     if (!result.isValid) {
       errorsByStep[step] = result.errors;
@@ -254,7 +250,7 @@ function mapBackendOnboardingError(error: string, formState: TeacherOnboardingDa
     return { message: 'אין הרשאה להשלים את התהליך. אנא התחברו מחדש.', step: 1, errors: {} };
   }
 
-  return { message: 'לא ניתן להשלים את הפעלת הפרופיל כרגע. בדקו את הפרטים ונסו שוב.', step: 6, errors: {} };
+  return { message: 'לא ניתן להשלים את הפעלת הפרופיל כרגע. בדקו את הפרטים ונסו שוב.', step: 7, errors: {} };
 }
 
 function translateAuthGateError(error: string): string {
@@ -266,68 +262,15 @@ function translateAuthGateError(error: string): string {
   return 'לא ניתן להתחבר כרגע. בדקו את הפרטים ונסו שוב.';
 }
 
-// Maps Google Calendar busy slots (UTC ISO timestamps) to onboarding grid block keys
-// like "ראשון-morning" using Asia/Jerusalem local time.
-//
-// Walking hour-by-hour (same approach as availabilityMapper.ts in the student flow)
-// correctly handles:
-//   - all-day events (Google returns midnight-to-midnight UTC)
-//   - multi-day events
-//   - events that span two time-block periods
-//   - DST transitions in Israel (UTC+2 winter / UTC+3 summer)
-//
-// Block hour boundaries (Jerusalem local time, consistent with TeacherAvailabilityCalendar):
-//   morning   08:00–13:00
-//   afternoon 13:00–18:00
-//   evening   18:00–22:00
-const ISRAEL_TZ = 'Asia/Jerusalem';
-const MS_PER_HOUR = 60 * 60 * 1000;
-
-const _mapDowFormatter = new Intl.DateTimeFormat('en-US', { timeZone: ISRAEL_TZ, weekday: 'long' });
-const _mapHourFormatter = new Intl.DateTimeFormat('en-US', { timeZone: ISRAEL_TZ, hour: 'numeric', hour12: false });
-
-const _DOW_MAP: Record<string, number> = {
-  Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3,
-  Thursday: 4, Friday: 5, Saturday: 6,
-};
-
-const _HEBREW_DAYS: Record<number, typeof AVAIL_DAYS[number]> = {
-  0: 'ראשון', 1: 'שני', 2: 'שלישי', 3: 'רביעי', 4: 'חמישי', 5: 'שישי', 6: 'שבת',
-};
-
-const _TIME_BLOCKS: Array<{ id: TimeBlockId; startH: number; endH: number }> = [
-  { id: 'morning',   startH: 8,  endH: 13 },
-  { id: 'afternoon', startH: 13, endH: 18 },
-  { id: 'evening',   startH: 18, endH: 22 },
-];
-
-function _getLocalDow(date: Date): number {
-  const weekday = _mapDowFormatter.formatToParts(date).find((p) => p.type === 'weekday')?.value ?? 'Sunday';
-  return _DOW_MAP[weekday] ?? 0;
-}
-
-function _getLocalHour(date: Date): number {
-  const h = parseInt(_mapHourFormatter.formatToParts(date).find((p) => p.type === 'hour')?.value ?? '0', 10);
-  return h === 24 ? 0 : h;
-}
-
+// Adapts the backend BusySlot shape ({ startAt, endAt }) to the shared
+// busy-slot → grid-block mapper. Produces hyphen keys like "ראשון-morning"
+// consumed by TeacherAvailabilityCalendar. The mapping logic (Asia/Jerusalem
+// hour-by-hour walk, DST-safe) lives in utils/mapBusySlotsToBlockKeys.ts and is
+// shared with the student availability flow.
 function mapBusySlotsToBlockKeys(busySlots: BusySlot[]): string[] {
-  const blockKeys = new Set<string>();
-  for (const slot of busySlots) {
-    const startMs = new Date(slot.startAt).getTime();
-    const endMs   = new Date(slot.endAt).getTime();
-    // Walk hour-by-hour through the busy period; each hour maps to at most one block.
-    for (let t = startMs; t < endMs; t += MS_PER_HOUR) {
-      const date     = new Date(t);
-      const dow      = _getLocalDow(date);
-      const hebrewDay = _HEBREW_DAYS[dow];
-      if (!hebrewDay) continue;
-      const hour = _getLocalHour(date);
-      const block = _TIME_BLOCKS.find((b) => hour >= b.startH && hour < b.endH);
-      if (block) blockKeys.add(`${hebrewDay}-${block.id}`);
-    }
-  }
-  return [...blockKeys];
+  return mapBusySlotsToBlockKeysShared(
+    busySlots.map((slot) => ({ start: slot.startAt, end: slot.endAt })),
+  );
 }
 
 // ── Shell ──────────────────────────────────────────────────────────────────────
@@ -364,84 +307,6 @@ function SaveIndicator({ status }: { status: DraftStatus }) {
   );
 }
 
-function OnboardingShell({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
-  return (
-    <div
-      dir="rtl"
-      lang="he"
-      className="flow-shell-clear"
-      style={{
-        minHeight: '100dvh',
-        background: 'var(--bg)',
-        paddingInline: 16,
-        paddingBottom: 56,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-      }}
-    >
-      <FlowNav to="/teachers" label="חזרה לעמוד המורים" />
-      <div
-        className="ob-step-enter"
-        style={{
-          width: '100%',
-          maxWidth: wide ? 880 : 640,
-          background: 'var(--surface)',
-          borderRadius: 'var(--radius-lg)',
-          border: `2px solid rgba(0,246,255,0.18)`,
-          overflow: 'clip',
-          boxShadow: `5px 5px 0 rgba(0,0,0,0.4), 0 24px 60px -32px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,246,255,0.06) inset`,
-        }}
-      >
-        {/* Neon top stripe — Cyber-Professional design spec */}
-        <div
-          style={{
-            height: 4,
-            background: `linear-gradient(90deg, ${SB_NEON} 0%, color-mix(in oklab, ${SB_NEON} 55%, ${SB_ORANGE}) 60%, rgba(249,115,22,0.3) 100%)`,
-            boxShadow: `0 0 10px ${SB_NEON}66`,
-          }}
-        />
-        <div className="ob-step-body">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-// ── Step header ────────────────────────────────────────────────────────────────
-
-function StepHeader({ title, subtitle }: { title: string; subtitle?: string }) {
-  return (
-    <div style={{ marginBottom: 26 }}>
-      <h2
-        style={{
-          margin: 0,
-          fontSize: 21,
-          fontWeight: 800,
-          color: 'var(--text)',
-          fontFamily: 'var(--font-display)',
-          lineHeight: 1.2,
-          letterSpacing: '-0.025em',
-        }}
-      >
-        {title}
-      </h2>
-      {subtitle && (
-        <p
-          style={{
-            margin: '7px 0 0',
-            fontSize: 14,
-            color: 'var(--text-2)',
-            fontWeight: 500,
-            lineHeight: 1.55,
-          }}
-        >
-          {subtitle}
-        </p>
-      )}
-    </div>
-  );
-}
-
 // ── Section label ──────────────────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: ReactNode }) {
@@ -473,132 +338,6 @@ function SectionLabel({ children }: { children: ReactNode }) {
       />
       {children}
     </div>
-  );
-}
-
-// ── Ops section card ───────────────────────────────────────────────────────────
-
-function OpsSection({ title, icon, children, color = SB_ORANGE }: { title: string; icon: ReactNode; children: ReactNode; color?: string }) {
-  return (
-    <div
-      className="ob-ops-section"
-      style={{
-        border: `2px solid color-mix(in oklab, ${color} 22%, transparent)`,
-        borderRadius: 'var(--radius)',
-        padding: '18px 20px',
-        background:
-          'linear-gradient(160deg, rgba(255,255,255,0.025), transparent), var(--surface-2)',
-        boxShadow: '3px 3px 0 rgba(0,0,0,0.22)',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          marginBottom: 14,
-          paddingBottom: 12,
-          borderBottom: `1px solid color-mix(in oklab, ${color} 15%, var(--line))`,
-        }}
-      >
-        <span
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 28,
-            height: 28,
-            borderRadius: 8,
-            background: `color-mix(in oklab, ${color} 18%, transparent)`,
-            color: color,
-            flexShrink: 0,
-          }}
-        >
-          {icon}
-        </span>
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: 800,
-            color: 'var(--text)',
-            fontFamily: 'var(--font-display)',
-            letterSpacing: '-0.01em',
-          }}
-        >
-          {title}
-        </span>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-// ── Number chip row ────────────────────────────────────────────────────────────
-
-function NumberChipRow({
-  options,
-  selected,
-  onSelect,
-  suffix = '',
-}: {
-  options: number[];
-  selected: number | null;
-  onSelect: (v: number) => void;
-  suffix?: string;
-}) {
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-      {options.map((n) => (
-        <button
-          key={n}
-          type="button"
-          onClick={() => onSelect(n)}
-          className="ob-num-chip"
-          style={{
-            padding: '6px 14px',
-            borderRadius: 999,
-            border: `2px solid ${selected === n ? SB_ORANGE : 'var(--line-2)'}`,
-            background: selected === n ? SB_ORANGE_SOFT : 'transparent',
-            color: selected === n ? SB_ORANGE : 'var(--text-2)',
-            fontSize: 13,
-            fontWeight: 700,
-            fontFamily: 'var(--font-mono)',
-            cursor: 'pointer',
-          }}
-        >
-          {n}{suffix}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ── Toggle ─────────────────────────────────────────────────────────────────────
-
-function OpsToggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className="ob-toggle"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        background: 'none',
-        border: 'none',
-        cursor: 'pointer',
-        padding: '8px 0',
-        color: 'var(--text)',
-      }}
-    >
-      <span style={{ color: checked ? SB_ORANGE : 'var(--text-3)', flexShrink: 0, transition: 'color 0.15s ease' }}>
-        {checked ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
-      </span>
-      <span style={{ fontSize: 13, fontWeight: 600, color: checked ? 'var(--text)' : 'var(--text-2)' }}>
-        {label}
-      </span>
-    </button>
   );
 }
 
@@ -776,95 +515,6 @@ function AcademicRepositoryAutocomplete({
       )}
     </div>
   );
-}
-
-// ── Nav buttons ────────────────────────────────────────────────────────────────
-
-function NavButtons({
-  onBack,
-  onNext,
-  nextLabel = 'המשך',
-  nextDisabled = false,
-  hideBack = false,
-}: {
-  onBack?: () => void;
-  onNext: () => void;
-  nextLabel?: string;
-  nextDisabled?: boolean;
-  hideBack?: boolean;
-}) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        gap: 10,
-        marginTop: 32,
-        position: 'sticky',
-        bottom: 0,
-        zIndex: 10,
-        background: 'var(--surface)',
-        padding: '16px 0 28px',
-      }}
-    >
-      {!hideBack && onBack && (
-        <button
-          type="button"
-          onClick={onBack}
-          className="ob-btn-back"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '12px 18px',
-            borderRadius: 'var(--radius)',
-            border: '2px solid var(--line-2)',
-            background: 'transparent',
-            color: 'var(--text-2)',
-            fontSize: 14,
-            fontWeight: 700,
-            cursor: 'pointer',
-            flexShrink: 0,
-          }}
-        >
-          <ChevronLeft size={15} />
-          חזור
-        </button>
-      )}
-      <button
-        type="button"
-        onClick={onNext}
-        disabled={nextDisabled}
-        className={nextDisabled ? '' : 'ob-btn-next'}
-        style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-          padding: '14px 20px',
-          borderRadius: 'var(--radius)',
-          border: `2px solid ${nextDisabled ? 'var(--line)' : SB_ORANGE}`,
-          background: nextDisabled ? 'transparent' : SB_ORANGE,
-          color: nextDisabled ? 'var(--text-3)' : '#fff',
-          fontSize: 15,
-          fontWeight: 800,
-          cursor: nextDisabled ? 'not-allowed' : 'pointer',
-          fontFamily: 'var(--font-display)',
-          letterSpacing: '-0.01em',
-          boxShadow: nextDisabled ? 'none' : `4px 4px 0 rgba(249,115,22,0.3)`,
-        }}
-      >
-        {nextLabel}
-        {!nextDisabled && <ArrowRight size={15} />}
-      </button>
-    </div>
-  );
-}
-
-// ── Divider ────────────────────────────────────────────────────────────────────
-
-function Divider() {
-  return <div style={{ height: 1, background: 'var(--line)', margin: '20px 0' }} />;
 }
 
 // ── Google Calendar Card ───────────────────────────────────────────────────────
@@ -1183,7 +833,7 @@ type DraftStatus = 'idle' | 'saving' | 'saved' | 'save-error';
 
 export function TeacherOnboardingPage() {
   const navigate = useNavigate();
-  const { status, user, profile, session, login, signup, refreshProfile } = useAuth();
+  const { status, user, profile, session, refreshProfile } = useAuth();
   const [step, setStep] = useState(1);
   const [data, setData] = useState<TeacherOnboardingData>(INITIAL_DATA);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
@@ -1217,15 +867,11 @@ export function TeacherOnboardingPage() {
 
   // ── Auth gate (shown between step 3 and step 4 for guests) ─────────────────
   const [showAuthGate, setShowAuthGate] = useState(false);
-  const [authGateTab, setAuthGateTab] = useState<'signup' | 'login'>('signup');
-  const [authGateFullName, setAuthGateFullName] = useState('');
-  const [authGateEmail, setAuthGateEmail] = useState('');
-  const [authGatePassword, setAuthGatePassword] = useState('');
   const [authGateError, setAuthGateError] = useState<string | null>(null);
   const [authGateLoading, setAuthGateLoading] = useState(false);
-  // Records which auth action ('signup'|'login') is pending post-auth sync.
-  // Set before calling login()/signup(), consumed by the post-auth useEffect.
-  const pendingPostAuthType = useRef<'signup' | 'login' | null>(null);
+  // Tracks whether a Google OAuth return is pending post-auth sync.
+  const pendingPostAuthType = useRef<'oauth' | null>(null);
+  const TEACHER_OAUTH_PENDING_KEY = 'sb_teacher_onboarding_oauth_pending';
   // Debounce timer for guest localStorage writes
   const guestSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1300,6 +946,17 @@ export function TeacherOnboardingPage() {
     setDraftLoading(false);
   }, [status]);
 
+  // ── Google-first: unauthenticated teachers must sign in before any step ────
+  // The Google sign-in screen (auth gate) is the FIRST thing a guest sees, just
+  // like the student wizard. Once authenticated, the post-auth effect clears it.
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      setShowAuthGate(true);
+    } else if (status === 'authenticated') {
+      setShowAuthGate(false);
+    }
+  }, [status]);
+
   // ── Guest mode: auto-save draft to localStorage while in steps 1–3 ─────────
   // Debounced (350 ms) so rapid keystrokes don't spam writes.
   useEffect(() => {
@@ -1315,53 +972,69 @@ export function TeacherOnboardingPage() {
     };
   }, [data, step, status]);
 
-  // ── Post-auth sync: fires after the auth gate completes ────────────────────
-  // pendingPostAuthType.current is set just before login()/signup() resolves.
+  // ── Post-auth sync: fires after Google OAuth return ─────────────────────────
+  // Detects the TEACHER_OAUTH_PENDING_KEY flag set before the OAuth redirect.
   // Once status becomes 'authenticated' and the session token is available,
-  // this effect either pushes the guest draft to the backend (new account) or
-  // pulls the existing backend draft (returning account), then advances to step 4.
+  // this effect completes the OAuth signup, pushes/pulls the draft, then advances.
   useEffect(() => {
-    if (pendingPostAuthType.current === null) return;
     if (status !== 'authenticated') return;
     const token = session?.access_token;
     if (!token) return;
 
-    const type = pendingPostAuthType.current;
-    pendingPostAuthType.current = null; // consume
+    // Check for OAuth return flag
+    const oauthPending = localStorage.getItem(TEACHER_OAUTH_PENDING_KEY);
+    if (!oauthPending && pendingPostAuthType.current === null) return;
 
-    if (type === 'signup') {
-      // New account: push the current wizard state to the backend as the initial draft.
-      saveOnboardingDraft(data, step, token).catch(() => {}).finally(() => {
+    // Consume the flag
+    localStorage.removeItem(TEACHER_OAUTH_PENDING_KEY);
+    if (pendingPostAuthType.current !== null) pendingPostAuthType.current = null;
+
+    // Complete the OAuth signup (assigns teacher role + creates local user row)
+    void (async () => {
+      setAuthGateLoading(true);
+      try {
+        const { completeTeacherOAuthSignup } = await import('../api/teacherOnboarding');
+        const oauthResult = await completeTeacherOAuthSignup(
+          data.fullName || user?.full_name || 'מורה',
+          token,
+        );
+        // A returning teacher (role already 'teacher') passes cleanly. Any error
+        // here means the connected Google account belongs to a different role
+        // (student/parent/admin) or the assignment failed — block and explain.
+        if ('error' in oauthResult) {
+          setAuthGateError(
+            oauthResult.error.includes('לא מתאים')
+              ? 'החשבון המחובר אינו חשבון מורה. התחבר/י עם חשבון Google אחר.'
+              : translateAuthGateError(oauthResult.error),
+          );
+          setAuthGateLoading(false);
+          return;
+        }
+
+        // Try to fetch an existing backend draft (returning user)
+        const draftResponse = await fetchOnboardingDraft(token);
         try { localStorage.removeItem('sb_teacher_guest_draft'); } catch {}
-      });
-      setShowAuthGate(false);
-      setStep(4);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      silentSave(data, 4);
-    } else {
-      // Existing account: pull their saved draft from the backend and restore it.
-      fetchOnboardingDraft(token)
-        .then((response) => {
-          try { localStorage.removeItem('sb_teacher_guest_draft'); } catch {}
-          if (!('error' in response) && response.data.onboarding) {
-            const hydrated = hydrateFromRemote(response.data.onboarding, INITIAL_DATA);
-            setData((prev) => ({ ...prev, ...hydrated }));
-            const savedStep = response.data.onboarding.onboardingStep ?? 1;
-            setStep(savedStep > 3 && savedStep <= 6 ? savedStep : 4);
-          } else {
-            // No existing backend draft — push local state as their starting point.
-            saveOnboardingDraft(data, step, token).catch(() => {});
-            setStep(4);
-          }
-          setShowAuthGate(false);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        })
-        .catch(() => {
-          setShowAuthGate(false);
-          setStep(4);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        });
-    }
+
+        if (!('error' in draftResponse) && draftResponse.data.onboarding) {
+          const hydrated = hydrateFromRemote(draftResponse.data.onboarding, INITIAL_DATA);
+          setData((prev) => ({ ...prev, ...hydrated }));
+          const savedStep = draftResponse.data.onboarding.onboardingStep ?? 1;
+          setStep(savedStep >= 1 && savedStep <= 7 ? savedStep : 1);
+        } else {
+          // New teacher — prefill the name from the Google profile, then start
+          // the questions from the first step.
+          setData((prev) => ({ ...prev, fullName: prev.fullName || user?.full_name || '' }));
+          saveOnboardingDraft(data, step, token).catch(() => {});
+          setStep(1);
+        }
+        setShowAuthGate(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch {
+        setAuthGateError('שגיאה בעיבוד החשבון. נסו שנית.');
+      } finally {
+        setAuthGateLoading(false);
+      }
+    })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, session?.access_token]);
 
@@ -1445,7 +1118,7 @@ export function TeacherOnboardingPage() {
   );
 
   useEffect(() => {
-    if (step !== 4) return;
+    if (step !== 3) return; // Availability screen (v2 screen 4)
     const accessToken = session?.access_token;
     if (!accessToken) return;
 
@@ -1524,15 +1197,8 @@ export function TeacherOnboardingPage() {
       return;
     }
 
-    // Require authentication before the teaching-operations step (step 4+).
-    // Unauthenticated users see the inline auth gate instead of advancing.
-    if (step === 3 && !session) {
-      setAuthGateFullName(data.fullName.trim());
-      setAuthGateError(null);
-      setShowAuthGate(true);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
+    // Account Connection is the entry auth-gate (handled by the unauthenticated
+    // effect), so all content steps here are already authenticated.
     const nextStep = step + 1;
     setStep(nextStep);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1721,65 +1387,50 @@ export function TeacherOnboardingPage() {
     if (token) {
       completionSnapshotRef.current = { data, token };
     }
-    setStep(7);
+    setStep(8); // v2: Processing state (content steps are 1–7)
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // Auth gate form submission — called when guest submits signup/login.
-  // Sets pendingPostAuthType so the post-auth effect can run the correct sync.
-  async function handleAuthGateSubmit() {
+  // Auth gate: initiate Google OAuth, persist draft to localStorage first.
+  async function handleAuthGateGoogleOAuth() {
     if (authGateLoading) return;
     setAuthGateError(null);
 
-    if (!authGateEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authGateEmail.trim())) {
-      setAuthGateError('יש להזין כתובת אימייל תקינה.');
-      return;
-    }
-
-    if (authGatePassword.length < 8) {
-      setAuthGateError('הסיסמה חייבת להכיל לפחות 8 תווים.');
-      return;
-    }
-
-    setAuthGateLoading(true);
+    // Persist the in-progress draft so we can resume after OAuth redirect
     try {
-      if (authGateTab === 'signup') {
-        await signup({
-          email: authGateEmail.trim(),
-          password: authGatePassword,
-          full_name: (authGateFullName.trim() || data.fullName.trim()) || 'מורה',
-          role: 'teacher',
-        });
-        pendingPostAuthType.current = 'signup';
-      } else {
-        await login({ email: authGateEmail.trim(), password: authGatePassword });
-        pendingPostAuthType.current = 'login';
-      }
-      // Post-auth sync effect fires once status becomes 'authenticated'.
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'שגיאה';
-      if (msg === 'CHECK_EMAIL') {
-        setAuthGateError('אימות נשלח לדוא"ל — אשר/י את הכתובת ואז כנסי/י עם "כניסה לחשבון קיים".');
-        setAuthGateTab('login');
-      } else {
-        setAuthGateError(translateAuthGateError(msg));
-      }
-      pendingPostAuthType.current = null;
-    } finally {
-      setAuthGateLoading(false);
+      localStorage.setItem('sb_teacher_guest_draft', JSON.stringify({ data, step }));
+    } catch { /* ignore */ }
+    localStorage.setItem(TEACHER_OAUTH_PENDING_KEY, 'true');
+
+    const { getSupabaseBrowserClient } = await import('../auth/supabaseClient');
+    const supabase = getSupabaseBrowserClient();
+    // Request the full calendar scope up-front so the availability grid can
+    // auto-block the teacher's busy slots (read) and create Meet links later
+    // (write) — without a separate "connect calendar" round-trip.
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        scopes: 'https://www.googleapis.com/auth/calendar',
+        queryParams: { access_type: 'offline', prompt: 'consent' },
+        redirectTo: `${window.location.origin}/teacher-onboarding`,
+      },
+    });
+    if (error) {
+      localStorage.removeItem(TEACHER_OAUTH_PENDING_KEY);
+      setAuthGateError('לא ניתן להתחבר עם Google כרגע. נסו שוב.');
     }
   }
 
-  // Step 7: run loading animation + call complete API simultaneously
+  // Processing state (v2 step 8): run loading animation + call complete API.
   useEffect(() => {
-    if (step !== 7) return;
+    if (step !== 8) return;
 
     const interval = setInterval(() => setLoadingMsgIdx((i) => (i + 1) % LOADING_MESSAGES.length), 850);
     const snapshot = completionSnapshotRef.current;
 
     if (!snapshot) {
       // No auth token — fall back to timed mock (UI-only mode)
-      const timer = setTimeout(() => { clearInterval(interval); setStep(8); }, 3600);
+      const timer = setTimeout(() => { clearInterval(interval); setStep(9); }, 3600);
       return () => { clearInterval(interval); clearTimeout(timer); };
     }
 
@@ -1793,7 +1444,7 @@ export function TeacherOnboardingPage() {
         if ('error' in response) {
           const mapped = mapBackendOnboardingError(response.error, snapshot.data);
           setCompletionError(mapped.message);
-          if (mapped.step !== 6) {
+          if (mapped.step !== 7) {
             setStepErrors((prev) => ({ ...prev, [mapped.step]: mapped.errors }));
           }
           isActivatingRef.current = false;
@@ -1808,7 +1459,7 @@ export function TeacherOnboardingPage() {
             // success screen and can navigate manually. The next page load
             // will pick up the correct profile from /api/auth/me.
           });
-          setStep(8);
+          setStep(9); // v2: Success state
         }
       })
       .catch(() => {
@@ -1816,7 +1467,7 @@ export function TeacherOnboardingPage() {
         clearInterval(interval);
         setCompletionError('אירעה שגיאה בהפעלת הפרופיל. אנא נסה שוב.');
         isActivatingRef.current = false;
-        setStep(6);
+        setStep(7); // back to Preview
       });
 
     return () => {
@@ -1907,1471 +1558,186 @@ export function TeacherOnboardingPage() {
     );
   }
 
-  // ── Auth gate (shown between step 3 and step 4 for unauthenticated users) ───
-  if (showAuthGate) {
-    const canSubmit = !authGateLoading && authGateEmail.trim().length > 0 && authGatePassword.length >= 1;
-    const btnDisabled = !canSubmit;
-    return (
-      <OnboardingShell>
-        <TeacherOnboardingProgress step={3} totalContentSteps={6} progressPct={STEP_PROGRESS[3]} />
-        <StepHeader
-          title="כמעט שם — צור/י חשבון"
-          subtitle="שמור/י את הפרופיל שלך וגש/י ל-Google Calendar עם חשבון StudyBuddy."
-        />
+  // ═══════════════════════════════════════════════════════════════════════════
+  // v2 redesigned render — 8 screens. Account Connection is the auth-gate overlay
+  // (screen 1); content steps 1–7 map to screens 2–8; step 8 = Processing,
+  // step 9 = Success. This block always returns, so the legacy render below is
+  // unreachable (kept temporarily; scheduled for cleanup).
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    const screenNum = showAuthGate ? 1 : Math.min(step + 1, TOTAL_SCREENS_V2);
+    const errs = stepErrors[step] ?? {};
 
-        {/* Tab switcher */}
-        <div
-          style={{
-            display: 'flex',
-            gap: 0,
-            marginBottom: 24,
-            border: '2px solid var(--line-2)',
-            borderRadius: 'var(--radius)',
-            overflow: 'hidden',
-          }}
-        >
-          {([
-            { key: 'signup' as const, label: 'חשבון חדש', icon: <UserPlus size={14} /> },
-            { key: 'login' as const, label: 'יש לי חשבון', icon: <LogIn size={14} /> },
-          ]).map(({ key, label, icon }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => { setAuthGateTab(key); setAuthGateError(null); }}
-              style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 7,
-                padding: '12px',
-                border: 'none',
-                background: authGateTab === key ? SB_ORANGE : 'transparent',
-                color: authGateTab === key ? '#fff' : 'var(--text-2)',
-                fontSize: 14,
-                fontWeight: 700,
-                cursor: 'pointer',
-                fontFamily: 'var(--font-display)',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              {icon}
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Fields */}
-        <div style={{ display: 'grid', gap: 14 }}>
-          {authGateTab === 'signup' && (
-            <div>
-              <SectionLabel>שם מלא</SectionLabel>
-              <input
-                type="text"
-                value={authGateFullName}
-                onChange={(e) => setAuthGateFullName(e.target.value)}
-                placeholder="השם שיופיע לתלמידים"
-                autoComplete="name"
-                className="ob-input"
-                style={inputStyle}
-              />
-            </div>
-          )}
-          <div>
-            <SectionLabel>דוא"ל</SectionLabel>
-            <input
-              type="email"
-              value={authGateEmail}
-              onChange={(e) => setAuthGateEmail(e.target.value)}
-              placeholder="you@example.com"
-              autoComplete="email"
-              className="ob-input"
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <SectionLabel>סיסמה</SectionLabel>
-            <input
-              type="password"
-              value={authGatePassword}
-              onChange={(e) => setAuthGatePassword(e.target.value)}
-              placeholder={authGateTab === 'signup' ? 'לפחות 8 תווים' : 'הסיסמה שלך'}
-              autoComplete={authGateTab === 'signup' ? 'new-password' : 'current-password'}
-              className="ob-input"
-              style={inputStyle}
-            />
-          </div>
-        </div>
-
-        {/* Error */}
-        {authGateError && (
-          <div
-            style={{
-              marginTop: 14,
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1.5px solid var(--coral)',
-              background: 'rgba(226,43,87,0.08)',
-              color: 'var(--coral)',
-              fontSize: 13,
-              fontWeight: 600,
-            }}
-          >
-            {authGateError}
-          </div>
-        )}
-
-        {/* Nav */}
-        <div
-          style={{
-            display: 'flex',
-            gap: 10,
-            marginTop: 28,
-            position: 'sticky',
-            bottom: 0,
-            zIndex: 10,
-            background: 'var(--surface)',
-            padding: '16px 0 28px',
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => { setShowAuthGate(false); setAuthGateError(null); }}
-            className="ob-btn-back"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '12px 18px',
-              borderRadius: 'var(--radius)',
-              border: '2px solid var(--line-2)',
-              background: 'transparent',
-              color: 'var(--text-2)',
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
-          >
-            <ChevronLeft size={15} />
-            חזור
-          </button>
-          <button
-            type="button"
-            onClick={() => { void handleAuthGateSubmit(); }}
-            disabled={btnDisabled}
-            className={btnDisabled ? '' : 'ob-btn-next'}
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              padding: '14px 20px',
-              borderRadius: 'var(--radius)',
-              border: `2px solid ${btnDisabled ? 'var(--line)' : SB_ORANGE}`,
-              background: btnDisabled ? 'transparent' : SB_ORANGE,
-              color: btnDisabled ? 'var(--text-3)' : '#fff',
-              fontSize: 15,
-              fontWeight: 800,
-              cursor: btnDisabled ? 'not-allowed' : 'pointer',
-              fontFamily: 'var(--font-display)',
-              letterSpacing: '-0.01em',
-              boxShadow: btnDisabled ? 'none' : `4px 4px 0 rgba(249,115,22,0.3)`,
-            }}
-          >
-            {authGateLoading && <Loader2 size={15} className="animate-spin" />}
-            {authGateTab === 'signup' ? 'צור/י חשבון והמשך/י' : 'כנסי/י והמשך/י'}
-            {!authGateLoading && !btnDisabled && <ArrowRight size={15} />}
-          </button>
-        </div>
-      </OnboardingShell>
-    );
-  }
-
-  // ── STEP 1: Identity ─────────────────────────────────────────────────────────
-  if (step === 1) {
-    const errors = stepErrors[1] ?? {};
-
-    function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const onImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = (ev) => update({ profileImagePreview: ev.target?.result as string });
       reader.readAsDataURL(file);
+    };
+
+    // Academic-path inputs reuse the wired AcademicRepositoryAutocomplete.
+    const academicSlot = (
+      <div style={{ display: 'grid', gap: 16 }}>
+        <AcademicRepositoryAutocomplete
+          label="מוסד לימודים"
+          placeholder="חיפוש מוסד בעברית או באנגלית..."
+          items={academicInstitutions}
+          selectedName={data.academicInstitutionName}
+          selectedCategory={data.academicInstitutionCategory}
+          pendingName={data.academicInstitutionRequestName}
+          error={errs.institution}
+          requestError={repositoryRequestErrors.institution}
+          requestDisabled={!session?.access_token}
+          onSelect={(item) => update({ institution: '', academicInstitutionId: item.id, academicInstitutionName: item.name, academicInstitutionCategory: item.category, academicInstitutionRequestId: null, academicInstitutionRequestName: '' })}
+          onRequestAdd={(name) => requestAcademicRepositoryValue('institution', name)}
+        />
+        <AcademicRepositoryAutocomplete
+          label="תחום לימוד / תואר"
+          placeholder="חיפוש תחום לימוד בעברית או באנגלית..."
+          items={academicFields}
+          selectedName={data.academicFieldName}
+          selectedCategory={data.academicFieldCategory}
+          pendingName={data.academicFieldRequestName}
+          error={errs.degree}
+          requestError={repositoryRequestErrors.field}
+          requestDisabled={!session?.access_token}
+          onSelect={(item) => update({ degree: '', academicFieldId: item.id, academicFieldName: item.name, academicFieldCategory: item.category, academicFieldRequestId: null, academicFieldRequestName: '' })}
+          onRequestAdd={(name) => requestAcademicRepositoryValue('field', name)}
+        />
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: TOW.text3, fontFamily: TOW.fontMono, marginBottom: 8 }}>שנת לימוד (Academic Year)</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {ACADEMIC_YEAR_OPTIONS.map((yr) => (
+              <TowChipSelect key={yr} small label={yr} selected={data.academicYear === yr} onClick={() => update({ academicYear: yr })} />
+            ))}
+          </div>
+          {errs.academicYear && <div style={{ color: TOW.alert, fontSize: 13, fontWeight: 600, marginTop: 6 }}>{errs.academicYear}</div>}
+        </div>
+      </div>
+    );
+
+    // ── Screen 1: Account Connection (auth-gate overlay) ────────────────────
+    if (showAuthGate) {
+      return (
+        <WizardShell>
+          <NeonProgressTracker step={1} total={TOTAL_SCREENS_V2} progressPct={STEP_PROGRESS_V2[1] ?? 0} />
+          <Screen1AccountConnection
+            onGoogle={() => { void handleAuthGateGoogleOAuth(); }}
+            onBack={() => navigate('/teachers')}
+            loading={authGateLoading}
+            error={authGateError}
+          />
+        </WizardShell>
+      );
     }
 
+    // ── Processing state (step 8) ───────────────────────────────────────────
+    if (step === 8) {
+      return (
+        <WizardShell>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, padding: '32px 8px' }}>
+            <Loader2 size={40} className="animate-spin" style={{ color: TOW.neon }} />
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: TOW.text }}>מפעילים את סביבת ההוראה שלך</h2>
+            <div key={loadingMsgIdx} className="tow-glitch" style={{ fontFamily: TOW.fontMono, fontSize: 14, color: TOW.text2, minHeight: 22 }}>
+              {LOADING_MESSAGES[loadingMsgIdx]}
+            </div>
+            <div style={{ width: '100%', maxWidth: 360, display: 'grid', gap: 8 }}>
+              {LOADING_MESSAGES.map((msg, i) => (
+                <div key={msg} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: i <= loadingMsgIdx ? TOW.text : TOW.text3 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 999, background: i <= loadingMsgIdx ? TOW.success : TOW.line2 }} />
+                  {msg}
+                </div>
+              ))}
+            </div>
+          </div>
+        </WizardShell>
+      );
+    }
+
+    // ── Success state (step 9) ──────────────────────────────────────────────
+    if (step === 9) {
+      return (
+        <WizardShell>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '28px 8px', textAlign: 'center' }}>
+            <div style={{ position: 'relative', width: 72, height: 72, borderRadius: 18, background: `color-mix(in oklab, ${TOW.success} 18%, transparent)`, border: `2px solid ${TOW.success}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <CheckCircle2 size={36} style={{ color: TOW.success }} />
+            </div>
+            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: TOW.text }}>סביבת ההוראה שלך מוכנה</h2>
+            <p style={{ margin: 0, fontSize: 14, color: TOW.text2, maxWidth: 360, lineHeight: 1.6 }}>
+              ברוך/ה הבא/ה{data.fullName ? `, ${data.fullName}` : ''}. מנוע ההתאמות כבר עובד בשבילך.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, width: '100%', maxWidth: 360, margin: '6px 0' }}>
+              {[
+                { label: 'מקצועות', value: data.selectedSubjects.length || '—' },
+                { label: 'תלמידים', value: data.maxActiveStudents ?? '—' },
+                { label: 'תעריף', value: data.hourlyRate ? `₪${data.hourlyRate}` : '—' },
+              ].map((stat) => (
+                <div key={stat.label} style={{ background: TOW.card, border: `1.5px solid ${TOW.line2}`, borderRadius: TOW.radiusSm, padding: '12px 8px' }}>
+                  <div style={{ fontFamily: TOW.fontMono, fontSize: 18, fontWeight: 800, color: TOW.neon }}>{stat.value}</div>
+                  <div style={{ fontSize: 11, color: TOW.text3, marginTop: 2 }}>{stat.label}</div>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate(nextRoute)}
+              className="tow-pulse-cta"
+              style={{ width: '100%', maxWidth: 360, padding: '15px 20px', borderRadius: TOW.radiusSm, border: 'none', background: TOW.orange, color: '#1a0e05', fontSize: 16, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--tow-font)' }}
+            >
+              מעבר לדשבורד (Go to Dashboard)
+            </button>
+          </div>
+        </WizardShell>
+      );
+    }
+
+    // ── Content screens 1–7 (Experience … Preview) ──────────────────────────
     return (
       <>
         <SaveIndicator status={draftStatus} />
-        <OnboardingShell>
-        <TeacherOnboardingProgress step={1} totalContentSteps={6} progressPct={STEP_PROGRESS[1]} />
-        <StepHeader
-          title="מי את/ה מקצועית?"
-          subtitle="נתחיל עם הבסיס. זה ייראה לתלמידים."
-        />
-
-        {/* Name + image row */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'auto 1fr',
-            gap: 16,
-            alignItems: 'start',
-            marginBottom: 24,
-          }}
-        >
-          {/* Image upload */}
-          <div>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="ob-upload"
-              style={{
-                width: 72,
-                height: 72,
-                borderRadius: 'var(--radius)',
-                border: `2px dashed ${data.profileImagePreview ? SB_ORANGE : 'var(--line-2)'}`,
-                background: data.profileImagePreview ? 'transparent' : 'var(--surface-2)',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 5,
-                overflow: 'hidden',
-              }}
-            >
-              {data.profileImagePreview ? (
-                <img
-                  src={data.profileImagePreview}
-                  alt=""
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        <WizardShell wide={step === 3 || step === 4}>
+          <NeonProgressTracker step={screenNum} total={TOTAL_SCREENS_V2} progressPct={STEP_PROGRESS_V2[screenNum] ?? 0} />
+          {step === 1 && (
+            <Screen2Experience data={data} update={update} errors={errs} onPickImage={() => fileInputRef.current?.click()} academicSlot={academicSlot} />
+          )}
+          {step === 2 && <Screen3SubjectsStyle data={data} update={update} errors={errs} />}
+          {step === 3 && (
+            <Screen4Availability
+              error={errs.weeklyTimeBlocks}
+              removedNotice={removedBlocksNotice}
+              syncCard={
+                <GoogleCalendarCard
+                  status={gcalStatus}
+                  lastSynced={gcalLastSynced}
+                  busyCount={gcalBusyCount}
+                  onConnect={handleGCalConnect}
+                  onDisconnect={handleGCalDisconnect}
+                  onManual={handleGCalManual}
+                  onSync={handleGCalSyncNow}
+                  errorHint={gcalConnectError ?? undefined}
                 />
-              ) : (
-                <>
-                  <Upload size={16} style={{ color: 'var(--text-3)' }} />
-                  <span style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 600, lineHeight: 1 }}>תמונה</span>
-                </>
-              )}
-            </button>
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
-          </div>
-
-          {/* Name */}
-          <div>
-            <SectionLabel>שם מלא</SectionLabel>
-            <input
-              type="text"
-              placeholder="השם שלך כפי שיופיע לתלמידים..."
-              value={data.fullName}
-              onChange={(e) => update({ fullName: e.target.value })}
-              autoFocus
-              className="ob-input"
-              style={inputStyle}
+              }
+              grid={<TeacherAvailabilityCalendar selectedBlocks={data.weeklyTimeBlocks} busyBlocks={busyBlocks} onChange={updateTimeBlocks} />}
             />
-            <FieldError message={errors.fullName} />
-          </div>
-        </div>
-
-        <Divider />
-
-        {/* Professional status */}
-        <div>
-          <SectionLabel>מעמד מקצועי</SectionLabel>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {PROFESSIONAL_STATUS_OPTIONS.map((opt) => (
-              <SelectableChip
-                key={opt.value}
-                label={opt.label}
-                selected={data.professionalStatus === opt.value}
-                onClick={() => update({ professionalStatus: opt.value as ProfessionalStatus })}
-              />
-            ))}
-          </div>
-          <FieldError message={errors.professionalStatus} />
-        </div>
-
-        {/* Hint */}
-        {data.professionalStatus && (
-          <div
-            style={{
-              marginTop: 14,
-              padding: '10px 12px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--line)',
-              background: 'rgba(255,255,255,0.025)',
-              fontSize: 13,
-              color: 'var(--text-2)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-            }}
-          >
-            {isAcademicPath(data.professionalStatus) ? (
-              <GraduationCap size={14} style={{ color: SB_ORANGE, flexShrink: 0 }} />
-            ) : (
-              <Briefcase size={14} style={{ color: SB_ORANGE, flexShrink: 0 }} />
-            )}
-            בשלב הבא נמלא את הרקע האקדמי / המקצועי שלך.
-          </div>
-        )}
-
-        <NavButtons hideBack onNext={next} />
-      </OnboardingShell>
+          )}
+          {step === 4 && <Screen5Operations data={data} update={update} errors={errs} />}
+          {step === 5 && <Screen6Pricing data={data} update={update} errors={errs} />}
+          {step === 6 && <Screen7Verifications data={data} update={update} errors={errs} />}
+          {step === 7 && <Screen8Preview data={data} onActivate={activateProfile} completionError={completionError} />}
+          {step !== 7 && (
+            <TowNavButtons
+              onBack={step === 1 ? undefined : back}
+              onNext={next}
+              hideBack={step === 1}
+              nextLabel={step === 6 ? 'לתצוגה מקדימה' : 'המשך'}
+              nextEnglish={step === 6 ? 'Preview' : 'Continue'}
+            />
+          )}
+        </WizardShell>
+        <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={onImageChange} />
       </>
     );
   }
 
-  // ── STEP 2: Background ───────────────────────────────────────────────────────
-  if (step === 2) {
-    const academic = isAcademicPath(data.professionalStatus);
-    const errors = stepErrors[2] ?? {};
-
-    return (
-      <OnboardingShell>
-        <TeacherOnboardingProgress step={2} totalContentSteps={6} progressPct={STEP_PROGRESS[2]} />
-        <StepHeader
-          title={academic ? 'רקע אקדמי' : 'ניסיון ומומחיות'}
-          subtitle={academic ? 'מוסד, תחום לימוד ושנה — נבנה ממנו את כרטיס הפרופיל שלך.' : 'הניסיון שלך בשטח הוא הכרטיס הביקור שלך.'}
-        />
-
-        {academic ? (
-          <div style={{ display: 'grid', gap: 18 }}>
-            <AcademicRepositoryAutocomplete
-              label="מוסד לימודים"
-              placeholder="חיפוש מוסד בעברית או באנגלית..."
-              items={academicInstitutions}
-              selectedName={data.academicInstitutionName}
-              selectedCategory={data.academicInstitutionCategory}
-              pendingName={data.academicInstitutionRequestName}
-              error={errors.institution}
-              requestError={repositoryRequestErrors.institution}
-              requestDisabled={!session?.access_token}
-              onSelect={(item) => update({
-                institution: '',
-                academicInstitutionId: item.id,
-                academicInstitutionName: item.name,
-                academicInstitutionCategory: item.category,
-                academicInstitutionRequestId: null,
-                academicInstitutionRequestName: '',
-              })}
-              onRequestAdd={(name) => requestAcademicRepositoryValue('institution', name)}
-            />
-            <AcademicRepositoryAutocomplete
-              label="תחום לימוד / תואר"
-              placeholder="חיפוש תחום לימוד בעברית או באנגלית..."
-              items={academicFields}
-              selectedName={data.academicFieldName}
-              selectedCategory={data.academicFieldCategory}
-              pendingName={data.academicFieldRequestName}
-              error={errors.degree}
-              requestError={repositoryRequestErrors.field}
-              requestDisabled={!session?.access_token}
-              onSelect={(item) => update({
-                degree: '',
-                academicFieldId: item.id,
-                academicFieldName: item.name,
-                academicFieldCategory: item.category,
-                academicFieldRequestId: null,
-                academicFieldRequestName: '',
-              })}
-              onRequestAdd={(name) => requestAcademicRepositoryValue('field', name)}
-            />
-            <div>
-              <SectionLabel>שנת לימוד</SectionLabel>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {ACADEMIC_YEAR_OPTIONS.map((yr) => (
-                  <SelectableChip
-                    key={yr}
-                    label={yr}
-                    selected={data.academicYear === yr}
-                    onClick={() => update({ academicYear: yr })}
-                    small
-                  />
-                ))}
-              </div>
-              <FieldError message={errors.academicYear} />
-            </div>
-            <div>
-              <SectionLabel>קורסים בהצטיינות (אופציונלי)</SectionLabel>
-              <textarea
-                placeholder='לדוגמה: חשבון אינפינטסימלי א — 98, אלגברה לינארית — 95...'
-                value={data.excellentCourses}
-                onChange={(e) => update({ excellentCourses: e.target.value })}
-                rows={3}
-                className="ob-input"
-                style={{ ...inputStyle, resize: 'vertical' } as React.CSSProperties}
-              />
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gap: 18 }}>
-            <div>
-              <SectionLabel>שנות ניסיון</SectionLabel>
-              <input
-                type="number"
-                placeholder='מספר שנות הניסיון הרלוונטי...'
-                value={data.yearsOfExperience}
-                onChange={(e) => update({ yearsOfExperience: e.target.value })}
-                min={0}
-                className="ob-input"
-                style={inputStyle}
-              />
-              <FieldError message={errors.yearsOfExperience} />
-            </div>
-            <div>
-              <SectionLabel>תחומי מומחיות</SectionLabel>
-              <input
-                type="text"
-                placeholder='לדוגמה: פיתוח תוכנה, אלגוריתמים, Data Science...'
-                value={data.expertiseAreas}
-                onChange={(e) => update({ expertiseAreas: e.target.value })}
-                className="ob-input"
-                style={inputStyle}
-              />
-              <FieldError message={errors.expertiseAreas} />
-            </div>
-            <div>
-              <SectionLabel>העלאת תעודות / אישורים (אופציונלי)</SectionLabel>
-              <div
-                className="ob-upload"
-                style={{
-                  border: '2px dashed var(--line-2)',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '20px',
-                  textAlign: 'center',
-                  color: 'var(--text-3)',
-                  fontSize: 13,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-              >
-                <Upload size={18} />
-                <span>גרור/י קובץ לכאן או לחץ/י לבחירה</span>
-                <span style={{ fontSize: 11, opacity: 0.6 }}>PDF, JPG, PNG — עד 5MB</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <NavButtons onBack={back} onNext={next} />
-      </OnboardingShell>
-    );
-  }
-
-  // ── STEP 3: Subjects, Levels & Style ─────────────────────────────────────────
-  if (step === 3) {
-    const availableSubjects = data.teachingLevels.flatMap((lvl) => SUBJECTS_BY_LEVEL[lvl]);
-    const uniqueSubjects = [...new Set(availableSubjects)];
-    const errors = stepErrors[3] ?? {};
-
-    function toggleLevel(lvl: typeof TEACHING_LEVELS[number]['value']) {
-      const next = data.teachingLevels.includes(lvl)
-        ? data.teachingLevels.filter((l) => l !== lvl)
-        : [...data.teachingLevels, lvl];
-      update({
-        teachingLevels: next,
-        selectedSubjects: data.selectedSubjects.filter((s) =>
-          [...new Set(next.flatMap((l) => SUBJECTS_BY_LEVEL[l]))].includes(s)
-        ),
-      });
-    }
-
-    return (
-      <OnboardingShell>
-        <TeacherOnboardingProgress step={3} totalContentSteps={6} progressPct={STEP_PROGRESS[3]} />
-        <StepHeader
-          title="מקצועות, רמות וסגנון"
-          subtitle="הגדר/י את פרופיל ההוראה — זה מה שיתאים בינך לתלמידים."
-        />
-
-        {/* Levels — responsive 4→2 col */}
-        <div style={{ marginBottom: 22 }}>
-          <SectionLabel>רמות הוראה</SectionLabel>
-          <div className="ob-level-grid">
-            {TEACHING_LEVELS.map((lvl) => (
-              <SelectableCard
-                key={lvl.value}
-                label={lvl.label}
-                selected={data.teachingLevels.includes(lvl.value)}
-                onClick={() => toggleLevel(lvl.value)}
-                fullWidth
-              />
-            ))}
-          </div>
-          <FieldError message={errors.teachingLevels} />
-        </div>
-
-        {/* Subjects */}
-        {data.teachingLevels.length === 0 ? (
-          <div
-            style={{
-              marginBottom: 22,
-              padding: '16px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px dashed var(--line-2)',
-              color: 'var(--text-3)',
-              fontSize: 13,
-              fontWeight: 500,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-            }}
-          >
-            <BookOpen size={14} style={{ flexShrink: 0, opacity: 0.5 }} />
-            בחר/י רמת הוראה כדי לראות מקצועות זמינים
-          </div>
-        ) : (
-          <div style={{ marginBottom: 22 }}>
-            <SectionLabel>מקצועות <span style={{ color: SB_ORANGE }}>({data.selectedSubjects.length} נבחרו)</span></SectionLabel>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-              {uniqueSubjects.map((s) => (
-                <SelectableChip
-                  key={s}
-                  label={s}
-                  selected={data.selectedSubjects.includes(s)}
-                  onClick={() => update({ selectedSubjects: toggleItem(data.selectedSubjects, s) })}
-                  small
-                />
-              ))}
-            </div>
-            <FieldError message={errors.selectedSubjects} />
-          </div>
-        )}
-        {data.teachingLevels.length === 0 && <FieldError message={errors.selectedSubjects} />}
-
-        {/* Selected subjects preview */}
-        {data.selectedSubjects.length > 0 && (
-          <div
-            style={{
-              marginBottom: 22,
-              padding: '12px 14px',
-              borderRadius: 'var(--radius-sm)',
-              border: `1px solid rgba(249,115,22,0.2)`,
-              background: SB_ORANGE_SOFT,
-            }}
-          >
-            <div style={{ fontSize: 11, fontWeight: 700, color: SB_ORANGE, marginBottom: 8, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              נבחרו
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {data.selectedSubjects.map((s) => (
-                <span
-                  key={s}
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    padding: '4px 10px',
-                    borderRadius: 999,
-                    background: SB_ORANGE,
-                    color: '#fff',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 5,
-                  }}
-                >
-                  {s}
-                  <button
-                    type="button"
-                    onClick={() => update({ selectedSubjects: data.selectedSubjects.filter((x) => x !== s) })}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                      cursor: 'pointer',
-                      color: 'rgba(255,255,255,0.75)',
-                      lineHeight: 1,
-                      fontSize: 14,
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <Divider />
-
-        {/* Teaching styles */}
-        <div>
-          <SectionLabel>סגנון הוראה</SectionLabel>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {TEACHING_STYLES.map((style) => (
-              <SelectableChip
-                key={style.value}
-                label={style.label}
-                selected={data.teachingStyles.includes(style.value)}
-                onClick={() => update({ teachingStyles: toggleItem(data.teachingStyles, style.value) })}
-                small
-              />
-            ))}
-          </div>
-        </div>
-
-        <NavButtons onBack={back} onNext={next} />
-      </OnboardingShell>
-    );
-  }
-
-  // ── STEP 4: Teaching Operations Engine ───────────────────────────────────────
-  if (step === 4) {
-    const errors = stepErrors[4] ?? {};
-    const weeklyCapacity =
-      data.maxActiveStudents !== null && data.weeklyTeachingHours !== null
-        ? `${data.maxActiveStudents} תלמידים · ${data.weeklyTeachingHours} שעות/שבוע`
-        : null;
-
-    const feedbackLines = [
-      weeklyCapacity ? `קיבולת: ${weeklyCapacity}` : null,
-      data.bookingApproval
-        ? `הזמנות: ${data.bookingApproval === 'automatic' ? 'אישור אוטומטי' : `ידני, SLA ${data.slaHours ?? '—'} שעות`}`
-        : null,
-      data.emergencyAvailability
-        ? `חירום: ${EMERGENCY_AVAILABILITY_OPTIONS.find((o) => o.value === data.emergencyAvailability)?.label ?? ''}`
-        : null,
-      data.weeklyTimeBlocks.length > 0
-        ? `זמינות: ${data.weeklyTimeBlocks.length} בלוקים (${data.weeklyAvailability.join(', ')})`
-        : null,
-    ].filter(Boolean) as string[];
-
-    return (
-      <OnboardingShell wide>
-        <TeacherOnboardingProgress step={4} totalContentSteps={6} progressPct={STEP_PROGRESS[4]} />
-        <StepHeader
-          title="מנוע ההוראה שלך"
-          subtitle="הגדר/י את ההיגיון התפעולי המלא — זמינות, קיבולת, חוקי הזמנה, מחויבות."
-        />
-
-        <div style={{ display: 'grid', gap: 14 }}>
-          {/* 1. Availability */}
-          <OpsSection title="מנוע זמינות" icon={<Calendar size={14} />} color="var(--blue)">
-            {/* Google Calendar card */}
-            <div style={{ marginBottom: 16 }}>
-              <SectionLabel>סנכרון יומן</SectionLabel>
-              <GoogleCalendarCard
-                status={gcalStatus}
-                lastSynced={gcalLastSynced}
-                busyCount={gcalBusyCount}
-                onConnect={handleGCalConnect}
-                onDisconnect={handleGCalDisconnect}
-                onManual={handleGCalManual}
-                onSync={handleGCalSyncNow}
-                errorHint={gcalConnectError ?? undefined}
-              />
-            </div>
-
-            {/* Weekly calendar grid */}
-            <div>
-              <SectionLabel>זמינות שבועית קבועה</SectionLabel>
-              <TeacherAvailabilityCalendar
-                selectedBlocks={data.weeklyTimeBlocks}
-                busyBlocks={busyBlocks}
-                onChange={updateTimeBlocks}
-              />
-              {removedBlocksNotice && (
-                <div style={{ marginTop: 8, fontSize: 11, color: 'var(--coral)', fontWeight: 600 }}>
-                  חלק מהשעות הוסרו כי הן תפוסות ביומן Google
-                </div>
-              )}
-              <FieldError message={errors.weeklyTimeBlocks} />
-            </div>
-
-            {/* Quick presets */}
-            <div style={{ marginTop: 12 }}>
-              <SectionLabel>פרסטים מהירים</SectionLabel>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {[
-                  { label: 'כל ימי חול', days: ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי'] as const },
-                  { label: 'ימי שישי', days: ['שישי'] as const },
-                  { label: 'ערבים בלבד (א–ה)', days: ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי'] as const, blocks: ['evening'] as const },
-                ].map(preset => (
-                  <button key={preset.label} type="button" onClick={() => {
-                    if ('blocks' in preset && preset.blocks) {
-                      const newKeys = preset.days.flatMap(d => preset.blocks!.map(b => makeBlockKey(d as typeof AVAIL_DAYS[number], b as 'morning' | 'afternoon' | 'evening')));
-                      updateTimeBlocks([...new Set([...data.weeklyTimeBlocks, ...newKeys])]);
-                    } else {
-                      const newKeys = preset.days.flatMap(d => (['morning', 'afternoon', 'evening'] as const).map(b => makeBlockKey(d as typeof AVAIL_DAYS[number], b)));
-                      updateTimeBlocks([...new Set([...data.weeklyTimeBlocks, ...newKeys])]);
-                    }
-                  }} className="ob-chip" style={{ padding: '5px 12px', borderRadius: 999, border: '1px solid var(--line-2)', background: 'transparent', color: 'var(--text-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <Zap size={10} style={{ color: SB_ORANGE }} />
-                    {preset.label}
-                  </button>
-                ))}
-                {data.weeklyTimeBlocks.length > 0 && (
-                  <button type="button" onClick={() => updateTimeBlocks([])} className="ob-chip" style={{ padding: '5px 12px', borderRadius: 999, border: '1px solid var(--line-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                    נקה הכל
-                  </button>
-                )}
-              </div>
-            </div>
-          </OpsSection>
-
-          {/* 2. Capacity */}
-          <OpsSection title="מנוע קיבולת" icon={<Users size={14} />} color="var(--purple)">
-            <div style={{ marginBottom: 14 }}>
-              <SectionLabel>תלמידים פעילים (מקסימום)</SectionLabel>
-              <NumberChipRow
-                options={MAX_STUDENTS_OPTIONS}
-                selected={data.maxActiveStudents}
-                onSelect={(v) => update({ maxActiveStudents: v })}
-                suffix=" תלמידים"
-              />
-              <FieldError message={errors.maxActiveStudents} />
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <SectionLabel>שעות שבועיות (מקסימום)</SectionLabel>
-              <NumberChipRow
-                options={WEEKLY_HOURS_OPTIONS}
-                selected={data.weeklyTeachingHours}
-                onSelect={(v) => update({ weeklyTeachingHours: v })}
-                suffix=" ש׳"
-              />
-              <FieldError message={errors.weeklyTeachingHours} />
-            </div>
-            <OpsToggle
-              label="עצור קבלת תלמידים חדשים אוטומטית בהגעה לקיבולת"
-              checked={data.autoStopMatching}
-              onChange={(v) => update({ autoStopMatching: v })}
-            />
-          </OpsSection>
-
-          {/* 3. Booking Rules */}
-          <OpsSection title="חוקי הזמנה" icon={<BookOpen size={14} />} color="var(--gold)">
-            <div style={{ marginBottom: 14 }}>
-              <SectionLabel>אישור הזמנות</SectionLabel>
-              <div className="ob-ops-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <SelectableCard
-                  icon={<Zap size={15} />}
-                  label="אישור אוטומטי"
-                  description="הזמנות מאושרות מיד"
-                  selected={data.bookingApproval === 'automatic'}
-                  onClick={() => update({ bookingApproval: 'automatic' })}
-                />
-                <SelectableCard
-                  icon={<Check size={15} />}
-                  label="אישור ידני"
-                  description="אתה/את מאשר/ת כל הזמנה"
-                  selected={data.bookingApproval === 'manual'}
-                  onClick={() => update({ bookingApproval: 'manual' })}
-                />
-              </div>
-              <FieldError message={errors.bookingApproval} />
-            </div>
-            {data.bookingApproval === 'manual' && (
-              <>
-                <div style={{ marginBottom: 14 }}>
-                  <SectionLabel>SLA — זמן תגובה מקסימלי</SectionLabel>
-                  <NumberChipRow
-                    options={SLA_HOURS_OPTIONS}
-                    selected={data.slaHours}
-                    onSelect={(v) => update({ slaHours: v })}
-                    suffix=" שעות"
-                  />
-                  <FieldError message={errors.slaHours} />
-                </div>
-                <div>
-                  <SectionLabel>פעולה אוטומטית לאחר SLA</SectionLabel>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {[
-                      { value: 'approve' as const, label: 'אשר אוטומטית' },
-                      { value: 'decline' as const, label: 'דחה אוטומטית' },
-                    ].map((opt) => (
-                      <SelectableChip
-                        key={opt.value}
-                        label={opt.label}
-                        selected={data.slaAutoAction === opt.value}
-                        onClick={() => update({ slaAutoAction: opt.value })}
-                        small
-                      />
-                    ))}
-                  </div>
-                  <FieldError message={errors.slaAutoAction} />
-                </div>
-              </>
-            )}
-          </OpsSection>
-
-          {/* 4. Commitment */}
-          <OpsSection title="העדפות מחויבות" icon={<Award size={14} />} color="var(--lime)">
-            <div className="ob-ops-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {COMMITMENT_TYPES.map((ct) => (
-                <SelectableCard
-                  key={ct.value}
-                  label={ct.label}
-                  selected={data.commitmentTypes.includes(ct.value)}
-                  onClick={() => update({ commitmentTypes: toggleItem(data.commitmentTypes, ct.value) })}
-                />
-              ))}
-            </div>
-            <FieldError message={errors.commitmentTypes} />
-            {data.commitmentTypes.includes('exam_marathons') && (
-              <div style={{ marginTop: 14 }}>
-                <SectionLabel>מספר שיעורים למרתון</SectionLabel>
-                <NumberChipRow
-                  options={MARATHON_SESSION_OPTIONS}
-                  selected={data.marathonSessionCount}
-                  onSelect={(v) => update({ marathonSessionCount: v })}
-                  suffix=" שיעורים"
-                />
-                <FieldError message={errors.marathonSessionCount} />
-              </div>
-            )}
-          </OpsSection>
-
-          {/* 5. Emergency */}
-          <OpsSection title="שיעורי חירום" icon={<Zap size={14} />} color="var(--coral)">
-            <SectionLabel>זמינות לשיעורים דחופים (תוך 24 שעות)</SectionLabel>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {EMERGENCY_AVAILABILITY_OPTIONS.map((opt) => (
-                <SelectableChip
-                  key={opt.value}
-                  label={opt.label}
-                  selected={data.emergencyAvailability === opt.value}
-                  onClick={() => update({ emergencyAvailability: opt.value })}
-                />
-              ))}
-            </div>
-            <FieldError message={errors.emergencyAvailability} />
-          </OpsSection>
-
-          {/* 6. Realtime feedback */}
-          <div
-            style={{
-              border: `2px solid rgba(249,115,22,0.28)`,
-              borderRadius: 'var(--radius)',
-              padding: '16px 20px',
-              background:
-                'linear-gradient(135deg, rgba(249,115,22,0.1) 0%, rgba(249,115,22,0.04) 100%)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: feedbackLines.length ? 12 : 0 }}>
-              <BarChart2 size={14} style={{ color: SB_ORANGE }} />
-              <span style={{ fontSize: 12, fontWeight: 800, color: SB_ORANGE, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                סיכום תפעולי
-              </span>
-            </div>
-            {feedbackLines.length === 0 ? (
-              <p style={{ margin: 0, fontSize: 13, color: 'var(--text-3)', fontStyle: 'italic' }}>
-                מלא/י את הפרטים למעלה לצפייה בסיכום
-              </p>
-            ) : (
-              <div style={{ display: 'grid', gap: 6 }}>
-                {feedbackLines.map((line) => (
-                  <div key={line} style={{ fontSize: 13, color: 'var(--text)', display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <Check size={12} style={{ color: SB_ORANGE, flexShrink: 0 }} />
-                    {line}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <NavButtons onBack={back} onNext={next} />
-      </OnboardingShell>
-    );
-  }
-
-  // ── STEP 5: Pricing & Legal ───────────────────────────────────────────────────
-  if (step === 5) {
-    const allRequiredChecked = data.legalTax && data.legalContractor && data.legalMinors && data.legalCommunity;
-    const rateNum = parseFloat(data.hourlyRate);
-    const errors = stepErrors[5] ?? {};
-
-    return (
-      <OnboardingShell>
-        <TeacherOnboardingProgress step={5} totalContentSteps={6} progressPct={STEP_PROGRESS[5]} />
-        <StepHeader
-          title="תמחור וחוקיות"
-          subtitle="הגדר/י מחיר ואשר/י את ההצהרות הנדרשות כדי להמשיך."
-        />
-
-        {/* Pricing */}
-        <div style={{ marginBottom: 24 }}>
-          <SectionLabel>מחיר שעת שיעור</SectionLabel>
-          <div style={{ position: 'relative', marginBottom: 16 }}>
-            <span
-              style={{
-                position: 'absolute',
-                right: 12,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--text-3)',
-                pointerEvents: 'none',
-                display: 'flex',
-              }}
-            >
-              <DollarSign size={15} />
-            </span>
-            <input
-              type="number"
-              placeholder="לדוגמה: 120"
-              value={data.hourlyRate}
-              onChange={(e) => update({ hourlyRate: e.target.value })}
-              min={0}
-              className="ob-input"
-              style={{ ...inputStyle, paddingRight: 36 }}
-            />
-            <FieldError message={errors.hourlyRate} />
-          </div>
-
-          {data.hourlyRate && !isNaN(rateNum) && (
-            <>
-              <SectionLabel>תמחור שיעור מבוא</SectionLabel>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
-                {INTRO_PRICING_OPTIONS.map((opt) => (
-                  <SelectableCard
-                    key={opt.value}
-                    label={opt.label}
-                    description={
-                      opt.value === 'half_price'
-                        ? `₪${(rateNum / 2).toFixed(0)}`
-                        : opt.value === 'twenty_percent'
-                        ? `₪${(rateNum * 0.8).toFixed(0)}`
-                        : `₪${data.hourlyRate}`
-                    }
-                    selected={data.introSessionPricing === opt.value}
-                    onClick={() => update({ introSessionPricing: opt.value })}
-                  />
-                ))}
-              </div>
-              <FieldError message={errors.introSessionPricing} />
-            </>
-          )}
-          {!data.hourlyRate && <FieldError message={errors.introSessionPricing} />}
-        </div>
-
-        <Divider />
-
-        {/* Legal checkboxes */}
-        <div
-          style={{
-            border: '2px solid var(--line-2)',
-            borderRadius: 'var(--radius)',
-            overflow: 'hidden',
-            boxShadow: '3px 3px 0 rgba(0,0,0,0.22)',
-          }}
-        >
-          {/* Header */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '14px 18px',
-              background: 'rgba(255,255,255,0.03)',
-              borderBottom: '1px solid var(--line)',
-            }}
-          >
-            <Shield size={15} style={{ color: 'var(--lime)', flexShrink: 0 }} />
-            <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', fontFamily: 'var(--font-display)' }}>
-              הצהרות חובה
-            </span>
-            <span
-              style={{
-                marginRight: 'auto',
-                fontSize: 11,
-                fontWeight: 700,
-                color: allRequiredChecked ? 'var(--lime)' : 'var(--text-3)',
-                fontFamily: 'var(--font-mono)',
-                transition: 'color 0.2s ease',
-              }}
-            >
-              {[data.legalTax, data.legalContractor, data.legalMinors, data.legalCommunity].filter(Boolean).length}/4
-            </span>
-          </div>
-
-          <div style={{ padding: '14px 18px', display: 'grid', gap: 12 }}>
-            {[
-              { key: 'legalTax' as const, label: 'אני מבין/ה את האחריות הפיננסית שלי ואת חובות הדיווח לרשויות המס.' },
-              { key: 'legalContractor' as const, label: 'אני פועל/ת כקבלן/ית עצמאי/ת ולא כשכיר/ה של StudyBuddy.' },
-              { key: 'legalMinors' as const, label: 'קראתי ומאשר/ת את הצהרת הבטיחות לקטינים.' },
-              { key: 'legalCommunity' as const, label: 'אני מתחייב/ת לעמוד בתקנון הקהילה של StudyBuddy.' },
-            ].map((item) => (
-              <label
-                key={item.key}
-                className="ob-legal-row"
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 12,
-                  cursor: 'pointer',
-                }}
-                onClick={() => update({ [item.key]: !data[item.key] })}
-              >
-                <div
-                  style={{
-                    flexShrink: 0,
-                    width: 20,
-                    height: 20,
-                    borderRadius: 6,
-                    border: `2px solid ${data[item.key] ? SB_ORANGE : 'var(--line-2)'}`,
-                    background: data[item.key] ? SB_ORANGE : 'transparent',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginTop: 1,
-                    transition: 'all 0.18s ease',
-                  } as React.CSSProperties}
-                >
-                  {data[item.key] && (
-                    <span className="ob-check-pop" style={{ display: 'flex' }}>
-                      <Check size={11} color="#fff" />
-                    </span>
-                  )}
-                </div>
-                <span
-                  style={{
-                    fontSize: 13,
-                    color: data[item.key] ? 'var(--text)' : 'var(--text-2)',
-                    lineHeight: 1.55,
-                    fontWeight: data[item.key] ? 600 : 500,
-                    transition: 'color 0.15s ease',
-                  }}
-                >
-                  {item.label}
-                </span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Optional background check */}
-        <div
-          style={{
-            marginTop: 14,
-            border: '1px dashed var(--line-2)',
-            borderRadius: 'var(--radius-sm)',
-            padding: '14px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-          }}
-        >
-          <FileText size={16} style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>אישור היעדר עבירות מין</div>
-            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
-              אופציונלי — מגביר משמעותית את אמון התלמידים
-            </div>
-          </div>
-          <button
-            type="button"
-            className="ob-chip"
-            style={{
-              marginRight: 'auto',
-              padding: '6px 12px',
-              borderRadius: 999,
-              border: '1px solid var(--line-2)',
-              background: 'transparent',
-              color: 'var(--text-3)',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
-          >
-            העלה
-          </button>
-        </div>
-
-        {!allRequiredChecked && (
-          <div
-            style={{
-              marginTop: 12,
-              fontSize: 13,
-              color: 'var(--coral)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            <Shield size={12} />
-            יש לאשר את כל ארבע ההצהרות להמשך
-          </div>
-        )}
-        <FieldError message={errors.legal} />
-
-        <NavButtons
-          onBack={back}
-          onNext={next}
-          nextLabel="המשך לתצוגה מקדימה"
-        />
-      </OnboardingShell>
-    );
-  }
-
-  // ── STEP 6: Preview ───────────────────────────────────────────────────────────
-  if (step === 6) {
-    return (
-      <OnboardingShell>
-        <TeacherOnboardingProgress step={6} totalContentSteps={6} progressPct={STEP_PROGRESS[6]} />
-        <StepHeader
-          title="כך תיראה הכרטיסייה שלך"
-          subtitle="זה מה שתלמידים יראו. ודא/י שהכל נכון לפני ההפעלה."
-        />
-
-        {completionError && (
-          <div
-            style={{
-              marginBottom: 16,
-              padding: '12px 16px',
-              borderRadius: 'var(--radius-sm)',
-              border: '2px solid #ef4444',
-              background: 'rgba(239,68,68,0.08)',
-              color: '#ef4444',
-              fontSize: 13,
-              fontWeight: 600,
-              direction: 'rtl',
-            }}
-          >
-            {completionError}
-          </div>
-        )}
-
-        <TeacherPreviewCard data={data} />
-
-        <NavButtons
-          onBack={back}
-          onNext={activateProfile}
-          nextLabel="סיימתי — אפשר להתחיל לקבל תלמידים"
-        />
-      </OnboardingShell>
-    );
-  }
-
-  // ── STEP 7: Loading ───────────────────────────────────────────────────────────
-  if (step === 7) {
-    return (
-      <div
-        dir="rtl"
-        lang="he"
-        style={{
-          minHeight: '100dvh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'var(--bg)',
-          padding: 24,
-        }}
-      >
-        <div
-          className="ob-step-enter"
-          style={{
-            width: '100%',
-            maxWidth: 440,
-            overflow: 'hidden',
-            borderRadius: 'var(--radius-lg)',
-            border: `2px solid rgba(249,115,22,0.45)`,
-            background: 'var(--surface)',
-            boxShadow: `5px 5px 0 rgba(249,115,22,0.22), 0 24px 60px -32px rgba(0,0,0,0.7)`,
-          }}
-        >
-          {/* Top stripe */}
-          <div
-            style={{
-              height: 4,
-              background: `linear-gradient(90deg, ${SB_ORANGE}, #fb923c, rgba(249,115,22,0.3))`,
-            }}
-          />
-
-          <div style={{ padding: '32px 28px 28px', textAlign: 'center' }}>
-            {/* Spinner */}
-            <div style={{ marginBottom: 20, color: SB_ORANGE, display: 'flex', justifyContent: 'center' }}>
-              <Loader2 size={40} className="animate-spin" />
-            </div>
-
-            <h2
-              style={{
-                margin: '0 0 6px',
-                fontSize: 20,
-                fontWeight: 800,
-                color: 'var(--text)',
-                fontFamily: 'var(--font-display)',
-                letterSpacing: '-0.02em',
-              }}
-            >
-              מפעילים את סביבת ההוראה שלך
-            </h2>
-
-            <p
-              style={{
-                margin: '0 0 22px',
-                fontSize: 13,
-                color: SB_ORANGE,
-                fontWeight: 700,
-                minHeight: 20,
-                fontFamily: 'var(--font-mono)',
-                letterSpacing: '0.01em',
-                transition: 'opacity 0.3s ease',
-              }}
-            >
-              {LOADING_MESSAGES[loadingMsgIdx]}
-            </p>
-
-            {/* Progress bar */}
-            <div
-              style={{
-                height: 6,
-                background: 'var(--line-2)',
-                borderRadius: 99,
-                overflow: 'hidden',
-                marginBottom: 20,
-              }}
-            >
-              <div
-                className="ob-progress-bar"
-                style={{
-                  width: `${Math.round(((loadingMsgIdx + 1) / LOADING_MESSAGES.length) * 100)}%`,
-                  height: '100%',
-                  background: `linear-gradient(90deg, ${SB_ORANGE}, #fb923c)`,
-                  borderRadius: 99,
-                  transition: 'width 0.7s cubic-bezier(0.2, 0.8, 0.2, 1)',
-                }}
-              />
-            </div>
-
-            {/* Step checklist */}
-            <div style={{ display: 'grid', gap: 8 }}>
-              {LOADING_MESSAGES.map((msg, i) => (
-                <div
-                  key={msg}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '9px 12px',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--line)',
-                    background: i <= loadingMsgIdx ? SB_ORANGE_SOFT : 'transparent',
-                    transition: 'all 0.35s ease',
-                    textAlign: 'right',
-                  }}
-                >
-                  <span style={{ color: i <= loadingMsgIdx ? SB_ORANGE : 'var(--text-3)', flexShrink: 0 }}>
-                    {i <= loadingMsgIdx ? (
-                      <Check size={13} />
-                    ) : (
-                      <div
-                        style={{
-                          width: 13,
-                          height: 13,
-                          borderRadius: '50%',
-                          border: '2px solid var(--line-2)',
-                        }}
-                      />
-                    )}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 13,
-                      color: i <= loadingMsgIdx ? 'var(--text)' : 'var(--text-3)',
-                      fontWeight: i <= loadingMsgIdx ? 600 : 500,
-                      transition: 'color 0.3s ease',
-                    }}
-                  >
-                    {msg}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── STEP 8: Success ───────────────────────────────────────────────────────────
-  // TODO: replace navigate('/dashboard') with the teacher-specific dashboard route once it exists
-  return (
-    <div
-      dir="rtl"
-      lang="he"
-      style={{
-        minHeight: '100dvh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--bg)',
-        padding: 24,
-      }}
-    >
-      <div
-        className="ob-step-enter"
-        style={{
-          width: '100%',
-          maxWidth: 440,
-          overflow: 'hidden',
-          borderRadius: 'var(--radius-lg)',
-          border: `2px solid rgba(249,115,22,0.45)`,
-          background: 'var(--surface)',
-          boxShadow: `5px 5px 0 rgba(249,115,22,0.22), 0 24px 60px -32px rgba(0,0,0,0.7)`,
-        }}
-      >
-        {/* Top stripe */}
-        <div
-          style={{
-            height: 4,
-            background: `linear-gradient(90deg, ${SB_ORANGE}, #fb923c, var(--lime))`,
-          }}
-        />
-
-        <div style={{ padding: '36px 28px 32px', textAlign: 'center' }}>
-          {/* Animated icon */}
-          <div
-            style={{
-              position: 'relative',
-              width: 68,
-              height: 68,
-              margin: '0 auto 22px',
-            }}
-          >
-            <div
-              className="ob-success-ring"
-              style={{
-                position: 'relative',
-                width: 68,
-                height: 68,
-                borderRadius: 'var(--radius)',
-                background: SB_ORANGE_SOFT,
-                border: `2px solid ${SB_ORANGE}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: `4px 4px 0 rgba(249,115,22,0.3)`,
-              }}
-            >
-              <CheckCircle2 size={34} style={{ color: SB_ORANGE }} />
-            </div>
-          </div>
-
-          <h1
-            style={{
-              margin: '0 0 10px',
-              fontSize: 24,
-              fontWeight: 900,
-              color: 'var(--text)',
-              fontFamily: 'var(--font-display)',
-              lineHeight: 1.15,
-              letterSpacing: '-0.025em',
-            }}
-          >
-            סביבת ההוראה שלך מוכנה
-          </h1>
-
-          <p
-            style={{
-              margin: '0 0 6px',
-              fontSize: 15,
-              color: 'var(--text-2)',
-              lineHeight: 1.6,
-              fontWeight: 500,
-            }}
-          >
-            הפרופיל שלך פעיל ומוכן לקבלת תלמידים.
-          </p>
-          <p style={{ margin: '0 0 26px', fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
-            {data.fullName ? `ברוך/ה הבא/ה, ${data.fullName}. ` : ''}מנוע ההתאמות כבר עובד בשבילך.
-          </p>
-
-          {/* Stats strip */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: 1,
-              marginBottom: 24,
-              borderRadius: 'var(--radius)',
-              overflow: 'hidden',
-              border: '1px solid var(--line-2)',
-            }}
-          >
-            {[
-              { label: 'מקצועות', value: data.selectedSubjects.length > 0 ? data.selectedSubjects.length : '—' },
-              { label: 'תלמידים', value: data.maxActiveStudents ? `עד ${data.maxActiveStudents}` : '—' },
-              { label: '₪ / שעה', value: data.hourlyRate || '—' },
-            ].map((stat, i) => (
-              <div
-                key={stat.label}
-                style={{
-                  padding: '12px 8px',
-                  background: i === 1 ? 'rgba(249,115,22,0.08)' : 'var(--surface-2)',
-                  borderLeft: i > 0 ? '1px solid var(--line-2)' : 'none',
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 18,
-                    fontWeight: 900,
-                    color: SB_ORANGE,
-                    fontFamily: 'var(--font-mono)',
-                    letterSpacing: '-0.02em',
-                  }}
-                >
-                  {stat.value}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2, fontWeight: 500 }}>
-                  {stat.label}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* CTA */}
-          <button
-            type="button"
-            onClick={() => navigate(nextRoute)}
-            className="ob-btn-next"
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 10,
-              padding: '15px 24px',
-              borderRadius: 'var(--radius)',
-              border: `2px solid ${SB_ORANGE}`,
-              background: SB_ORANGE,
-              color: '#fff',
-              fontSize: 16,
-              fontWeight: 800,
-              cursor: 'pointer',
-              fontFamily: 'var(--font-display)',
-              letterSpacing: '-0.015em',
-              boxShadow: `4px 4px 0 rgba(249,115,22,0.3)`,
-              marginBottom: 12,
-            }}
-          >
-            כניסה לדשבורד
-            <ArrowRight size={17} />
-          </button>
-
-          <div
-            style={{
-              fontSize: 12,
-              color: 'var(--text-3)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 5,
-            }}
-          >
-            <ShieldCheck size={12} />
-            הפרופיל עמד בכל בדיקות האימות
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 }

@@ -6,7 +6,7 @@ import { AuthCallbackRoute } from '../routes/AuthCallbackRoute';
 import { DashboardPlaceholderRoute } from '../routes/DashboardPlaceholderRoute';
 import { LoginRoute } from '../routes/LoginRoute';
 import { NotFoundRoute } from '../routes/NotFoundRoute';
-import { SignupRoute } from '../routes/SignupRoute';
+
 import { MainLandingRoute } from '../routes/landing/MainLandingRoute';
 import { SafePlaceholderRoute } from '../routes/landing/SafePlaceholderRoute';
 import { TeachersLandingRoute } from '../routes/landing/TeachersLandingRoute';
@@ -35,7 +35,6 @@ export function App() {
         <Route path="/onboarding/booking" element={<BookingRequestPage />} />
         <Route path="/onboarding/confirmation" element={<BookingConfirmationPage />} />
         <Route path="/login" element={<LoginRoute />} />
-        <Route path="/signup" element={<SignupRoute />} />
         <Route path="/auth/callback" element={<AuthCallbackRoute />} />
         <Route
           path="/dashboard"
