@@ -11,6 +11,7 @@ import type { SaveOnboardingBody, CompleteOnboardingBody } from './teacherOnboar
 import type { OnboardingDraftRow } from './teacherOnboarding.types.js';
 import {
   getOnboardingDraftByUserId,
+  getTeacherProfileVerification,
   upsertOnboardingDraft,
   upsertTeacherProfile,
   updateUserFullName,
@@ -87,9 +88,10 @@ async function validateAcademicRepositoryRefs(
 
 // ── Response shape — matches OnboardingStateRemote on the frontend ─────────────
 
-function toRemote(row: OnboardingDraftRow, teacherProfileId: string) {
+function toRemote(row: OnboardingDraftRow, teacherProfileId: string, isVerified: boolean) {
   return {
     teacherProfileId,
+    isVerified,
     fullName: row.fullName ?? '',
     hourlyRate: row.hourlyRate ?? 0,
     professionalStatus: row.professionalStatus,
@@ -115,7 +117,8 @@ export async function getMyOnboarding(currentUser: LocalUser) {
   const row = await getOnboardingDraftByUserId(currentUser.id);
   if (!row) return null;
 
-  return toRemote(row, '');
+  const profile = await getTeacherProfileVerification(currentUser.id);
+  return toRemote(row, profile?.id ?? '', profile?.isVerified ?? false);
 }
 
 // ── PUT /api/teachers/me/onboarding ──────────────────────────────────────────
@@ -142,7 +145,8 @@ export async function saveMyOnboarding(
     draftData: body.draft ?? null,
   });
 
-  return toRemote(row, '');
+  const profile = await getTeacherProfileVerification(currentUser.id);
+  return toRemote(row, profile?.id ?? '', profile?.isVerified ?? false);
 }
 
 // ── POST /api/teachers/me/onboarding/complete ─────────────────────────────────

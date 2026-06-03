@@ -63,6 +63,25 @@ export async function getOnboardingDraftByUserId(
   return toDraftRow(data as any);
 }
 
+// Reads the teacher_profiles id + verification flag for a user (created at
+// onboarding completion). Returns null when no profile exists yet.
+export async function getTeacherProfileVerification(
+  userId: string,
+): Promise<{ id: string; isVerified: boolean } | null> {
+  const { data, error } = await adminClient()
+    .from('teacher_profiles')
+    .select('id,is_verified')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) throw new AppError('Failed to load teacher profile', 500);
+  if (!data) return null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const row = data as any;
+  return { id: row.id as string, isVerified: Boolean(row.is_verified) };
+}
+
 // ── Writes ────────────────────────────────────────────────────────────────────
 
 // Upserts the draft keyed on user_id. Only fields present in input are written;
