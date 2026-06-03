@@ -8,6 +8,7 @@ import type {
   Task,
   TaskStatus,
   TeacherConfig,
+  SubscriptionInfo,
   DashboardTab,
   DashboardStatus,
 } from '../types/teacherDashboard.types';
@@ -50,6 +51,7 @@ interface TeacherDashboardStore {
   materials: Material[];
   tasks: Task[];
   studentNotes: Record<string, string>; // studentId → brief text
+  subscription: SubscriptionInfo | null;
   activeTab: DashboardTab;
   status: DashboardStatus;
   error: string | null;
@@ -58,6 +60,8 @@ interface TeacherDashboardStore {
   setActiveTab: (tab: DashboardTab) => void;
   setStatus: (status: DashboardStatus, error?: string | null) => void;
   setConfig: (config: TeacherConfig) => void;
+  /** Merge a partial patch into config (Settings edits). No-op if config is null. */
+  updateConfig: (patch: Partial<TeacherConfig>) => void;
   setLessons: (lessons: DashboardLesson[]) => void;
   setRequests: (requests: DashboardRequest[]) => void;
   setStudents: (students: DashboardStudent[]) => void;
@@ -87,6 +91,11 @@ interface TeacherDashboardStore {
   cycleTaskStatus: (taskId: string) => void;
   /** Save the teacher's brief for a student; persists via the localStorage proxy. */
   setStudentNote: (studentId: string, text: string) => void;
+  // ── Settings (T5) ──────────────────────────────────────────────────────────
+  /** Kill Switch: write the freeze state; canAcceptStudents() reads it as the single gate. */
+  setFrozen: (frozen: boolean) => void;
+  /** Set the subscription/billing display proxy. */
+  setSubscription: (subscription: SubscriptionInfo | null) => void;
   reset: () => void;
 }
 
@@ -135,6 +144,7 @@ export const useTeacherDashboardStore = create<TeacherDashboardStore>((set, get)
   materials: [],
   tasks: [],
   studentNotes: readStudentNotes(),
+  subscription: null,
   activeTab: readActiveTab(),
   status: 'idle',
   error: null,
@@ -145,6 +155,8 @@ export const useTeacherDashboardStore = create<TeacherDashboardStore>((set, get)
   },
   setStatus: (status, error = null) => set({ status, error }),
   setConfig: (config) => set({ config }),
+  updateConfig: (patch) =>
+    set((s) => (s.config ? { config: { ...s.config, ...patch } } : {})),
   setLessons: (lessons) => set({ lessons }),
   setRequests: (requests) => set({ requests }),
   setStudents: (students) => set({ students }),
@@ -239,6 +251,11 @@ export const useTeacherDashboardStore = create<TeacherDashboardStore>((set, get)
       return { studentNotes };
     }),
 
+  setFrozen: (frozen) =>
+    set((s) => (s.config ? { config: { ...s.config, isFrozen: frozen } } : {})),
+
+  setSubscription: (subscription) => set({ subscription }),
+
   reset: () =>
     set({
       config: null,
@@ -249,6 +266,7 @@ export const useTeacherDashboardStore = create<TeacherDashboardStore>((set, get)
       materials: [],
       tasks: [],
       studentNotes: {}, // in-memory only; the localStorage proxy rehydrates on next init
+      subscription: null,
       status: 'idle',
       error: null,
     }),

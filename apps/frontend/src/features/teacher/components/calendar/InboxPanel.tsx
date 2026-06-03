@@ -7,6 +7,7 @@ import { BentoTile } from '../BentoGrid';
 import { EmptyState } from '../EmptyState';
 import { useTeacherDashboardStore } from '../../store/teacherDashboardStore';
 import type { DashboardLesson, LessonStatus } from '../../types/teacherDashboard.types';
+import { canAcceptStudents } from '../../utils/teacherStatus';
 import { isMockId } from '../../dev/devSeed';
 import { RequestRow } from './RequestRow';
 
@@ -23,7 +24,8 @@ export function InboxPanel() {
   const declineRequest = useTeacherDashboardStore((s) => s.declineRequest);
 
   const pending = requests.filter((r) => r.status === 'pending');
-  const canAccept = config?.isVerified === true;
+  // Single gate: verified AND not frozen (the Kill Switch flips the freeze input).
+  const canAccept = canAcceptStudents(config);
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

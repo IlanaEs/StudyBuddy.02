@@ -17,6 +17,7 @@ import type {
   DashboardStudent,
   LedgerEntry,
   Material,
+  SubscriptionInfo,
   Task,
   TeacherConfig,
 } from '../types/teacherDashboard.types';
@@ -84,6 +85,7 @@ export interface DevSeed {
   students: DashboardStudent[];
   materials: Material[];
   tasks: Task[];
+  subscription: SubscriptionInfo;
 }
 
 export function buildDevSeed(): DevSeed {
@@ -97,6 +99,13 @@ export function buildDevSeed(): DevSeed {
     hourlyRate: 150,
     introSessionPricing: 'half_price',
     bookingApproval: 'manual',
+    // Settings (T5)
+    bio: 'מורה למתמטיקה ופיזיקה עם ניסיון רב בהכנה לבגרות. גישה סבלנית וממוקדת מטרה.',
+    avatarUrl: null,
+    email: 'demo.teacher@studybuddy.dev',
+    defaultLessonDurationMinutes: 50,
+    defaultBreakDurationMinutes: 10,
+    isFrozen: false,
   };
 
   const lessons: DashboardLesson[] = [
@@ -375,5 +384,12 @@ export function buildDevSeed(): DevSeed {
     },
   ];
 
-  return { config, lessons, requests, ledgerEntries, students, materials, tasks };
+  const subscription: SubscriptionInfo = {
+    plan: 'Pro',
+    priceILS: 99,
+    nextBillingAt: dayAt(26, 9),
+    status: 'active',
+  };
+
+  return { config, lessons, requests, ledgerEntries, students, materials, tasks, subscription };
 }
