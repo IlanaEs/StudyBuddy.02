@@ -15,6 +15,7 @@
     "check:local": "node scripts/check-local-runtime.mjs",
     "db:seed": "npm run db:seed:local",
     "db:seed:taxonomy": "node scripts/seed-taxonomy.mjs",
+    "db:check:taxonomy": "node scripts/check-taxonomy-seeded.mjs",
     "db:seed:demo": "node scripts/seed-demo-matching.mjs",
     "db:seed:local": "node scripts/seed-local.mjs",
     "db:seed:parent-dashboard": "node scripts/seed-parent-dashboard.mjs",
