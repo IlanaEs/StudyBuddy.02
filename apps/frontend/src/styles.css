@@ -113,6 +113,14 @@
 .tow-week-slide-l { animation: tow-week-slide-l 200ms ease; }
 .tow-week-slide-r { animation: tow-week-slide-r 200ms ease; }
 
+/* Finance ledger: white flash when a row newly transitions to סגור (Closed). */
+@keyframes tow-flash-glow {
+  0%   { box-shadow: inset 0 0 0 9999px rgba(255, 255, 255, 0); }
+  18%  { box-shadow: inset 0 0 0 9999px rgba(255, 255, 255, 0.55); }
+  100% { box-shadow: inset 0 0 0 9999px rgba(255, 255, 255, 0); }
+}
+.tow-flash-glow { animation: tow-flash-glow 600ms ease-out; }
+
 * {
   box-sizing: border-box;
 }

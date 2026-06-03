@@ -40,14 +40,29 @@ export interface DashboardStudent {
   activeLessons: number;
 }
 
-// Brand-new concept for the Finance tab — no backend yet; store-only in T0.
+// Derived per-row workflow status (never stored — computed from the fields below).
+export type LedgerRowStatus = 'in_progress' | 'pending_student' | 'closed';
+
+// The Finance tab is the concrete home of this entity (T3). No backend yet, so the
+// student-side confirmation and the 48h auto-close are modeled as clean fields and
+// driven through the store via graceful proxies — swapped for real events later.
 export interface LedgerEntry {
   id: string;
   type: LedgerEntryType;
   lessonId: string | null;
   amount: number;
   description: string | null;
-  createdAt: string; // ISO 8601
+  createdAt: string; // ISO 8601 — drives the date column + the "this month" KPI
+
+  // ── Finance workflow (T3) ───────────────────────────────────────────────
+  studentId: string | null;
+  studentName: string | null;
+  subjectName: string | null;
+  teacherDone: boolean; // בוצע (Done) checkbox
+  teacherPaid: boolean; // שולם (Paid) checkbox
+  teacherCompletedAt: string | null; // set when Done+Paid first both true — anchors the 48h timer
+  studentConfirmedAt: string | null; // student's side of dual approval (proxy now, backend later)
+  closedAt: string | null; // set on transition to Closed; the row then locks
 }
 
 // Teacher configuration seeded from onboarding (subjects, availability, capacity, pricing).

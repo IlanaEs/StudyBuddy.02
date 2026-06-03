@@ -48,7 +48,8 @@ export function useTeacherDashboardSeed() {
     if (useTeacherDashboardStore.getState().status !== 'idle') return;
     startedRef.current = true;
 
-    const { setStatus, setConfig, setLessons, setRequests } = useTeacherDashboardStore.getState();
+    const { setStatus, setConfig, setLessons, setRequests, setLedgerEntries } =
+      useTeacherDashboardStore.getState();
 
     // DEV-only QA seed (opt-in flag). Populates the store and skips the network
     // so the tiles render real-looking content without a backend. No-op in prod.
@@ -57,6 +58,7 @@ export function useTeacherDashboardSeed() {
       setConfig(seed.config);
       setLessons(seed.lessons);
       setRequests(seed.requests);
+      setLedgerEntries(seed.ledgerEntries);
       setStatus('ready');
       return;
     }

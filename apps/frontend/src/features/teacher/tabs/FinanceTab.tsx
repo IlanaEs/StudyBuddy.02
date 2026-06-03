@@ -1,17 +1,26 @@
-import { Wallet, Receipt } from 'lucide-react';
-import { BentoGrid, BentoTile } from '../components/BentoGrid';
-import { EmptyState } from '../components/EmptyState';
+import { useEffect } from 'react';
+import { FinanceMetrics } from '../components/finance/FinanceMetrics';
+import { LedgerTable } from '../components/finance/LedgerTable';
+import { useTeacherDashboardStore } from '../store/teacherDashboardStore';
 
-/** Finance & Ledger — placeholder; ledger entries wired in a later task. */
+// How often the tab re-applies the 48h backup auto-close while open. This is a
+// proxy for the backend sweep that will own closing once it lands.
+const AUTO_CLOSE_POLL_MS = 60_000;
+
+/** Finance & Ledger — the concrete home of the ledgerEntries entity (T3). */
 export function FinanceTab() {
+  const evaluateLedgerAutoClose = useTeacherDashboardStore((s) => s.evaluateLedgerAutoClose);
+
+  useEffect(() => {
+    evaluateLedgerAutoClose();
+    const id = setInterval(() => evaluateLedgerAutoClose(), AUTO_CLOSE_POLL_MS);
+    return () => clearInterval(id);
+  }, [evaluateLedgerAutoClose]);
+
   return (
-    <BentoGrid>
-      <BentoTile size="1x1" title="מאזן" english="Balance" icon={<Wallet size={16} />}>
-        <EmptyState icon={<Wallet size={24} />} message="אין נתונים כספיים עדיין." />
-      </BentoTile>
-      <BentoTile size="2x2" title="תנועות" english="Ledger" icon={<Receipt size={16} />}>
-        <EmptyState icon={<Receipt size={26} />} message="התנועות הכספיות יוצגו כאן." />
-      </BentoTile>
-    </BentoGrid>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <FinanceMetrics />
+      <LedgerTable />
+    </div>
   );
 }

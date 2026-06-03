@@ -10,6 +10,7 @@
 import type {
   DashboardRequest,
   DashboardLesson,
+  LedgerEntry,
   TeacherConfig,
 } from '../types/teacherDashboard.types';
 
@@ -43,11 +44,35 @@ function dayAt(dayOffset: number, hour: number, minute = 0): string {
   d.setHours(hour, minute, 0, 0);
   return d.toISOString();
 }
+// A fixed day in the current calendar month (so "Monthly Income" counts it).
+function thisMonthDay(day: number, hour: number): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(day);
+  d.setHours(hour, 0, 0, 0);
+  return d.toISOString();
+}
+// A fixed day in the previous calendar month (excluded from "Monthly Income").
+function lastMonthDay(day: number, hour: number): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(1);
+  d.setMonth(d.getMonth() - 1);
+  d.setDate(day);
+  d.setHours(hour, 0, 0, 0);
+  return d.toISOString();
+}
+function hoursAgo(hours: number): string {
+  const d = new Date();
+  d.setHours(d.getHours() - hours);
+  return d.toISOString();
+}
 
 export interface DevSeed {
   config: TeacherConfig;
   lessons: DashboardLesson[];
   requests: DashboardRequest[];
+  ledgerEntries: LedgerEntry[];
 }
 
 export function buildDevSeed(): DevSeed {
@@ -136,5 +161,96 @@ export function buildDevSeed(): DevSeed {
     },
   ];
 
-  return { config, lessons, requests };
+  // Ledger rows spanning every workflow state, so the Finance tab + KPIs are
+  // non-trivial on load. One pending-student row is intentionally >48h old to
+  // exercise the auto-close (Flash Glow + Lock) the moment the tab mounts.
+  const ledgerEntries: LedgerEntry[] = [
+    {
+      // In Progress — nothing checked yet.
+      id: 'mock-ledger-1',
+      type: 'lesson_earned',
+      lessonId: 'mock-lesson-soon',
+      amount: 150,
+      description: 'מתמטיקה',
+      createdAt: thisMonthDay(2, 16),
+      studentId: 'mock-student-1',
+      studentName: 'דנה לוי',
+      subjectName: 'מתמטיקה',
+      teacherDone: false,
+      teacherPaid: false,
+      teacherCompletedAt: null,
+      studentConfirmedAt: null,
+      closedAt: null,
+    },
+    {
+      // In Progress — Done checked, not yet Paid (still needs both).
+      id: 'mock-ledger-2',
+      type: 'lesson_earned',
+      lessonId: 'mock-lesson-2',
+      amount: 150,
+      description: 'פיזיקה',
+      createdAt: thisMonthDay(3, 17),
+      studentId: 'mock-student-2',
+      studentName: 'יוסי כהן',
+      subjectName: 'פיזיקה',
+      teacherDone: true,
+      teacherPaid: false,
+      teacherCompletedAt: null,
+      studentConfirmedAt: null,
+      closedAt: null,
+    },
+    {
+      // Pending Student — teacher done both, timer fresh (3h ago), no student yet.
+      id: 'mock-ledger-3',
+      type: 'lesson_earned',
+      lessonId: 'mock-lesson-3',
+      amount: 200,
+      description: 'מתמטיקה',
+      createdAt: thisMonthDay(1, 10),
+      studentId: 'mock-student-1',
+      studentName: 'דנה לוי',
+      subjectName: 'מתמטיקה',
+      teacherDone: true,
+      teacherPaid: true,
+      teacherCompletedAt: hoursAgo(3),
+      studentConfirmedAt: null,
+      closedAt: null,
+    },
+    {
+      // Pending Student but past the 48h window → auto-closes on mount.
+      id: 'mock-ledger-4',
+      type: 'lesson_earned',
+      lessonId: null,
+      amount: 150,
+      description: 'אנגלית',
+      createdAt: dayAt(-2, 14),
+      studentId: 'mock-student-3',
+      studentName: 'מאיה גולן',
+      subjectName: 'אנגלית',
+      teacherDone: true,
+      teacherPaid: true,
+      teacherCompletedAt: hoursAgo(50),
+      studentConfirmedAt: null,
+      closedAt: null,
+    },
+    {
+      // Closed last month — dual approval already reached (student confirmed).
+      id: 'mock-ledger-5',
+      type: 'lesson_earned',
+      lessonId: null,
+      amount: 180,
+      description: 'פיזיקה',
+      createdAt: lastMonthDay(20, 18),
+      studentId: 'mock-student-2',
+      studentName: 'יוסי כהן',
+      subjectName: 'פיזיקה',
+      teacherDone: true,
+      teacherPaid: true,
+      teacherCompletedAt: lastMonthDay(20, 19),
+      studentConfirmedAt: lastMonthDay(21, 9),
+      closedAt: lastMonthDay(21, 9),
+    },
+  ];
+
+  return { config, lessons, requests, ledgerEntries };
 }
