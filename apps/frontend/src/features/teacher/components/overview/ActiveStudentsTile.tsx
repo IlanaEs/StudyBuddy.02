@@ -3,6 +3,7 @@ import { Users, User } from 'lucide-react';
 import { towTokens as T } from '../../../../design/tokens';
 import { BentoTile } from '../BentoGrid';
 import { EmptyState } from '../EmptyState';
+import { OutlineAvatar } from '../OutlineAvatar';
 import { useTeacherDashboardStore } from '../../store/teacherDashboardStore';
 
 interface RecentStudent {
@@ -52,17 +53,7 @@ export function ActiveStudentsTile() {
                 transition: 'background 160ms ease',
               }}
             >
-              <span
-                aria-hidden="true"
-                style={{
-                  width: 34, height: 34, flexShrink: 0, borderRadius: 999,
-                  border: `1.5px solid ${T.neon}`, color: T.neon,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 15, fontWeight: 800, fontFamily: T.fontMono,
-                }}
-              >
-                {s.name.trim().charAt(0) || '?'}
-              </span>
+              <OutlineAvatar name={s.name} />
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ display: 'block', fontSize: 13.5, fontWeight: 700, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
                 {s.subjectName && <span style={{ display: 'block', fontSize: 11.5, color: T.text3 }}>{s.subjectName}</span>}

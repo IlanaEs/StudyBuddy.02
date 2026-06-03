@@ -1,6 +1,7 @@
 import { Receipt } from 'lucide-react';
 import { towTokens as T } from '../../../../design/tokens';
 import { useTeacherDashboardStore } from '../../store/teacherDashboardStore';
+import type { LedgerEntry } from '../../types/teacherDashboard.types';
 import { EmptyState } from '../EmptyState';
 import { LedgerRow } from './LedgerRow';
 
@@ -18,9 +19,24 @@ const HEADERS = [
   { text: 'סטטוס (Status)', center: false },
 ];
 
-/** The hard financial table — rows separated by dim neon lines. */
-export function LedgerTable() {
-  const entries = useTeacherDashboardStore((s) => s.ledgerEntries);
+/**
+ * The hard financial table — rows separated by dim neon lines. Reads the full
+ * ledger from the store by default; pass `entries` to render a filtered subset
+ * (e.g. one student's rows in the T4 Account Status tab).
+ */
+export function LedgerTable({
+  entries: entriesProp,
+  title,
+  english,
+  emptyMessage = 'התנועות הכספיות יוצגו כאן.',
+}: {
+  entries?: LedgerEntry[];
+  title?: string;
+  english?: string;
+  emptyMessage?: string;
+} = {}) {
+  const storeEntries = useTeacherDashboardStore((s) => s.ledgerEntries);
+  const entries = entriesProp ?? storeEntries;
 
   return (
     <section
@@ -41,13 +57,14 @@ export function LedgerTable() {
           <Receipt size={16} />
         </span>
         <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: T.text }}>
-          פנקס תנועות<span style={{ color: T.text3, fontWeight: 600 }}> (Ledger)</span>
+          {title ?? 'פנקס תנועות'}
+          <span style={{ color: T.text3, fontWeight: 600 }}> ({english ?? 'Ledger'})</span>
         </h3>
       </header>
 
       {entries.length === 0 ? (
         <div style={{ padding: '4px 16px 20px' }}>
-          <EmptyState icon={<Receipt size={26} />} message="התנועות הכספיות יוצגו כאן." />
+          <EmptyState icon={<Receipt size={26} />} message={emptyMessage} />
         </div>
       ) : (
         <div style={{ overflowX: 'auto' }}>

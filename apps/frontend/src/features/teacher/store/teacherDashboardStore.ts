@@ -4,6 +4,9 @@ import type {
   DashboardRequest,
   DashboardStudent,
   LedgerEntry,
+  Material,
+  Task,
+  TaskStatus,
   TeacherConfig,
   DashboardTab,
   DashboardStatus,
@@ -11,6 +14,13 @@ import type {
 import { AUTO_CLOSE_HOURS } from '../utils/ledger';
 
 const nowISO = () => new Date().toISOString();
+
+// Cycle order for the teacher-driven task status (proxy for the student "done" event).
+const NEXT_TASK_STATUS: Record<TaskStatus, TaskStatus> = {
+  assigned: 'in_progress',
+  in_progress: 'completed',
+  completed: 'assigned',
+};
 
 /**
  * Re-derive a ledger entry's teacher side after a checkbox toggle: anchor the
@@ -26,6 +36,9 @@ function withTeacherSide(e: LedgerEntry, teacherDone: boolean, teacherPaid: bool
 
 // Only the active tab is persisted; entity data is owned by the backend (later tasks).
 const STORAGE_KEY = 'sb_teacher_dashboard';
+// Teacher's private per-student brief notes — persisted via a localStorage proxy
+// (graceful stand-in for the backend, same approach as the other placeholders).
+const NOTES_STORAGE_KEY = 'sb_teacher_student_notes';
 
 interface TeacherDashboardStore {
   // ── State (single source of truth read by every tab) ──────────────────────
@@ -34,6 +47,9 @@ interface TeacherDashboardStore {
   requests: DashboardRequest[];
   students: DashboardStudent[];
   ledgerEntries: LedgerEntry[];
+  materials: Material[];
+  tasks: Task[];
+  studentNotes: Record<string, string>; // studentId → brief text
   activeTab: DashboardTab;
   status: DashboardStatus;
   error: string | null;
@@ -46,6 +62,8 @@ interface TeacherDashboardStore {
   setRequests: (requests: DashboardRequest[]) => void;
   setStudents: (students: DashboardStudent[]) => void;
   setLedgerEntries: (entries: LedgerEntry[]) => void;
+  setMaterials: (materials: Material[]) => void;
+  setTasks: (tasks: Task[]) => void;
   /**
    * Cross-tab source of truth: accepting a request marks it approved, adds the
    * (backend-created) lesson, and records a ledger entry — from a single write,
@@ -64,7 +82,29 @@ interface TeacherDashboardStore {
   confirmStudentReceipt: (entryId: string) => void;
   /** Proxy for the 48h backend sweep: close any pending-student row past the window. */
   evaluateLedgerAutoClose: (now?: string) => void;
+  // ── Students CRM (T4) ──────────────────────────────────────────────────────
+  /** Cycle a homework task assigned→in_progress→completed→assigned (teacher proxy). */
+  cycleTaskStatus: (taskId: string) => void;
+  /** Save the teacher's brief for a student; persists via the localStorage proxy. */
+  setStudentNote: (studentId: string, text: string) => void;
   reset: () => void;
+}
+
+function readStudentNotes(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(NOTES_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeStudentNotes(notes: Record<string, string>) {
+  try {
+    localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(notes));
+  } catch {
+    // Ignore storage errors (private browsing, quota).
+  }
 }
 
 function readActiveTab(): DashboardTab {
@@ -92,6 +132,9 @@ export const useTeacherDashboardStore = create<TeacherDashboardStore>((set, get)
   requests: [],
   students: [],
   ledgerEntries: [],
+  materials: [],
+  tasks: [],
+  studentNotes: readStudentNotes(),
   activeTab: readActiveTab(),
   status: 'idle',
   error: null,
@@ -106,6 +149,8 @@ export const useTeacherDashboardStore = create<TeacherDashboardStore>((set, get)
   setRequests: (requests) => set({ requests }),
   setStudents: (students) => set({ students }),
   setLedgerEntries: (ledgerEntries) => set({ ledgerEntries }),
+  setMaterials: (materials) => set({ materials }),
+  setTasks: (tasks) => set({ tasks }),
 
   acceptRequest: (requestId, lesson) => {
     const { requests, lessons, ledgerEntries, config } = get();
@@ -182,6 +227,18 @@ export const useTeacherDashboardStore = create<TeacherDashboardStore>((set, get)
       return changed ? { ledgerEntries } : {};
     }),
 
+  cycleTaskStatus: (taskId) =>
+    set((s) => ({
+      tasks: s.tasks.map((t) => (t.id === taskId ? { ...t, status: NEXT_TASK_STATUS[t.status] } : t)),
+    })),
+
+  setStudentNote: (studentId, text) =>
+    set((s) => {
+      const studentNotes = { ...s.studentNotes, [studentId]: text };
+      writeStudentNotes(studentNotes);
+      return { studentNotes };
+    }),
+
   reset: () =>
     set({
       config: null,
@@ -189,6 +246,9 @@ export const useTeacherDashboardStore = create<TeacherDashboardStore>((set, get)
       requests: [],
       students: [],
       ledgerEntries: [],
+      materials: [],
+      tasks: [],
+      studentNotes: {}, // in-memory only; the localStorage proxy rehydrates on next init
       status: 'idle',
       error: null,
     }),

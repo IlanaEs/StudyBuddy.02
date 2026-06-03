@@ -34,3 +34,20 @@ export function pendingPayment(entries: LedgerEntry[]): number {
 export function settled(entries: LedgerEntry[]): number {
   return entries.reduce((sum, e) => (e.teacherPaid ? sum + e.amount : sum), 0);
 }
+
+// ── Per-student selectors (T4 Account Status) ────────────────────────────────
+/** All ledger rows belonging to one student. */
+export function studentLedgerEntries(entries: LedgerEntry[], studentId: string): LedgerEntry[] {
+  return entries.filter((e) => e.studentId === studentId);
+}
+
+/**
+ * חוב (Debt) — what the student actually owes: Σ amount for rows that were
+ * delivered (teacherDone) but not yet Paid. A not-yet-taught lesson is not debt.
+ */
+export function studentOpenDebt(entries: LedgerEntry[], studentId: string): number {
+  return entries.reduce(
+    (sum, e) => (e.studentId === studentId && e.teacherDone && !e.teacherPaid ? sum + e.amount : sum),
+    0,
+  );
+}

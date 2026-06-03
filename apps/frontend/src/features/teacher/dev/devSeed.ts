@@ -10,7 +10,10 @@
 import type {
   DashboardRequest,
   DashboardLesson,
+  DashboardStudent,
   LedgerEntry,
+  Material,
+  Task,
   TeacherConfig,
 } from '../types/teacherDashboard.types';
 
@@ -73,6 +76,9 @@ export interface DevSeed {
   lessons: DashboardLesson[];
   requests: DashboardRequest[];
   ledgerEntries: LedgerEntry[];
+  students: DashboardStudent[];
+  materials: Material[];
+  tasks: Task[];
 }
 
 export function buildDevSeed(): DevSeed {
@@ -252,5 +258,117 @@ export function buildDevSeed(): DevSeed {
     },
   ];
 
-  return { config, lessons, requests, ledgerEntries };
+  // Students CRM (T4). IDs align with the lesson/ledger mock ids so the Account
+  // Status tab shows real rows. יוסי כהן (mock-student-2) carries open debt via
+  // mock-ledger-2 (delivered but unpaid).
+  const students: DashboardStudent[] = [
+    {
+      id: 'mock-student-1',
+      name: 'דנה לוי',
+      subjectNames: ['מתמטיקה'],
+      status: 'active',
+      activeLessons: 2,
+    },
+    {
+      id: 'mock-student-2',
+      name: 'יוסי כהן',
+      subjectNames: ['פיזיקה'],
+      status: 'active',
+      activeLessons: 1,
+    },
+    {
+      id: 'mock-student-3',
+      name: 'מאיה גולן',
+      subjectNames: ['אנגלית'],
+      status: 'active',
+      activeLessons: 1,
+    },
+    {
+      id: 'mock-student-4',
+      name: 'אורי בן-דוד',
+      subjectNames: ['כימיה'],
+      status: 'inactive',
+      activeLessons: 0,
+    },
+  ];
+
+  const materials: Material[] = [
+    {
+      id: 'mock-material-1',
+      studentId: 'mock-student-1',
+      lessonId: 'mock-lesson-soon',
+      name: 'דף נוסחאות — אלגברה.pdf',
+      kind: 'pdf',
+      url: null,
+      createdAt: dayAt(-4, 12),
+    },
+    {
+      id: 'mock-material-2',
+      studentId: 'mock-student-1',
+      lessonId: null,
+      name: 'תרגול משוואות ריבועיות.docx',
+      kind: 'doc',
+      url: null,
+      createdAt: dayAt(-9, 15),
+    },
+    {
+      id: 'mock-material-3',
+      studentId: 'mock-student-2',
+      lessonId: 'mock-lesson-2',
+      name: 'סיכום חוקי ניוטון.pdf',
+      kind: 'pdf',
+      url: null,
+      createdAt: dayAt(-2, 9),
+    },
+    {
+      id: 'mock-material-4',
+      studentId: 'mock-student-2',
+      lessonId: null,
+      name: 'סרטון הסבר — תנע',
+      kind: 'link',
+      url: null,
+      createdAt: dayAt(-1, 18),
+    },
+  ];
+
+  const tasks: Task[] = [
+    {
+      id: 'mock-task-1',
+      studentId: 'mock-student-1',
+      lessonId: 'mock-lesson-soon',
+      title: 'לפתור תרגילים 1–10 בעמוד 42',
+      status: 'assigned',
+      dueAt: dayAt(2, 20),
+      createdAt: dayAt(-1, 16),
+    },
+    {
+      id: 'mock-task-2',
+      studentId: 'mock-student-1',
+      lessonId: null,
+      title: 'לחזור על נוסחאות לקראת המבחן',
+      status: 'in_progress',
+      dueAt: dayAt(5, 20),
+      createdAt: dayAt(-3, 10),
+    },
+    {
+      id: 'mock-task-3',
+      studentId: 'mock-student-2',
+      lessonId: 'mock-lesson-2',
+      title: 'לסכם את שיעור חוקי ניוטון',
+      status: 'completed',
+      dueAt: dayAt(-1, 20),
+      createdAt: dayAt(-6, 14),
+    },
+    {
+      id: 'mock-task-4',
+      studentId: 'mock-student-2',
+      lessonId: null,
+      title: 'לתרגל בעיות תנע',
+      status: 'assigned',
+      dueAt: dayAt(4, 20),
+      createdAt: dayAt(-1, 11),
+    },
+  ];
+
+  return { config, lessons, requests, ledgerEntries, students, materials, tasks };
 }
