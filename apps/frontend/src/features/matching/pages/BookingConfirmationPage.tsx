@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { CheckCircle2, Mail, Check, Calendar, Clock } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthProvider';
 import { FlowNav } from '../../../components/FlowNav';
+import { getDashboardPathByRole } from '../../../utils/getDashboardPathByRole';
 
 type ConfirmationState = {
   bookingId: string;
@@ -20,7 +21,8 @@ function isConfirmationState(value: unknown): value is ConfirmationState {
 
 function useDashboardRoute() {
   const auth = useAuth();
-  if (auth.user?.role === 'parent') return '/parent/dashboard';
+  // Route each role to its own dashboard; students now land on /student/dashboard.
+  if (auth.user?.role) return getDashboardPathByRole(auth.user.role);
   return '/dashboard';
 }
 

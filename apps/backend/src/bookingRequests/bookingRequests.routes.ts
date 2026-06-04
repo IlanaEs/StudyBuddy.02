@@ -1,15 +1,17 @@
 import { Router } from 'express';
 
 import { asyncHandler } from '../middleware/asyncHandler.js';
-import { requireAuth, requireAnyRole } from '../middleware/authMiddleware.js';
+import { requireAuth, requireAnyRole, requireRole } from '../middleware/authMiddleware.js';
 import { validateRequest } from '../validation/requestValidation.js';
 import {
   getMyBookingRequestsController,
   createBookingRequestController,
+  rebookRequestController,
   respondToBookingRequestController,
 } from './bookingRequests.controller.js';
 import {
   createBookingRequestSchema,
+  rebookRequestSchema,
   respondToBookingRequestSchema,
 } from './bookingRequests.validation.js';
 
@@ -33,6 +35,16 @@ bookingRequestsRouter.post(
   requireAnyRole(['student', 'parent', 'admin']),
   validateRequest(createBookingRequestSchema),
   asyncHandler(createBookingRequestController),
+);
+
+// POST /api/booking-requests/rebook
+// Direct booking of a known teacher (no match_result). Student-only; requires
+// a prior lesson with that teacher. Reuses the unchanged respond/approve path.
+bookingRequestsRouter.post(
+  '/rebook',
+  requireRole('student'),
+  validateRequest(rebookRequestSchema),
+  asyncHandler(rebookRequestController),
 );
 
 // POST /api/booking-requests/:id/respond
