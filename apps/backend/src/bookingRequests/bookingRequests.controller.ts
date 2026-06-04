@@ -2,11 +2,13 @@ import type { Request, Response } from 'express';
 
 import {
   createBookingRequest,
+  createRebookRequest,
   getMyBookingRequests,
   respondToBookingRequest,
 } from './bookingRequests.service.js';
 import type {
   CreateBookingRequestBody,
+  RebookRequestBody,
   RespondToBookingRequestBody,
 } from './bookingRequests.validation.js';
 
@@ -21,6 +23,15 @@ export async function createBookingRequestController(request: Request, response:
   const currentUser = request.auth!.user;
 
   const bookingRequest = await createBookingRequest(body, currentUser);
+
+  response.status(201).json({ data: { booking_request: bookingRequest } });
+}
+
+export async function rebookRequestController(request: Request, response: Response) {
+  const body = request.body as RebookRequestBody;
+  const currentUser = request.auth!.user;
+
+  const bookingRequest = await createRebookRequest(body, currentUser);
 
   response.status(201).json({ data: { booking_request: bookingRequest } });
 }

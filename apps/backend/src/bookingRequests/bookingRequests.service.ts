@@ -4,6 +4,7 @@ import { AppError } from '../errors/AppError.js';
 import type { LocalUser } from '../auth/authTypes.js';
 import type {
   CreateBookingRequestBody,
+  RebookRequestBody,
   RespondToBookingRequestBody,
 } from './bookingRequests.validation.js';
 import type { BookingRequestRow, LessonRow, RespondResult } from './bookingRequests.types.js';
@@ -14,8 +15,11 @@ import {
   getTeacherProfileById,
   getTeacherProfileByUserId,
   getActiveBookingRequestForIntake,
+  getActiveTeacherProfileById,
   getBookingRequestById,
   getLessonByBookingRequestId,
+  getLatestLessonForStudentTeacher,
+  getStudentIdByUserId,
   checkOverlappingScheduledLessonViaClient,
   insertBookingRequestViaClient,
   markMatchResultSelectedViaClient,
@@ -139,6 +143,57 @@ export async function createBookingRequest(
   return createdBooking;
 }
 
+// ── Re-book a known teacher (direct booking, no match_result) ─────────────────
+//
+// The match-driven createBookingRequest only supports parent-managed students.
+// This path lets a logged-in student re-book a teacher they ALREADY had a lesson
+// with — preserving curated-matching (no booking of strangers) without going
+// through the matching engine. match_result_id is null; the approval path
+// derives subject/location from the prior lesson.
+export async function createRebookRequest(
+  body: RebookRequestBody,
+  currentUser: LocalUser,
+): Promise<BookingRequestRow> {
+  if (currentUser.role !== 'student') {
+    throw new AppError('Forbidden', 403);
+  }
+
+  // ── Resolve the student's own profile ──────────────────────────────────────
+  const studentId = await getStudentIdByUserId(currentUser.id);
+  if (!studentId) {
+    throw new AppError('Student profile not found', 404);
+  }
+
+  // ── Teacher must exist and be active ──────────────────────────────────────
+  const teacher = await getActiveTeacherProfileById(body.teacher_id);
+  if (!teacher) {
+    throw new AppError('Teacher not found', 404);
+  }
+
+  // ── Known-teacher guard: a prior lesson must exist between them ────────────
+  const priorLesson = await getLatestLessonForStudentTeacher(studentId, body.teacher_id);
+  if (!priorLesson) {
+    throw new AppError('Can only re-book a teacher you have studied with before', 403);
+  }
+
+  // ── Overlap guard against the teacher's scheduled lessons ──────────────────
+  await checkOverlappingScheduledLessonViaClient(
+    body.teacher_id,
+    body.requested_start_at,
+    body.requested_end_at,
+  );
+
+  // ── Insert booking request (no match_result behind it) ────────────────────
+  return insertBookingRequestViaClient({
+    studentId,
+    teacherId: body.teacher_id,
+    matchResultId: null,
+    requestedStartAt: body.requested_start_at,
+    requestedEndAt: body.requested_end_at,
+    studentMessage: body.student_message ?? null,
+  });
+}
+
 // ── Respond to Booking Request ────────────────────────────────────────────────
 
 export async function respondToBookingRequest(
@@ -181,16 +236,36 @@ export async function respondToBookingRequest(
     return { bookingRequest: updatedBookingRequest, lesson: null };
   }
 
-  // ── Approve path: load intake chain for lesson creation ───────────────────
+  // ── Approve path: resolve subject + location for the new lesson ───────────
+  // Match-driven request → from its intake. Re-book request (match_result_id
+  // null) → from the most recent prior lesson between this student and teacher.
+  let lessonSubjectId: string | null;
+  let lessonLocationType: 'online' | 'frontal' | 'both';
 
-  const matchResult = await getMatchResultById(bookingRequest.matchResultId);
-  if (!matchResult) {
-    throw new AppError('Match result not found', 404);
-  }
+  if (bookingRequest.matchResultId) {
+    const matchResult = await getMatchResultById(bookingRequest.matchResultId);
+    if (!matchResult) {
+      throw new AppError('Match result not found', 404);
+    }
 
-  const intake = await getStudentIntakeById(matchResult.intakeId);
-  if (!intake) {
-    throw new AppError('Student intake not found', 404);
+    const intake = await getStudentIntakeById(matchResult.intakeId);
+    if (!intake) {
+      throw new AppError('Student intake not found', 404);
+    }
+
+    lessonSubjectId = intake.subjectId;
+    lessonLocationType = intake.locationPreference;
+  } else {
+    const priorLesson = await getLatestLessonForStudentTeacher(
+      bookingRequest.studentId,
+      bookingRequest.teacherId,
+    );
+    if (!priorLesson) {
+      throw new AppError('Cannot derive lesson context for re-booked request', 422);
+    }
+
+    lessonSubjectId = priorLesson.subjectId;
+    lessonLocationType = priorLesson.locationType;
   }
 
   // ── Duplicate lesson guard (pre-check; DB unique constraint is the backstop)
@@ -227,11 +302,11 @@ export async function respondToBookingRequest(
     bookingRequestId,
     teacherId: bookingRequest.teacherId,
     studentId: bookingRequest.studentId,
-    subjectId: intake.subjectId,
+    subjectId: lessonSubjectId,
     scheduledStartAt: bookingRequest.requestedStartAt,
     scheduledEndAt: bookingRequest.requestedEndAt,
     durationMinutes,
-    locationType: intake.locationPreference,
+    locationType: lessonLocationType,
   });
 
   // ── Best-effort: create Google Calendar event with Meet link ─────────────

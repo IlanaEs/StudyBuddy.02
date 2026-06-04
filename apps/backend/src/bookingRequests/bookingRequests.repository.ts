@@ -145,6 +145,68 @@ export async function getTeacherProfileByUserId(
   return { id: (data as any).id as string };
 }
 
+// ── Re-book helpers (direct booking of a known teacher) ───────────────────────
+
+// Returns the active teacher_profile id for the given profile, or null if the
+// profile is missing or deactivated.
+export async function getActiveTeacherProfileById(
+  teacherId: string,
+): Promise<{ id: string } | null> {
+  const { data, error } = await adminClient()
+    .from('teacher_profiles')
+    .select('id,is_active')
+    .eq('id', teacherId)
+    .maybeSingle();
+
+  if (error) throw new AppError('Failed to load teacher profile', 500);
+  if (!data) return null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const row = data as any;
+  if (row.is_active === false) return null;
+  return { id: row.id as string };
+}
+
+// Resolves the standalone student row (id) for the authenticated student user.
+export async function getStudentIdByUserId(userId: string): Promise<string | null> {
+  const { data, error } = await adminClient()
+    .from('students')
+    .select('id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) throw new AppError('Failed to load student profile', 500);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((data as any)?.id as string | null) ?? null;
+}
+
+// Returns the most recent prior lesson between a student and teacher, used to
+// (a) enforce the known-teacher guard and (b) derive subject/location context
+// when approving a re-booked request that has no match_result behind it.
+export async function getLatestLessonForStudentTeacher(
+  studentId: string,
+  teacherId: string,
+): Promise<{ subjectId: string | null; locationType: 'online' | 'frontal' | 'both' } | null> {
+  const { data, error } = await adminClient()
+    .from('lessons')
+    .select('subject_id,location_type,scheduled_start_at')
+    .eq('student_id', studentId)
+    .eq('teacher_id', teacherId)
+    .order('scheduled_start_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new AppError('Failed to load prior lesson', 500);
+  if (!data) return null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const row = data as any;
+  return {
+    subjectId: row.subject_id as string | null,
+    locationType: (row.location_type as 'online' | 'frontal' | 'both' | null) ?? 'online',
+  };
+}
+
 // ── Active Booking Check ──────────────────────────────────────────────────────
 
 // Returns a booking_request id if any pending/approved booking exists for the
