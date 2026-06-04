@@ -6,7 +6,8 @@ export type BookingRequestRow = {
   id: string;
   studentId: string;
   teacherId: string;
-  matchResultId: string;
+  // null for direct "re-book a known teacher" requests (no match_result behind them).
+  matchResultId: string | null;
   requestedStartAt: string;
   requestedEndAt: string;
   status: BookingStatus;
@@ -19,7 +20,7 @@ export type BookingRequestRow = {
 export type CreateBookingRequestInput = {
   studentId: string;
   teacherId: string;
-  matchResultId: string;
+  matchResultId: string | null;
   requestedStartAt: string;
   requestedEndAt: string;
   studentMessage: string | null;
@@ -54,7 +55,7 @@ export type CreateLessonInput = {
   bookingRequestId: string;
   teacherId: string;
   studentId: string;
-  subjectId: string;
+  subjectId: string | null;
   scheduledStartAt: string;
   scheduledEndAt: string;
   durationMinutes: number;

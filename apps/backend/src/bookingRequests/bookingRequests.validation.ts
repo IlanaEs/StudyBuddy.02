@@ -22,6 +22,29 @@ export const createBookingRequestSchema = z.object({ body: createBodySchema });
 
 export type CreateBookingRequestBody = z.infer<typeof createBodySchema>;
 
+// ── POST /api/booking-requests/rebook ─────────────────────────────────────────
+// Direct booking of a known teacher (no match_result). Student-only.
+
+const rebookBodySchema = z
+  .object({
+    teacher_id: z.string().uuid(),
+    requested_start_at: z.string().datetime({ offset: true }),
+    requested_end_at: z.string().datetime({ offset: true }),
+    student_message: z.string().optional(),
+  })
+  .refine(
+    ({ requested_start_at, requested_end_at }) =>
+      new Date(requested_end_at) > new Date(requested_start_at),
+    {
+      message: 'requested_end_at must be after requested_start_at',
+      path: ['requested_end_at'],
+    },
+  );
+
+export const rebookRequestSchema = z.object({ body: rebookBodySchema });
+
+export type RebookRequestBody = z.infer<typeof rebookBodySchema>;
+
 // ── POST /api/booking-requests/:id/respond ────────────────────────────────────
 
 const respondParamsSchema = z.object({
