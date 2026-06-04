@@ -1,14 +1,27 @@
-import { Settings } from 'lucide-react';
-import { BentoGrid, BentoTile } from '../components/BentoGrid';
-import { EmptyState } from '../components/EmptyState';
+import { BentoGrid } from '../components/BentoGrid';
+import { useTeacherDashboardStore } from '../store/teacherDashboardStore';
+import { ProfileCard } from '../components/settings/ProfileCard';
+import { AccountCard } from '../components/settings/AccountCard';
+import { CalendarCard } from '../components/settings/CalendarCard';
+import { SubscriptionCard } from '../components/settings/SubscriptionCard';
+import { StatusCard } from '../components/settings/StatusCard';
 
-/** Settings — placeholder; profile/config forms wired in a later task. */
+/**
+ * Settings / Teacher Control Panel — 5 bento cubes bound to the shared TeacherConfig
+ * (no parallel settings state). The Kill Switch (Status) writes isFrozen, which the
+ * single canAcceptStudents() gate reads to disable Inbox accepts.
+ */
 export function SettingsTab() {
+  const config = useTeacherDashboardStore((s) => s.config);
+  if (!config) return null;
+
   return (
     <BentoGrid>
-      <BentoTile size="2x2" title="הגדרות פרופיל" english="Profile Settings" icon={<Settings size={16} />}>
-        <EmptyState icon={<Settings size={26} />} message="ההגדרות יהיו זמינות כאן בקרוב." />
-      </BentoTile>
+      <ProfileCard />
+      <AccountCard />
+      <CalendarCard />
+      <SubscriptionCard />
+      <StatusCard />
     </BentoGrid>
   );
 }

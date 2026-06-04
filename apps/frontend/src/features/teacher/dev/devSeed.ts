@@ -1,26 +1,32 @@
-// DEV-ONLY dashboard seed for QA. Never runs in production: gated by
-// import.meta.env.DEV AND an opt-in localStorage flag (off by default).
-//
-// Enable:  localStorage.setItem('sb_dev_dashboard_seed', '1'); // then reload
-// Disable: localStorage.removeItem('sb_dev_dashboard_seed');
+// Dashboard seed (mock data) for QA + the stakeholder demo. Enabled in two ways,
+// both safe for production (which uses neither):
+//   1. Local dev: import.meta.env.DEV AND an opt-in localStorage flag (off by default).
+//        Enable:  localStorage.setItem('sb_dev_dashboard_seed', '1'); // then reload
+//        Disable: localStorage.removeItem('sb_dev_dashboard_seed');
+//   2. Staging demo: isDemoStagingMode() — build-time flag AND the allowlisted staging
+//      host only (see src/demo/demoMode.ts). Auto-populates the demo link, no console
+//      command. Never true on a production domain.
 //
 // To remove the feature entirely: delete this file and the two guarded branches
 // in useTeacherDashboardSeed.ts and InboxPanel.tsx that reference it.
 
+import { isDemoStagingMode } from '../../../demo/demoMode';
 import type {
   DashboardRequest,
   DashboardLesson,
   DashboardStudent,
   LedgerEntry,
   Material,
+  SubscriptionInfo,
   Task,
   TeacherConfig,
 } from '../types/teacherDashboard.types';
 
 const SEED_FLAG = 'sb_dev_dashboard_seed';
 
-/** True only in a dev build with the opt-in flag set. */
+/** True in a dev build with the opt-in flag set, OR on the allowlisted staging demo host. */
 export function isDashboardSeedEnabled(): boolean {
+  if (isDemoStagingMode()) return true;
   if (!import.meta.env.DEV) return false;
   try {
     return localStorage.getItem(SEED_FLAG) === '1';
@@ -79,6 +85,7 @@ export interface DevSeed {
   students: DashboardStudent[];
   materials: Material[];
   tasks: Task[];
+  subscription: SubscriptionInfo;
 }
 
 export function buildDevSeed(): DevSeed {
@@ -92,6 +99,13 @@ export function buildDevSeed(): DevSeed {
     hourlyRate: 150,
     introSessionPricing: 'half_price',
     bookingApproval: 'manual',
+    // Settings (T5)
+    bio: 'מורה למתמטיקה ופיזיקה עם ניסיון רב בהכנה לבגרות. גישה סבלנית וממוקדת מטרה.',
+    avatarUrl: null,
+    email: 'demo.teacher@studybuddy.dev',
+    defaultLessonDurationMinutes: 50,
+    defaultBreakDurationMinutes: 10,
+    isFrozen: false,
   };
 
   const lessons: DashboardLesson[] = [
@@ -370,5 +384,12 @@ export function buildDevSeed(): DevSeed {
     },
   ];
 
-  return { config, lessons, requests, ledgerEntries, students, materials, tasks };
+  const subscription: SubscriptionInfo = {
+    plan: 'Pro',
+    priceILS: 99,
+    nextBillingAt: dayAt(26, 9),
+    status: 'active',
+  };
+
+  return { config, lessons, requests, ledgerEntries, students, materials, tasks, subscription };
 }

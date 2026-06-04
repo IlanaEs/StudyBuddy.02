@@ -93,6 +93,9 @@ export interface LedgerEntry {
 }
 
 // Teacher configuration seeded from onboarding (subjects, availability, capacity, pricing).
+// The Settings tab (T5) reads/writes this same model — no parallel settings state. The
+// fields below the divider mirror columns that already exist in the DB (teacher_profiles /
+// users) but weren't surfaced yet; edits persist to the store now, real save endpoint later.
 export interface TeacherConfig {
   fullName: string;
   isVerified: boolean;
@@ -103,6 +106,22 @@ export interface TeacherConfig {
   hourlyRate: number | null;
   introSessionPricing: string | null;
   bookingApproval: 'automatic' | 'manual' | null;
+
+  // ── Settings (T5) ───────────────────────────────────────────────────────
+  bio: string | null; // teacher_profiles.bio
+  avatarUrl: string | null; // users.profile_image_url (data-URL proxy until upload lands)
+  email: string | null; // from the auth session
+  defaultLessonDurationMinutes: number; // teacher_profiles.default_lesson_duration_minutes
+  defaultBreakDurationMinutes: number; // teacher_profiles.default_break_duration_minutes
+  isFrozen: boolean; // Kill Switch freeze state — drives canAcceptStudents()
+}
+
+// Subscription/billing display proxy (T5). Read-only; no real billing is wired.
+export interface SubscriptionInfo {
+  plan: string;
+  priceILS: number;
+  nextBillingAt: string; // ISO 8601
+  status: 'active' | 'canceled';
 }
 
 export type DashboardStatus = 'idle' | 'loading' | 'ready' | 'error';

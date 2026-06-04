@@ -1,10 +1,11 @@
 // Subjects offered in the matching wizard, grouped by education level.
 //
-// IMPORTANT: every value here MUST exist (case-insensitive, exact) in the
-// canonical `subjects` taxonomy, otherwise intake submission fails with 422
+// IMPORTANT: every value here MUST exist (case-insensitive) in the canonical
+// `subjects` taxonomy, otherwise intake submission fails with 422
 // ("לא נמצא מקצוע מתאים במערכת"). The backend resolves subject_name via an
-// exact ilike match. The source of truth for the taxonomy is
-// `scripts/seed-taxonomy.mjs` (canonicalSubjects) — keep the two in sync.
+// `ilike` match. The source of truth for the taxonomy is
+// `scripts/taxonomy-data.mjs` (canonicalSubjects); the subset relationship is
+// enforced by apps/backend/tests/taxonomySync.test.ts — keep the two in sync.
 //
 // Unit-level granularity (e.g. "3/4/5 יח״ל") is intentionally NOT encoded in
 // the subject name; it belongs in the intake `level` field. So "מתמטיקה 3 יח״ל"

@@ -7,6 +7,7 @@ import { useTeacherDashboardStore } from '../store/teacherDashboardStore';
 import { isDashboardSeedEnabled, buildDevSeed } from '../dev/devSeed';
 import type {
   TeacherConfig,
+  SubscriptionInfo,
   DashboardLesson,
   DashboardRequest,
   RequestStatus,
@@ -26,7 +27,23 @@ export function mapOnboardingToConfig(remote: OnboardingStateRemote): TeacherCon
     hourlyRate: typeof remote.hourlyRate === 'number' ? remote.hourlyRate : null,
     introSessionPricing: draft?.introSessionPricing ?? null,
     bookingApproval: draft?.bookingApproval ?? null,
+    // Settings (T5) fields — DB-default values until the real profile/scheduling
+    // endpoints feed them; `email` is set from the session by the caller.
+    bio: null,
+    avatarUrl: null,
+    email: null,
+    defaultLessonDurationMinutes: 50,
+    defaultBreakDurationMinutes: 10,
+    isFrozen: false,
   };
+}
+
+// Subscription/billing is backend-driven; surface a read-only proxy so the
+// Settings card renders. No real billing is wired.
+function buildSubscriptionProxy(): SubscriptionInfo {
+  const next = new Date();
+  next.setMonth(next.getMonth() + 1);
+  return { plan: 'Pro', priceILS: 99, nextBillingAt: next.toISOString(), status: 'active' };
 }
 
 /**
@@ -57,6 +74,7 @@ export function useTeacherDashboardSeed() {
       setStudents,
       setMaterials,
       setTasks,
+      setSubscription,
     } = useTeacherDashboardStore.getState();
 
     // DEV-only QA seed (opt-in flag). Populates the store and skips the network
@@ -70,6 +88,7 @@ export function useTeacherDashboardSeed() {
       setStudents(seed.students);
       setMaterials(seed.materials);
       setTasks(seed.tasks);
+      setSubscription(seed.subscription);
       setStatus('ready');
       return;
     }
@@ -89,8 +108,12 @@ export function useTeacherDashboardSeed() {
           return;
         }
         if (draftRes.data.onboarding) {
-          setConfig(mapOnboardingToConfig(draftRes.data.onboarding));
+          setConfig({
+            ...mapOnboardingToConfig(draftRes.data.onboarding),
+            email: session?.user?.email ?? null,
+          });
         }
+        setSubscription(buildSubscriptionProxy());
 
         // Entity fetches are best-effort: an empty result still renders empty states.
         if (!('error' in lessonsRes)) {

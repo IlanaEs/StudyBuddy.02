@@ -14,6 +14,7 @@ import {
   isEligibleForAdminQa,
   setQaRoleOverride,
 } from '../adminQa/adminQaMode';
+import { isDemoStagingMode, getDemoSessionTokens } from '../demo/demoMode';
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
@@ -179,6 +180,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function bootstrapSession() {
       try {
         const supabase = getSupabaseBrowserClient();
+
+        // Staging demo only: hydrate the pre-issued demo-teacher session so the
+        // bare link opens straight into the dashboard. Gated to the allowlisted
+        // staging host (never production); ProtectedRoute is untouched — the
+        // resolved session is a genuine teacher, so it passes normally.
+        if (isDemoStagingMode()) {
+          const { data: existing } = await supabase.auth.getSession();
+          const tokens = getDemoSessionTokens();
+          if (!existing.session && tokens) {
+            try {
+              await supabase.auth.setSession(tokens);
+            } catch {
+              // Expired/invalid demo tokens: fall through to the normal flow
+              // (login screen) rather than breaking the app.
+            }
+          }
+        }
+
         const { data } = await supabase.auth.getSession();
 
         if (import.meta.env.DEV) {
