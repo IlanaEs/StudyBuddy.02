@@ -17,6 +17,7 @@ export type StudentDashboardPayload = {
     starts_at: string;
     ends_at: string;
     status: string;
+    meeting_link: string | null;
   } | null;
 
   my_teachers: Array<{

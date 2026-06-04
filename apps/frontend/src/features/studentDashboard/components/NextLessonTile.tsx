@@ -2,6 +2,7 @@ import { CalendarClock, Video } from 'lucide-react';
 import { towTokens as T } from '../../../design/tokens';
 import { BentoTile } from '../../teacher/components/BentoGrid';
 import { EmptyState } from '../../teacher/components/EmptyState';
+import { AddLessonToCalendarButton } from '../../../components/AddLessonToCalendarButton';
 import { TeacherAvatar } from './TeacherAvatar';
 import { formatCountdown, formatTime, formatWeekday } from './formatters';
 import type { StudentDashboardPayload } from '../api/types';
@@ -42,32 +43,62 @@ export function NextLessonTile({ lesson }: { lesson: StudentDashboardPayload['ne
             </span>
           </div>
 
-          {/* Join is disabled in P0 — real-time Live Now / join link is P1. */}
-          <button
-            type="button"
-            disabled
-            aria-disabled="true"
-            title="הקישור ייפתח סמוך לשיעור"
-            style={{
-              marginTop: 'auto',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              padding: '11px 16px',
-              borderRadius: T.radiusSm,
-              border: `1px solid ${T.ink}`,
-              background: 'color-mix(in oklab, #3f7e76 40%, transparent)',
-              color: T.text3,
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: 'not-allowed',
-              opacity: 0.65,
-            }}
-          >
-            <Video size={16} />
-            הצטרפות לשיעור (Join)
-          </button>
+          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* Join enabled once the teacher's approval created a Meet link;
+                otherwise a "link pending" state. Real-time Live Now states are P1. */}
+            {lesson.meeting_link ? (
+              <a
+                href={lesson.meeting_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '11px 16px',
+                  borderRadius: T.radiusSm,
+                  border: 'none',
+                  background: T.neon,
+                  color: '#04201f',
+                  fontSize: 14,
+                  fontWeight: 800,
+                  textDecoration: 'none',
+                  transition: 'filter 250ms ease-out',
+                }}
+              >
+                <Video size={16} />
+                הצטרפות לשיעור (Join)
+              </a>
+            ) : (
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                title="הקישור ייפתח לאחר אישור המורה"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '11px 16px',
+                  borderRadius: T.radiusSm,
+                  border: `1px solid ${T.ink}`,
+                  background: 'color-mix(in oklab, #3f7e76 40%, transparent)',
+                  color: T.text3,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: 'not-allowed',
+                  opacity: 0.65,
+                }}
+              >
+                <Video size={16} />
+                ממתין לקישור (Link Pending)
+              </button>
+            )}
+
+            <AddLessonToCalendarButton lessonId={lesson.id} />
+          </div>
         </div>
       )}
     </BentoTile>

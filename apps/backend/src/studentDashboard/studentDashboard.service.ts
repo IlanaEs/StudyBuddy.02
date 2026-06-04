@@ -85,6 +85,7 @@ export async function getStudentDashboardService(
           starts_at: nextLesson.scheduledStartAt,
           ends_at: nextLesson.scheduledEndAt,
           status: nextLesson.status,
+          meeting_link: nextLesson.meetingLink,
         }
       : null,
 

@@ -7,6 +7,7 @@ import {
   respondToBookingRequest,
 } from '../api/bookingRequests';
 import type { PendingBookingRequest } from '../api/bookingRequests';
+import { initiateCalendarConnect } from '../api/teacherCalendar';
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 
@@ -246,6 +247,25 @@ export function TeacherBookingInboxPage() {
     // Teacher's Google OAuth provider token — present when the teacher logged in
     // via Google (linkIdentity). Used for Meet link creation on approve (best-effort).
     const providerToken = auth.session?.provider_token ?? undefined;
+
+    // Surface (don't silently fail): approving without a calendar-scoped Google
+    // token means no Meet link. Offer to connect Google Calendar first; if the
+    // teacher connects, the page redirects and they re-approve with a token.
+    // Declining proceeds — the lesson is still created with a "link pending" state.
+    if (response === 'approve' && !providerToken) {
+      const wantConnect = window.confirm(
+        'כדי ליצור קישור Google Meet אוטומטי יש לחבר את Google Calendar.\n' +
+          'לחבר עכשיו? אם תבחרו "ביטול", השיעור יאושר ללא קישור Meet (ניתן להוסיף מאוחר יותר).',
+      );
+      if (wantConnect) {
+        try {
+          await initiateCalendarConnect(`${window.location.origin}/teacher/inbox`);
+          return; // redirecting to Google; teacher re-approves on return
+        } catch {
+          showToast('לא ניתן לחבר את Google Calendar כעת. השיעור יאושר ללא קישור Meet.');
+        }
+      }
+    }
 
     const result = await respondToBookingRequest(id, { response }, token, providerToken);
 

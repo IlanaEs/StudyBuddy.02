@@ -24,7 +24,8 @@ import {
   insertBookingRequestViaClient,
   markMatchResultSelectedViaClient,
   updateBookingRequestStatus,
-  updateLessonMeetingLink,
+  updateLessonCalendarFields,
+  getSubjectNameById,
   insertLessonViaClient,
   getBookingRequestsByTeacherId,
   batchGetStudentNamesByStudentIds,
@@ -94,15 +95,9 @@ export async function createBookingRequest(
     throw new AppError('Teacher not found', 404);
   }
 
-  // ── MVP: parent-managed students only ────────────────────────────────────
-  if (student.parentUserId === null) {
-    throw new AppError(
-      'MVP supports parent-managed students only. Standalone student booking is not yet available.',
-      422,
-    );
-  }
-
   // ── Ownership check ───────────────────────────────────────────────────────
+  // Both independent (user_id set) and parent-managed (parent_user_id set)
+  // students may book; ownership is verified per role below.
   if (currentUser.role === 'student') {
     if (student.userId !== currentUser.id) {
       throw new AppError('Forbidden', 403);
@@ -309,27 +304,33 @@ export async function respondToBookingRequest(
     locationType: lessonLocationType,
   });
 
-  // ── Best-effort: create Google Calendar event with Meet link ─────────────
-  // A calendar failure never affects the already-created lesson. If anything
-  // goes wrong (expired token, insufficient scope, network error) we skip the
-  // Meet link — the lesson is still valid and the client surfaces a
-  // non-blocking notice based on the null meetingLink.
+  // ── Best-effort: create the Google Calendar event (teacher's calendar) ────
+  // Primary target is the TEACHER's calendar; the Meet link is generated via
+  // Calendar conferenceData and the event id is retained for future sync. A
+  // calendar failure never affects the already-created lesson — if anything
+  // goes wrong (no token, insufficient scope, network error) we leave
+  // meeting_link null and the dashboard shows a "link pending" state.
   if (googleProviderToken) {
-    const meetUrl = await createGoogleCalendarEventWithMeet(
+    const subjectName = lessonSubjectId ? await getSubjectNameById(lessonSubjectId) : null;
+    const eventTitle = subjectName ? `שיעור StudyBuddy — ${subjectName}` : 'שיעור StudyBuddy';
+
+    const event = await createGoogleCalendarEventWithMeet(
       googleProviderToken,
-      'שיעור StudyBuddy',
+      eventTitle,
       createdLesson.scheduledStartAt,
       createdLesson.scheduledEndAt,
     );
-    if (meetUrl) {
+    if (event) {
       try {
-        await updateLessonMeetingLink(createdLesson.id, meetUrl);
-        createdLesson = { ...createdLesson, meetingLink: meetUrl };
+        await updateLessonCalendarFields(createdLesson.id, {
+          meetingLink: event.link,
+          calendarEventId: event.eventId,
+        });
+        createdLesson = { ...createdLesson, meetingLink: event.link };
       } catch (err) {
         // Persist failure is non-fatal: the lesson is already approved and
-        // created. Log and continue — the response will omit the Meet link
-        // rather than returning a spurious 500.
-        console.error('[respondToBookingRequest] Failed to persist meeting link', err);
+        // created. Log and continue rather than returning a spurious 500.
+        console.error('[respondToBookingRequest] Failed to persist lesson calendar fields', err);
       }
     }
   }

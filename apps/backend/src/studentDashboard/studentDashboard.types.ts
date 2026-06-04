@@ -17,6 +17,7 @@ export type LessonRow = {
   scheduledStartAt: string;
   scheduledEndAt: string;
   status: string;
+  meetingLink: string | null;
 };
 
 export type TeacherDisplay = {
@@ -57,6 +58,7 @@ export type StudentDashboardPayload = {
     starts_at: string;
     ends_at: string;
     status: string;
+    meeting_link: string | null;
   } | null;
 
   my_teachers: Array<{

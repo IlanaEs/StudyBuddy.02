@@ -51,22 +51,22 @@ describe('createGoogleCalendarEvent', () => {
     endAt: '2026-06-10T15:00:00+03:00',
   };
 
-  it('returns the Meet hangoutLink when createMeet is set', async () => {
+  it('returns the Meet hangoutLink and event id when createMeet is set', async () => {
     mockFetch(async () =>
-      new Response(JSON.stringify({ hangoutLink: 'https://meet.google.com/abc' }), { status: 200 }),
+      new Response(JSON.stringify({ id: 'evt-1', hangoutLink: 'https://meet.google.com/abc' }), { status: 200 }),
     );
 
     const result = await createGoogleCalendarEvent('token', { ...baseInput, createMeet: true });
-    expect(result).toEqual({ ok: true, link: 'https://meet.google.com/abc' });
+    expect(result).toEqual({ ok: true, link: 'https://meet.google.com/abc', eventId: 'evt-1' });
   });
 
-  it('returns the event htmlLink for a plain event (no Meet)', async () => {
+  it('returns the event htmlLink for a plain event (no Meet); eventId null when absent', async () => {
     mockFetch(async () =>
       new Response(JSON.stringify({ htmlLink: 'https://calendar.google.com/event?id=1' }), { status: 200 }),
     );
 
     const result = await createGoogleCalendarEvent('token', { ...baseInput, description: 'link' });
-    expect(result).toEqual({ ok: true, link: 'https://calendar.google.com/event?id=1' });
+    expect(result).toEqual({ ok: true, link: 'https://calendar.google.com/event?id=1', eventId: null });
   });
 
   it('surfaces a 403 (insufficient scope) as { ok: false, status: 403 }', async () => {

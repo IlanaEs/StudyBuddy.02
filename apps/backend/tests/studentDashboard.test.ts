@@ -89,6 +89,7 @@ describe('getStudentDashboardService', () => {
       scheduledStartAt: '2026-06-10T10:00:00.000Z',
       scheduledEndAt: '2026-06-10T11:00:00.000Z',
       status: 'scheduled',
+      meetingLink: 'https://meet.google.com/xyz',
     });
     vi.mocked(batchGetTeacherDisplaysByProfileIds).mockResolvedValue(
       new Map([['tp-1', { name: 'מר כהן', photoUrl: 'http://img/x.png' }]]),
@@ -106,6 +107,7 @@ describe('getStudentDashboardService', () => {
       starts_at: '2026-06-10T10:00:00.000Z',
       ends_at: '2026-06-10T11:00:00.000Z',
       status: 'scheduled',
+      meeting_link: 'https://meet.google.com/xyz',
     });
   });
 
