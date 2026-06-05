@@ -8,6 +8,9 @@ import { getDashboardPathByRole } from '../../../utils/getDashboardPathByRole';
 type ConfirmationState = {
   bookingId: string;
   teacherName: string;
+  subjectName?: string | null;
+  whenLabel?: string | null;
+  priceLabel?: string | null;
 };
 
 function isConfirmationState(value: unknown): value is ConfirmationState {
@@ -42,7 +45,13 @@ export function BookingConfirmationPage() {
 
   if (!state) return null;
 
-  const { teacherName } = state;
+  const { teacherName, subjectName, whenLabel, priceLabel } = state;
+  const receipt: Array<{ label: string; value: string }> = [
+    { label: 'מורה', value: teacherName },
+    ...(subjectName ? [{ label: 'מקצוע', value: subjectName }] : []),
+    ...(whenLabel ? [{ label: 'מועד', value: whenLabel }] : []),
+    ...(priceLabel ? [{ label: 'מחיר', value: priceLabel }] : []),
+  ];
 
   return (
     <div dir="rtl" lang="he" className="min-h-screen flex flex-col items-center justify-center px-4 py-10" style={{ background: 'var(--bg)' }}>
@@ -55,6 +64,20 @@ export function BookingConfirmationPage() {
         <p className="mb-6" style={{ color: 'var(--text-2)', fontSize: 15 }}>
           המורה {teacherName} יקבל/תקבל את בקשת השיעור ויאשר/תאשר בהקדם.
         </p>
+
+        {/* Receipt (Bento Summary) */}
+        <div className="rounded-2xl p-5 mb-4 text-right" style={{ background: 'var(--surface)', border: '1px solid var(--line-2)' }}>
+          <div className="font-bold mb-3" style={{ color: 'var(--text)' }}>סיכום הבקשה (Summary)</div>
+          {receipt.map((r) => (
+            <div key={r.label} className="flex items-center justify-between gap-3 mb-2" style={{ fontSize: 14 }}>
+              <span style={{ color: 'var(--text-3)' }}>{r.label}</span>
+              <span style={{ color: 'var(--text)', fontWeight: 600 }}>{r.value}</span>
+            </div>
+          ))}
+          <p className="mt-2" style={{ color: 'var(--text-3)', fontSize: 12.5, lineHeight: 1.6 }}>
+            הודעה נשלחה למורה לאישור סופי. תוכלו לעקוב אחר סטטוס הבקשה בכרטיס הממתינים בדשבורד.
+          </p>
+        </div>
 
         <div className="rounded-2xl p-5 mb-6 text-right" style={{ background: 'var(--surface)', border: '1px solid var(--line-2)' }}>
           <div className="font-bold mb-3" style={{ color: 'var(--text)' }}>מה קורה עכשיו?</div>
@@ -79,7 +102,7 @@ export function BookingConfirmationPage() {
           <button onClick={() => navigate(dashboardRoute)} className="w-full py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>
             לדשבורד שלי (My Dashboard)
           </button>
-          <button onClick={() => navigate('/onboarding/matching')} className="w-full py-3 rounded-xl font-medium text-sm" style={{ background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--text-3)', cursor: 'pointer' }}>
+          <button onClick={() => navigate('/find-tutor')} className="w-full py-3 rounded-xl font-medium text-sm" style={{ background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--text-3)', cursor: 'pointer' }}>
             חיפוש מורה נוסף
           </button>
         </div>

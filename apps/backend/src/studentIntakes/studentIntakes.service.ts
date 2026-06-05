@@ -3,9 +3,14 @@
 import { assertStudentAccess } from '../auth/ownership.js';
 import type { LocalUser } from '../auth/authTypes.js';
 import { AppError } from '../errors/AppError.js';
-import { createStudentIntake as repoCreate, findSubjectIdByName } from './studentIntakes.repository.js';
+import {
+  createStudentIntake as repoCreate,
+  findSubjectIdByName,
+  getLatestStudentIntakeByStudentId,
+  getStudentIdByUserId,
+} from './studentIntakes.repository.js';
 import type { CreateIntakeBody } from './studentIntakes.validation.js';
-import type { StudentIntakeSummary } from './studentIntakes.types.js';
+import type { LatestIntakePrefill, StudentIntakeSummary } from './studentIntakes.types.js';
 
 export async function createIntake(
   body: CreateIntakeBody,
@@ -41,6 +46,14 @@ export async function createIntake(
     preferredTimeRanges: body.preferred_time_ranges ?? null,
     learningStyle: body.learning_style ?? null,
     urgency: body.urgency ?? null,
+    softCriteria: body.soft_criteria ?? null,
     createdByUserId: currentUser.id,
   });
+}
+
+// Latest intake for the authenticated student — pre-fills the quick wizard.
+export async function getMyLatestIntake(currentUser: LocalUser): Promise<LatestIntakePrefill | null> {
+  const studentId = await getStudentIdByUserId(currentUser.id);
+  if (!studentId) return null;
+  return getLatestStudentIntakeByStudentId(studentId);
 }

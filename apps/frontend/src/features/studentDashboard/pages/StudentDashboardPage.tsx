@@ -27,7 +27,7 @@ export function StudentDashboardPage() {
   const [rebookTarget, setRebookTarget] = useState<{ id: string; name: string } | null>(null);
 
   const studentName = data?.student?.first_name ?? auth.user?.full_name ?? 'תלמיד';
-  const goFindTutor = () => navigate('/onboarding/matching');
+  const goFindTutor = () => navigate('/find-tutor');
 
   const handleSignOut = async () => {
     try {

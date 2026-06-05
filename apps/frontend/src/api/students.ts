@@ -51,6 +51,13 @@ export interface CreateStudentProfileInput {
   child_name?: string;
 }
 
+export type SoftCriteria = {
+  teacher_gender?: 'female' | 'male' | null;
+  fast_pace?: boolean;
+  adhd_experience?: boolean;
+  inclusive_approach?: boolean;
+};
+
 export interface CreateStudentIntakeInput {
   student_id: string;
   subject_id?: string;
@@ -64,6 +71,7 @@ export interface CreateStudentIntakeInput {
   preferred_days?: number[];
   preferred_time_ranges?: Array<{ start: string; end: string }>;
   learning_style?: string | null;
+  soft_criteria?: SoftCriteria | null;
 }
 
 export async function completeOAuthSignup(

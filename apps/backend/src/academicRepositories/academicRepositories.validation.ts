@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const academicRepositoryRequestSchema = z.object({
   body: z.object({
-    repository_type: z.enum(['institution', 'field']),
+    repository_type: z.enum(['institution', 'field', 'subject']),
     requested_name: z.string().trim().min(2).max(150),
   }),
 });
