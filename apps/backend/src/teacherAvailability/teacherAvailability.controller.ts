@@ -4,12 +4,14 @@ import {
   createAvailabilitySlot,
   deactivateAvailabilitySlot,
   generateAvailableSlots,
+  generateAvailableSlotsRange,
   getMyAvailability,
   updateAvailabilitySlot,
 } from './teacherAvailability.service.js';
 import type {
   CreateAvailabilitySlotBody,
   GetAvailableSlotsQuery,
+  GetAvailableSlotsRangeQuery,
   UpdateAvailabilitySlotBody,
 } from './teacherAvailability.validation.js';
 
@@ -58,6 +60,29 @@ export async function getAvailableSlotsController(request: Request, response: Re
       available_slots: result.availableSlots.map((s) => ({
         start_at: s.startAt,
         end_at: s.endAt,
+      })),
+    },
+  });
+}
+
+export async function getAvailableSlotsRangeController(request: Request, response: Response) {
+  const teacherId = request.params['teacherId'] as string;
+  const query = request.query as unknown as GetAvailableSlotsRangeQuery;
+
+  const result = await generateAvailableSlotsRange(
+    teacherId,
+    query.from,
+    query.days ?? 10,
+    query.duration_minutes,
+  );
+
+  response.status(200).json({
+    data: {
+      teacher_id: result.teacherId,
+      from: result.from,
+      days: result.days.map((d) => ({
+        date: d.date,
+        available_slots: d.availableSlots.map((s) => ({ start_at: s.startAt, end_at: s.endAt })),
       })),
     },
   });

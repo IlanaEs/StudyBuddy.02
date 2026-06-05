@@ -2,7 +2,13 @@
 
 import { AppError } from '../errors/AppError.js';
 import type { LocalUser } from '../auth/authTypes.js';
-import type { AvailabilitySlotRow, AvailableSlotsResult } from './teacherAvailability.types.js';
+import {
+  addDaysDateString,
+  jerusalemDayBoundsUtc,
+  jerusalemDowOf,
+  jerusalemWallClockToUtcISO,
+} from '../lib/jerusalemTime.js';
+import type { AvailabilitySlotRow, AvailableSlotsResult, AvailableSlotsRangeResult } from './teacherAvailability.types.js';
 import type {
   CreateAvailabilitySlotBody,
   UpdateAvailabilitySlotBody,
@@ -152,12 +158,10 @@ function timeToMinutes(time: string): number {
   return (parts[0] ?? 0) * 60 + (parts[1] ?? 0);
 }
 
-// Combines a YYYY-MM-DD date string with a minutes-since-midnight offset
-// into an ISO 8601 string treated as UTC (no timezone model exists yet).
+// Combines a Jerusalem calendar date + minutes-since-midnight (Jerusalem wall
+// clock) into the correct UTC ISO instant (DST-aware).
 function minutesToISOString(date: string, minutes: number): string {
-  const h = Math.floor(minutes / 60).toString().padStart(2, '0');
-  const m = (minutes % 60).toString().padStart(2, '0');
-  return `${date}T${h}:${m}:00.000Z`;
+  return jerusalemWallClockToUtcISO(date, minutes);
 }
 
 // For round_hour alignment: returns the window start if already on the hour,
@@ -166,10 +170,9 @@ function roundHourStart(windowStartMin: number): number {
   return windowStartMin % 60 === 0 ? windowStartMin : Math.ceil(windowStartMin / 60) * 60;
 }
 
-// Assumption: all times are treated as UTC. The date query param is interpreted
-// as a UTC calendar date, availability_slots times are combined with that date
-// as UTC offsets, and scheduled_lessons timestamptz columns are compared as-is.
-// A timezone model will replace this assumption in a future task.
+// Timezone model: `date` is a Jerusalem calendar date; availability_slots times
+// are interpreted as Jerusalem wall-clock and converted to UTC instants
+// (DST-aware). The day boundary for conflict queries is the Jerusalem day.
 export async function generateAvailableSlots(
   teacherId: string,
   date: string,
@@ -186,17 +189,14 @@ export async function generateAvailableSlots(
   const slotAlignment = prefs.slotAlignment;
   const stepMinutes = lessonDuration + breakDuration;
 
-  // Determine day_of_week from date (UTC): 0=Sunday … 6=Saturday
-  const dayOfWeek = new Date(`${date}T00:00:00.000Z`).getUTCDay();
+  // Day of week of the Jerusalem calendar date (0=Sunday … 6=Saturday)
+  const dayOfWeek = jerusalemDowOf(date);
 
   // Load active availability windows for this teacher/day
   const windows = await getActiveSlotsByTeacherAndDay(teacherId, dayOfWeek);
 
-  // Build the day boundary used by both conflict queries.
-  const dateStart = `${date}T00:00:00.000Z`;
-  const nextDay = new Date(`${date}T00:00:00.000Z`);
-  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-  const dateEnd = nextDay.toISOString();
+  // Day boundary (UTC instants of the Jerusalem day) for the conflict queries.
+  const { startUtc: dateStart, endUtc: dateEnd } = jerusalemDayBoundsUtc(date);
 
   // Load existing scheduled lessons and availability exceptions in parallel.
   const [scheduledLessons, exceptions] = await Promise.all([
@@ -258,6 +258,26 @@ export async function generateAvailableSlots(
     breakDurationMinutes: breakDuration,
     slotAlignment,
     availableSlots: available,
+  };
+}
+
+// Projects availability over a window of `days` Jerusalem calendar dates starting
+// at `from`, reusing the single-date projection (booked-lesson + exception
+// subtraction included) for each date.
+export async function generateAvailableSlotsRange(
+  teacherId: string,
+  from: string,
+  days: number,
+  requestedDurationMinutes?: number,
+): Promise<AvailableSlotsRangeResult> {
+  const dates = Array.from({ length: days }, (_, i) => addDaysDateString(from, i));
+  const results = await Promise.all(
+    dates.map((date) => generateAvailableSlots(teacherId, date, requestedDurationMinutes)),
+  );
+  return {
+    teacherId,
+    from,
+    days: results.map((r) => ({ date: r.date, availableSlots: r.availableSlots })),
   };
 }
 

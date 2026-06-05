@@ -1,75 +1,60 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Info, Send } from 'lucide-react';
+import { ChevronRight, Info, Send, Layers } from 'lucide-react';
 import { useMediaQuery } from '@mantine/hooks';
 import { useMatchingStore } from '../store/matchingStore';
 import { BookingAvailabilityGrid } from '../components/BookingAvailabilityGrid';
+import type { GridSelection } from '../components/BookingAvailabilityGrid';
 import { useAuth } from '../../../auth/AuthProvider';
 import { createBookingRequest } from '../../../api/bookingRequests';
 import { linkAttachments } from '../../../api/attachments';
+import { getTeacherAvailableSlotsRange } from '../api/teacherAvailabilityRange';
+import type { DatedSlot } from '../api/teacherAvailabilityRange';
 import { AttachmentDropzone } from '../components/AttachmentDropzone';
 import { FloatingLabelInput } from '../../../components/onboarding/v2/FloatingLabelInput';
 import { FlowNav } from '../../../components/FlowNav';
 import { towTokens as T } from '../../../design/tokens';
-
-// Hebrew weekday name → JS Date.getDay() (0 = Sunday)
-const HEBREW_DAY_TO_DOW: Record<string, number> = {
-  ראשון: 0, שני: 1, שלישי: 2, רביעי: 3, חמישי: 4, שישי: 5, שבת: 6,
-};
-
-// Build an ISO 8601 datetime with local timezone offset for the next occurrence
-// of the given weekday at the given HH:mm time. (Unchanged booking logic.)
-function buildIsoDatetime(hebrewDay: string, time: string): string {
-  const targetDow = HEBREW_DAY_TO_DOW[hebrewDay];
-  if (targetDow === undefined) throw new Error(`Unknown day: ${hebrewDay}`);
-
-  const parts = time.split(':');
-  const hours = parseInt(parts[0] ?? '0', 10);
-  const minutes = parseInt(parts[1] ?? '0', 10);
-
-  const now = new Date();
-  const todayDow = now.getDay();
-  let daysAhead = ((targetDow - todayDow) + 7) % 7;
-
-  if (daysAhead === 0) {
-    const slotToday = new Date(now);
-    slotToday.setHours(hours, minutes, 0, 0);
-    if (slotToday <= now) daysAhead = 7;
-  }
-
-  const date = new Date(now);
-  date.setDate(date.getDate() + daysAhead);
-  date.setHours(hours, minutes, 0, 0);
-
-  const tzOffsetMinutes = -date.getTimezoneOffset();
-  const sign = tzOffsetMinutes >= 0 ? '+' : '-';
-  const absHours = Math.floor(Math.abs(tzOffsetMinutes) / 60).toString().padStart(2, '0');
-  const absMins = (Math.abs(tzOffsetMinutes) % 60).toString().padStart(2, '0');
-
-  const yyyy = date.getFullYear();
-  const MM = (date.getMonth() + 1).toString().padStart(2, '0');
-  const dd = date.getDate().toString().padStart(2, '0');
-  const HH = hours.toString().padStart(2, '0');
-  const mm = minutes.toString().padStart(2, '0');
-
-  return `${yyyy}-${MM}-${dd}T${HH}:${mm}:00${sign}${absHours}:${absMins}`;
-}
+import { dayLabel, dayWindow, jerusalemHHMM, jerusalemToday, priceTotal } from '../utils/bookingGrid';
 
 export function BookingRequestPage() {
   const navigate = useNavigate();
   const auth = useAuth();
-  const { matchResults, selectedMatchId } = useMatchingStore();
+  const { matchResults, selectedMatchId, intake } = useMatchingStore();
   const match = matchResults.find((r) => r.id === selectedMatchId);
   const isNarrow = useMediaQuery('(max-width: 820px)') ?? false;
+  const token = auth.session?.access_token ?? null;
 
-  const [selectedDay, setSelectedDay] = useState('');
-  const [selectedTime, setSelectedTime] = useState('');
+  const dates = useMemo(() => dayWindow(jerusalemToday(), 10), []);
+  const [availableByDate, setAvailableByDate] = useState<Record<string, DatedSlot[]>>({});
+  const [slotsLoading, setSlotsLoading] = useState(true);
+
+  const [doubleMode, setDoubleMode] = useState(false);
+  const [selection, setSelection] = useState<GridSelection | null>(null);
   const [topic, setTopic] = useState('');
   const [message, setMessage] = useState('');
   const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const teacherId = match?.teacher.id ?? null;
+
+  // Fetch the 10-day dated availability window once.
+  useEffect(() => {
+    if (!token || !teacherId) {
+      setSlotsLoading(false);
+      return;
+    }
+    setSlotsLoading(true);
+    getTeacherAvailableSlotsRange(token, teacherId, dates[0]!, 10, 60).then((res) => {
+      if (!('error' in res)) {
+        const map: Record<string, DatedSlot[]> = {};
+        for (const d of res.data.days) map[d.date] = d.available_slots;
+        setAvailableByDate(map);
+      }
+      setSlotsLoading(false);
+    });
+  }, [token, teacherId, dates]);
 
   if (!match) {
     return (
@@ -88,9 +73,23 @@ export function BookingRequestPage() {
     );
   }
 
+  const rate = match.teacher.hourlyRate;
+  const subjects = match.teacher.subjects?.join(' · ');
+  const selectionMinutes = selection
+    ? Math.round((new Date(selection.endAt).getTime() - new Date(selection.startAt).getTime()) / 60000)
+    : 0;
+  const isDoubleSelection = selectionMinutes > 60;
+  const total = selection ? priceTotal(rate, isDoubleSelection) : null;
+
+  function toggleDouble() {
+    setDoubleMode((v) => !v);
+    setSelection(null); // selection shape changes with mode; reset to avoid mismatch
+    setError('');
+  }
+
   async function handleSubmit() {
-    if (!selectedDay || !selectedTime) {
-      setError('נא לבחור יום ושעה לשיעור');
+    if (!selection) {
+      setError('נא לבחור מועד לשיעור');
       return;
     }
     const accessToken = auth.session?.access_token;
@@ -103,14 +102,6 @@ export function BookingRequestPage() {
     setIsSubmitting(true);
 
     try {
-      const requestedStartAt = buildIsoDatetime(selectedDay, selectedTime);
-      const startDate = new Date(requestedStartAt);
-      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
-      const requestedEndAt = buildIsoDatetime(
-        selectedDay,
-        `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`,
-      );
-
       // The booking_request has a single free-text field; fold the lesson topic
       // and the optional note into student_message (no lifecycle/schema change).
       const parts = [topic.trim(), message.trim()].filter(Boolean);
@@ -119,8 +110,8 @@ export function BookingRequestPage() {
       const result = await createBookingRequest(
         {
           match_result_id: match!.id,
-          requested_start_at: requestedStartAt,
-          requested_end_at: requestedEndAt,
+          requested_start_at: selection.startAt,
+          requested_end_at: selection.endAt,
           ...(studentMessage ? { student_message: studentMessage } : {}),
         },
         accessToken,
@@ -137,8 +128,15 @@ export function BookingRequestPage() {
         await linkAttachments(accessToken, result.data.booking_request.id, attachmentIds);
       }
 
+      const lbl = dayLabel(selection.date);
       navigate('/onboarding/confirmation', {
-        state: { bookingId: result.data.booking_request.id, teacherName: match!.teacher.fullName },
+        state: {
+          bookingId: result.data.booking_request.id,
+          teacherName: match!.teacher.fullName,
+          subjectName: intake.subjectName || (match!.teacher.subjects?.[0] ?? null),
+          whenLabel: `${lbl.weekday} ${lbl.dm}, ${jerusalemHHMM(selection.startAt)}–${jerusalemHHMM(selection.endAt)}`,
+          priceLabel: total != null ? `₪${total}` : null,
+        },
       });
     } catch {
       setError('שגיאת תקשורת. בדקו חיבור לאינטרנט ונסו שנית.');
@@ -146,9 +144,6 @@ export function BookingRequestPage() {
       setIsSubmitting(false);
     }
   }
-
-  const rate = match.teacher.hourlyRate;
-  const subjects = match.teacher.subjects?.join(' · ');
 
   return (
     <div dir="rtl" lang="he" className="tow tow-bg-glow" style={{ minHeight: '100dvh', color: T.text }}>
@@ -200,18 +195,45 @@ export function BookingRequestPage() {
             <Card title="בחירת מועד" english="Select Time">
               <BookingAvailabilityGrid
                 availabilitySlots={match.teacher.availabilitySlots}
-                selectedDay={selectedDay}
-                selectedTime={selectedTime}
-                onSelect={(day, time) => {
-                  setSelectedDay(day);
-                  setSelectedTime(time);
+                dates={dates}
+                availableByDate={availableByDate}
+                loading={slotsLoading}
+                doubleMode={doubleMode}
+                selection={selection}
+                onSelect={(sel) => {
+                  setSelection(sel);
                   setError('');
                 }}
               />
+
+              {/* Double-lesson toggle */}
+              <button
+                type="button"
+                onClick={toggleDouble}
+                aria-pressed={doubleMode}
+                style={{
+                  marginTop: 14,
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  padding: '9px 14px', borderRadius: T.radiusSm,
+                  border: `1.5px solid ${doubleMode ? T.neon : T.ink}`,
+                  background: doubleMode ? 'color-mix(in oklab, #00f6ff 14%, transparent)' : 'transparent',
+                  color: doubleMode ? T.neon : T.text2,
+                  fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
+                  transition: 'border-color 250ms ease-out, color 250ms ease-out, background 250ms ease-out',
+                }}
+              >
+                <Layers size={16} />
+                שיעור כפול (Double Lesson)
+              </button>
+              {doubleMode && (
+                <p style={{ margin: '8px 0 0', fontSize: 12, color: T.text3 }}>
+                  בחרו משבצת פנויה ולצידה משבצת עוקבת פנויה — השיעור יוזמן ל-120 דקות.
+                </p>
+              )}
             </Card>
           </div>
 
-          {/* Right column: lesson details + info + CTA */}
+          {/* Right column: lesson details + pricing + info + CTA */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <Card title="פרטי השיעור" english="Lesson Details">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -241,6 +263,15 @@ export function BookingRequestPage() {
                     }}
                   />
                 </div>
+              </div>
+            </Card>
+
+            {/* Pricing summary */}
+            <Card title="תמחור" english="Price">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <Row label="מחיר לשעה" value={`₪${rate}`} />
+                <Row label={isDoubleSelection ? 'סה״כ (שיעור כפול)' : 'סה״כ'} value={total != null ? `₪${total}` : '—'} emphasize />
+                {!selection && <p style={{ margin: 0, fontSize: 12, color: T.text3 }}>בחרו מועד כדי לראות את המחיר הכולל.</p>}
               </div>
             </Card>
 
@@ -275,6 +306,24 @@ export function BookingRequestPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Row({ label, value, emphasize }: { label: string; value: string; emphasize?: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+      <span style={{ fontSize: 13.5, color: T.text2 }}>{label}</span>
+      <span
+        style={{
+          fontFamily: T.fontMono,
+          fontWeight: 800,
+          fontSize: emphasize ? 20 : 14,
+          color: emphasize ? T.neon : T.text,
+        }}
+      >
+        {value}
+      </span>
     </div>
   );
 }

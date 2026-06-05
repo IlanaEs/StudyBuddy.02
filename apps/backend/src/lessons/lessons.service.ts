@@ -9,6 +9,7 @@ import type { UpdateLessonStatusBody, CompleteLessonBody } from './lessons.valid
 import type { LessonRow, TeacherLessonListItem, CompleteLessonResult } from './lessons.types.js';
 import {
   getLessonById,
+  getTeacherHourlyRate,
   getSubjectNameById,
   getTeacherProfileByUserId,
   updateLessonStatus,
@@ -182,6 +183,12 @@ export async function completeLessonService(
 
   const now = new Date().toISOString();
 
+  // ── Billable amount = hourly_rate × duration_hours (double lesson → 2×) ────
+  // Recorded on the confirmation so the parent dashboard / Finance Ledger shows
+  // the correct figure; null if the rate is unknown.
+  const hourlyRate = await getTeacherHourlyRate(teacherProfileId);
+  const amount = computeLessonAmount(hourlyRate, lesson.durationMinutes);
+
   // ── Atomic transaction ────────────────────────────────────────────────────
   const result = await withTransaction(async (sql) => {
     // 1. Mark lesson completed.
@@ -194,6 +201,7 @@ export async function completeLessonService(
       parentUserId: student.parentUserId!,
       studentId: lesson.studentId,
       teacherMarkedCompletedAt: now,
+      amount,
     });
 
     // 3. Create lesson_note with teacher's summary.
@@ -221,4 +229,12 @@ export async function completeLessonService(
   });
 
   return result;
+}
+
+// Billable amount = hourly_rate × duration in hours, rounded to 2dp. A double
+// lesson (120 min) naturally yields 2× the single (60 min) amount. Null when the
+// rate is unknown.
+export function computeLessonAmount(hourlyRate: number | null, durationMinutes: number): number | null {
+  if (hourlyRate == null) return null;
+  return Math.round(hourlyRate * (durationMinutes / 60) * 100) / 100;
 }

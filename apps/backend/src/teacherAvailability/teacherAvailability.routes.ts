@@ -7,6 +7,7 @@ import {
   createAvailabilitySlotController,
   deactivateAvailabilitySlotController,
   getAvailableSlotsController,
+  getAvailableSlotsRangeController,
   getMyAvailabilityController,
   updateAvailabilitySlotController,
 } from './teacherAvailability.controller.js';
@@ -14,6 +15,7 @@ import {
   createAvailabilitySlotSchema,
   deleteAvailabilitySlotSchema,
   getAvailableSlotsSchema,
+  getAvailableSlotsRangeSchema,
   updateAvailabilitySlotSchema,
 } from './teacherAvailability.validation.js';
 
@@ -36,6 +38,15 @@ teacherAvailabilityRouter.get(
   requireAnyRole(['teacher', 'student', 'parent', 'admin']),
   validateRequest(getAvailableSlotsSchema),
   asyncHandler(getAvailableSlotsController),
+);
+
+// GET /api/teacher-availability/:teacherId/available-slots-range?from=&days=&duration_minutes=
+// Dated availability over a window of days (default 10), for the booking calendar.
+teacherAvailabilityRouter.get(
+  '/:teacherId/available-slots-range',
+  requireAnyRole(['teacher', 'student', 'parent', 'admin']),
+  validateRequest(getAvailableSlotsRangeSchema),
+  asyncHandler(getAvailableSlotsRangeController),
 );
 
 // POST /api/teacher-availability

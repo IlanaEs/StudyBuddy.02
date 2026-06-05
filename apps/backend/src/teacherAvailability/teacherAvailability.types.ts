@@ -24,6 +24,12 @@ export type AvailableSlotsResult = {
   availableSlots: GeneratedSlot[];
 };
 
+export type AvailableSlotsRangeResult = {
+  teacherId: string;
+  from: string;
+  days: Array<{ date: string; availableSlots: GeneratedSlot[] }>;
+};
+
 export type AvailabilitySlotRow = {
   id: string;
   teacherId: string;
