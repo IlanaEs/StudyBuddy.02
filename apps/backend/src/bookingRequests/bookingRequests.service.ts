@@ -31,6 +31,7 @@ import {
   batchGetStudentNamesByStudentIds,
 } from './bookingRequests.repository.js';
 import { createGoogleCalendarEventWithMeet } from '../teachers/teacherCalendarService.js';
+import { carryBookingAttachmentsToLesson } from '../attachments/attachments.service.js';
 
 // ── Teacher Inbox ─────────────────────────────────────────────────────────────
 
@@ -303,6 +304,14 @@ export async function respondToBookingRequest(
     durationMinutes,
     locationType: lessonLocationType,
   });
+
+  // ── Carry the booking's attachments onto the created lesson (additive) ────
+  // Best-effort: a failure here never affects the already-created lesson.
+  try {
+    await carryBookingAttachmentsToLesson(bookingRequestId, createdLesson.id);
+  } catch (err) {
+    console.error('[respondToBookingRequest] Failed to carry attachments to lesson', err);
+  }
 
   // ── Best-effort: create the Google Calendar event (teacher's calendar) ────
   // Primary target is the TEACHER's calendar; the Meet link is generated via

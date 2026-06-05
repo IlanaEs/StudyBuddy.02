@@ -78,6 +78,24 @@
   outline: none;
 }
 
+/* Spinner for in-flight states. */
+@keyframes tow-spin { to { transform: rotate(360deg); } }
+.tow-spin { animation: tow-spin 800ms linear infinite; }
+
+/* "Ants marching" animated dashed outline while a file uploads. */
+@keyframes tow-ants { to { background-position: 16px 0, -16px 100%, 0 -16px, 100% 16px; } }
+.tow-ants {
+  background-image:
+    linear-gradient(90deg, var(--tow-neon) 50%, transparent 0),
+    linear-gradient(90deg, var(--tow-neon) 50%, transparent 0),
+    linear-gradient(0deg, var(--tow-neon) 50%, transparent 0),
+    linear-gradient(0deg, var(--tow-neon) 50%, transparent 0);
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+  background-size: 16px 1.5px, 16px 1.5px, 1.5px 16px, 1.5px 16px;
+  background-position: 0 0, 0 100%, 0 0, 100% 0;
+  animation: tow-ants 500ms linear infinite;
+}
+
 /* Bookable availability slot: hover lift + neon glow (250ms ease-out). */
 .tow-slot { transition: transform 250ms ease-out, box-shadow 250ms ease-out, background 250ms ease-out, border-color 250ms ease-out; }
 .tow-slot--available:hover { transform: translateY(-2px); box-shadow: 0 0 14px -2px color-mix(in oklab, var(--tow-neon) 80%, transparent); background: color-mix(in oklab, var(--tow-neon) 16%, transparent); }

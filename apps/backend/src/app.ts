@@ -19,6 +19,7 @@ import { studentsRouter } from './students/students.routes.js';
 import { studentAvailabilityRouter } from './studentAvailability/studentAvailability.routes.js';
 import { parentDashboardRouter } from './parentDashboard/parentDashboard.routes.js';
 import { studentDashboardRouter } from './studentDashboard/studentDashboard.routes.js';
+import { attachmentsRouter } from './attachments/attachments.routes.js';
 
 export function createApp() {
   const app = express();
@@ -53,6 +54,7 @@ export function createApp() {
   app.use('/api/students/me', studentDashboardRouter);
   app.use('/api/students', studentsRouter);
   app.use('/api/student-availability', studentAvailabilityRouter);
+  app.use('/api/attachments', attachmentsRouter);
   app.use('/api/parents/me', parentDashboardRouter);
 
   app.use(errorHandler);

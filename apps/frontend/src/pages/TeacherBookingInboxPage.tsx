@@ -8,6 +8,7 @@ import {
 } from '../api/bookingRequests';
 import type { PendingBookingRequest } from '../api/bookingRequests';
 import { initiateCalendarConnect } from '../api/teacherCalendar';
+import { AttachmentList } from '../components/AttachmentList';
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 
@@ -150,6 +151,9 @@ function BookingCard({
           {request.studentMessage}
         </div>
       )}
+
+      {/* Student attachments (read-only download) */}
+      <AttachmentList bookingRequestId={request.id} />
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>

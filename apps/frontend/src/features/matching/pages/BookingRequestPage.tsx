@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Info, Paperclip, Send } from 'lucide-react';
+import { ChevronRight, Info, Send } from 'lucide-react';
 import { useMediaQuery } from '@mantine/hooks';
 import { useMatchingStore } from '../store/matchingStore';
 import { BookingAvailabilityGrid } from '../components/BookingAvailabilityGrid';
 import { useAuth } from '../../../auth/AuthProvider';
 import { createBookingRequest } from '../../../api/bookingRequests';
+import { linkAttachments } from '../../../api/attachments';
+import { AttachmentDropzone } from '../components/AttachmentDropzone';
 import { FloatingLabelInput } from '../../../components/onboarding/v2/FloatingLabelInput';
 import { FlowNav } from '../../../components/FlowNav';
 import { towTokens as T } from '../../../design/tokens';
@@ -65,6 +67,7 @@ export function BookingRequestPage() {
   const [selectedTime, setSelectedTime] = useState('');
   const [topic, setTopic] = useState('');
   const [message, setMessage] = useState('');
+  const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -126,6 +129,12 @@ export function BookingRequestPage() {
       if ('error' in result) {
         setError(result.error ?? 'שגיאה בשליחת הבקשה. נסו שנית.');
         return;
+      }
+
+      // Link any uploaded attachments to the new booking_request (additive,
+      // non-blocking: the booking is already created and valid).
+      if (attachmentIds.length > 0) {
+        await linkAttachments(accessToken, result.data.booking_request.id, attachmentIds);
       }
 
       navigate('/onboarding/confirmation', {
@@ -208,25 +217,12 @@ export function BookingRequestPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <FloatingLabelInput label="על מה יהיה השיעור?" value={topic} onChange={setTopic} />
 
-                {/* Asset Dropzone — disabled until file upload is built (no backend). */}
+                {/* Asset Dropzone — uploads to private storage; linked on submit. */}
                 <div>
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: T.text2, marginBottom: 6 }}>
                     צירוף קבצים (Attachments)
                   </div>
-                  <div
-                    aria-disabled="true"
-                    title="בקרוב"
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                      padding: '18px 14px', borderRadius: T.radiusSm,
-                      border: `1.5px dashed ${T.line2}`,
-                      background: 'color-mix(in oklab, #3f7e76 22%, transparent)',
-                      color: T.text3, cursor: 'not-allowed', opacity: 0.7, textAlign: 'center',
-                    }}
-                  >
-                    <Paperclip size={16} />
-                    <span style={{ fontSize: 13 }}>העלאת קבצים תהיה זמינה בקרוב</span>
-                  </div>
+                  <AttachmentDropzone onChange={setAttachmentIds} />
                 </div>
 
                 <div>
