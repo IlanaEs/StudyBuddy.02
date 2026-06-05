@@ -135,6 +135,33 @@ describe('getStudentDashboardService', () => {
     ]);
   });
 
+  it('degrades to empty sections (no throw) when a section query fails', async () => {
+    // The service logs caught errors via console.error by design; silence it here.
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.mocked(getStudentByUserId).mockResolvedValue({ id: 'stu-1', fullName: 'דנה', gradeLevel: null });
+    resolveAllEmpty();
+    // One section throws — the aggregate must still resolve with a valid payload.
+    vi.mocked(getTeachersLast3Months).mockRejectedValue(new Error('column does not exist'));
+    vi.mocked(getNextScheduledLesson).mockRejectedValue(new Error('boom'));
+
+    const payload = await getStudentDashboardService(student);
+
+    expect(payload.student).toEqual({ id: 'stu-1', first_name: 'דנה', grade_level: null });
+    expect(payload.my_teachers).toEqual([]);
+    expect(payload.next_lesson).toBeNull();
+    expect(payload.quick_actions.can_find_teacher).toBe(true);
+  });
+
+  it('returns an empty dashboard (no throw) when student resolution fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.mocked(getStudentByUserId).mockRejectedValue(new Error('db down'));
+
+    const payload = await getStudentDashboardService(student);
+
+    expect(payload.student).toBeNull();
+    expect(payload.upcoming_lessons).toEqual([]);
+  });
+
   it('surfaces booking requests and the open homework count for recent materials', async () => {
     vi.mocked(getStudentByUserId).mockResolvedValue({ id: 'stu-1', fullName: 'דנה', gradeLevel: null });
     resolveAllEmpty();

@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
-import { LayoutDashboard, CalendarClock, History, MessageCircle } from 'lucide-react';
+import { LayoutDashboard, CalendarClock, History, MessageCircle, Settings, LogOut } from 'lucide-react';
 import { towTokens as T } from '../../../design/tokens';
 
-export type StudentView = 'overview' | 'lessons' | 'history';
+export type StudentView = 'overview' | 'lessons' | 'history' | 'settings';
 
 type NavItem = {
   view: StudentView;
@@ -17,12 +17,27 @@ const NAV_ITEMS: NavItem[] = [
   { view: 'history', label: 'היסטוריה וסיכומים', english: 'History & Notes', icon: <History size={18} /> },
 ];
 
+const ITEM_BASE = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  padding: '11px 14px',
+  borderRadius: T.radiusSm,
+  fontSize: 14,
+  fontWeight: 700,
+  textAlign: 'right',
+  width: '100%',
+  transition: 'border-color 250ms ease-out, color 250ms ease-out, background 250ms ease-out',
+} as const;
+
 export function StudentSidebar({
   active,
   onSelect,
+  onSignOut,
 }: {
   active: StudentView;
   onSelect: (view: StudentView) => void;
+  onSignOut: () => void;
 }) {
   return (
     <nav
@@ -37,9 +52,7 @@ export function StudentSidebar({
         background: 'color-mix(in oklab, #3f7e76 38%, transparent)',
         backdropFilter: 'blur(10px) saturate(130%)',
         WebkitBackdropFilter: 'blur(10px) saturate(130%)',
-        alignSelf: 'flex-start',
-        position: 'sticky',
-        top: 20,
+        height: '100%',
       }}
     >
       {NAV_ITEMS.map((item) => {
@@ -50,20 +63,12 @@ export function StudentSidebar({
             type="button"
             onClick={() => onSelect(item.view)}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '11px 14px',
-              borderRadius: T.radiusSm,
+              ...ITEM_BASE,
               border: `1.5px solid ${isActive ? T.neon : 'transparent'}`,
               background: isActive ? 'color-mix(in oklab, #00f6ff 14%, transparent)' : 'transparent',
               color: isActive ? T.neon : T.text2,
-              fontSize: 14,
-              fontWeight: 700,
               cursor: 'pointer',
-              textAlign: 'right',
               boxShadow: isActive ? `0 0 12px -2px ${T.neon}` : 'none',
-              transition: 'border-color 250ms ease-out, color 250ms ease-out, background 250ms ease-out',
             }}
           >
             <span style={{ display: 'flex' }}>{item.icon}</span>
@@ -75,32 +80,51 @@ export function StudentSidebar({
         );
       })}
 
-      {/* Inbox — disabled placeholder (Chat is P2, no backend yet). */}
+      {/* Inbox — disabled placeholder (Chat backend not built). */}
       <button
         type="button"
         disabled
         aria-disabled="true"
         title="בקרוב"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '11px 14px',
-          borderRadius: T.radiusSm,
-          border: '1.5px solid transparent',
-          background: 'transparent',
-          color: T.text3,
-          fontSize: 14,
-          fontWeight: 700,
-          cursor: 'not-allowed',
-          opacity: 0.5,
-          textAlign: 'right',
-        }}
+        style={{ ...ITEM_BASE, border: '1.5px solid transparent', background: 'transparent', color: T.text3, cursor: 'not-allowed', opacity: 0.5 }}
       >
         <span style={{ display: 'flex' }}><MessageCircle size={18} /></span>
-        <span>
-          הצ'אטים שלי<span style={{ fontWeight: 600 }}> (Inbox)</span>
-        </span>
+        <span>הצ'אטים שלי<span style={{ fontWeight: 600 }}> (Inbox)</span></span>
+      </button>
+
+      {/* Profile / Settings */}
+      {(() => {
+        const isActive = active === 'settings';
+        return (
+          <button
+            type="button"
+            onClick={() => onSelect('settings')}
+            style={{
+              ...ITEM_BASE,
+              border: `1.5px solid ${isActive ? T.neon : 'transparent'}`,
+              background: isActive ? 'color-mix(in oklab, #00f6ff 14%, transparent)' : 'transparent',
+              color: isActive ? T.neon : T.text2,
+              cursor: 'pointer',
+              boxShadow: isActive ? `0 0 12px -2px ${T.neon}` : 'none',
+            }}
+          >
+            <span style={{ display: 'flex' }}><Settings size={18} /></span>
+            <span>פרופיל / הגדרות<span style={{ color: isActive ? T.neon : T.text3, fontWeight: 600 }}> (Profile / Settings)</span></span>
+          </button>
+        );
+      })()}
+
+      <div style={{ flex: 1, minHeight: 8 }} />
+      <div style={{ height: 1, background: T.line, margin: '4px 0' }} />
+
+      {/* Sign Out — wired to the existing logout. */}
+      <button
+        type="button"
+        onClick={onSignOut}
+        style={{ ...ITEM_BASE, border: '1.5px solid transparent', background: 'transparent', color: T.text2, cursor: 'pointer' }}
+      >
+        <span style={{ display: 'flex', color: T.alert }}><LogOut size={18} /></span>
+        <span>התנתקות<span style={{ color: T.text3, fontWeight: 600 }}> (Sign Out)</span></span>
       </button>
     </nav>
   );

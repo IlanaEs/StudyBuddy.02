@@ -228,14 +228,18 @@ a {
 }
 
 @media (max-width: 640px) {
+  /* Stay a compact corner pill on mobile — must not dominate the screen
+     (e.g. over the student dashboard, whose sidebar owns Sign Out). */
   .session-controls {
-    inset: auto 10px 10px 10px;
+    inset: auto 10px 10px auto;
+    max-width: calc(100vw - 20px);
     justify-content: flex-start;
     overflow-x: auto;
+    opacity: 0.92;
   }
 
   .session-controls__identity {
-    max-width: 44vw;
+    max-width: 38vw;
   }
 }
 
