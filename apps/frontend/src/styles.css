@@ -78,6 +78,10 @@
   outline: none;
 }
 
+/* Bookable availability slot: hover lift + neon glow (250ms ease-out). */
+.tow-slot { transition: transform 250ms ease-out, box-shadow 250ms ease-out, background 250ms ease-out, border-color 250ms ease-out; }
+.tow-slot--available:hover { transform: translateY(-2px); box-shadow: 0 0 14px -2px color-mix(in oklab, var(--tow-neon) 80%, transparent); background: color-mix(in oklab, var(--tow-neon) 16%, transparent); }
+
 @keyframes tow-chip-pop { 0% { transform: scale(0.9); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
 .tow-chip-pop { animation: tow-chip-pop 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 
