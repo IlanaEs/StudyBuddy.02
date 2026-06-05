@@ -18,6 +18,7 @@ import { TeacherOnboardingPage } from '../pages/TeacherOnboardingPage';
 import { AdminDashboardPage } from '../pages/AdminDashboardPage';
 import { ParentDashboardPage } from '../pages/ParentDashboardPage';
 import { StudentDashboardPage } from '../pages/StudentDashboardPage';
+import { FindTutorWizardPage } from '../features/findTutor/pages/FindTutorWizardPage';
 import { TeacherDashboardPage } from '../pages/TeacherDashboardPage';
 import { TeacherBookingInboxPage } from '../pages/TeacherBookingInboxPage';
 import { TeacherLessonManagePage } from '../pages/TeacherLessonManagePage';
@@ -81,6 +82,14 @@ export function App() {
           element={
             <ProtectedRoute allowedRoles={['student']}>
               <StudentDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/find-tutor"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <FindTutorWizardPage />
             </ProtectedRoute>
           }
         />

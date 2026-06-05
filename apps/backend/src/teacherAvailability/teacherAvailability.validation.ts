@@ -76,3 +76,24 @@ export const getAvailableSlotsSchema = z.object({
 });
 
 export type GetAvailableSlotsQuery = z.infer<typeof availableSlotsQuerySchema>;
+
+// ── GET /api/teacher-availability/:teacherId/available-slots-range ────────────
+
+const availableSlotsRangeQuerySchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be a valid YYYY-MM-DD date'),
+  days: z.preprocess(
+    (v) => (v === undefined || v === '' ? undefined : Number(v)),
+    z.number().int().min(1).max(14).optional(),
+  ),
+  duration_minutes: z.preprocess(
+    (v) => (v === undefined || v === '' ? undefined : Number(v)),
+    z.number().int().min(15).max(180).optional(),
+  ),
+});
+
+export const getAvailableSlotsRangeSchema = z.object({
+  params: availableSlotsParamsSchema,
+  query: availableSlotsRangeQuerySchema,
+});
+
+export type GetAvailableSlotsRangeQuery = z.infer<typeof availableSlotsRangeQuerySchema>;

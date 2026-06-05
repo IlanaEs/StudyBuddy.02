@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 
-import { createIntake } from './studentIntakes.service.js';
+import { createIntake, getMyLatestIntake } from './studentIntakes.service.js';
 import type { CreateIntakeBody } from './studentIntakes.validation.js';
 
 export async function createIntakeController(request: Request, response: Response) {
@@ -17,4 +17,9 @@ export async function createIntakeController(request: Request, response: Respons
       status: intake.status,
     },
   });
+}
+
+export async function getMyLatestIntakeController(request: Request, response: Response) {
+  const intake = await getMyLatestIntake(request.auth!.user);
+  response.status(200).json({ data: { intake } });
 }

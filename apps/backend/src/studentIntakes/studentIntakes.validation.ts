@@ -12,6 +12,16 @@ const preferredTimeRangeSchema = z
     message: 'time range start must be before end',
   });
 
+const softCriteriaSchema = z
+  .object({
+    teacher_gender: z.enum(['female', 'male']).nullable().optional(),
+    fast_pace: z.boolean().optional(),
+    adhd_experience: z.boolean().optional(),
+    inclusive_approach: z.boolean().optional(),
+  })
+  .nullable()
+  .optional();
+
 const bodySchema = z
   .object({
     student_id: z.string().uuid(),
@@ -27,6 +37,7 @@ const bodySchema = z
     preferred_time_ranges: z.array(preferredTimeRangeSchema).nullable().optional(),
     learning_style: z.string().max(100).nullable().optional(),
     urgency: z.string().max(50).nullable().optional(),
+    soft_criteria: softCriteriaSchema,
   })
   .refine(({ subject_id, subject_name }) => !!subject_id || !!subject_name?.trim(), {
     message: 'subject_id or subject_name is required',

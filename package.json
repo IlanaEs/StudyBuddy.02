@@ -29,6 +29,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "db:validate": "node scripts/validate-supabase-migrations.mjs",
+    "storage:setup": "node scripts/setup-storage.mjs",
     "qa:seed-users": "node scripts/seed-qa-users.mjs"
   },
   "engines": {

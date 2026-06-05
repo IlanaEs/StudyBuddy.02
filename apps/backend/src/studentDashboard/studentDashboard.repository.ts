@@ -54,7 +54,7 @@ export async function getStudentByUserId(userId: string): Promise<StudentRow | n
 export async function getNextScheduledLesson(studentId: string): Promise<LessonRow | null> {
   const { data, error } = await adminClient()
     .from('lessons')
-    .select('id,subject_id,teacher_id,scheduled_start_at,scheduled_end_at,status')
+    .select('id,subject_id,teacher_id,scheduled_start_at,scheduled_end_at,status,meeting_link')
     .eq('student_id', studentId)
     .eq('status', 'scheduled')
     .gt('scheduled_end_at', new Date().toISOString())
@@ -300,5 +300,7 @@ function mapLessonRow(row: any): LessonRow {
     scheduledStartAt: row.scheduled_start_at as string,
     scheduledEndAt: row.scheduled_end_at as string,
     status: row.status as string,
+    // Only the next-lesson query selects meeting_link; others leave it null.
+    meetingLink: (row.meeting_link as string | null) ?? null,
   };
 }

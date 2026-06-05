@@ -1,4 +1,6 @@
-export type AcademicRepositoryType = 'institution' | 'field';
+// 'subject' requests are capture-only (quick wizard off-taxonomy); the admin
+// approve→subjects upsert is deferred to the taxonomy backlog.
+export type AcademicRepositoryType = 'institution' | 'field' | 'subject';
 
 export type AcademicRepositoryItem = {
   id: string;

@@ -26,6 +26,9 @@ const expectedFiles = [
   '015_demo_seed_flags.sql',
   '016_google_only_auth.sql',
   '017_online_only_location.sql',
+  '018_lessons_calendar_event_id.sql',
+  '019_lesson_files_booking_request.sql',
+  '020_find_tutor_quick_wizard.sql',
 ];
 
 const migrationFiles = {

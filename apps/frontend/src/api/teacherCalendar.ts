@@ -29,10 +29,11 @@ export async function ensureCalendarLinkSession() {
 //
 // redirectTo is intentionally stable. Do not use window.location.href here; OAuth
 // callback URLs can include code/state fragments that must not be replayed.
-export async function initiateCalendarConnect(): Promise<void> {
+export async function initiateCalendarConnect(
+  redirectTo: string = TEACHER_CALENDAR_REDIRECT_TO,
+): Promise<void> {
   const supabase = getSupabaseBrowserClient();
   await ensureCalendarLinkSession();
-  const redirectTo = TEACHER_CALENDAR_REDIRECT_TO;
 
   const { error } = await supabase.auth.linkIdentity({
     provider: 'google',

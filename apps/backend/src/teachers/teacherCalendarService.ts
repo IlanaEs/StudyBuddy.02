@@ -62,20 +62,21 @@ export async function fetchGoogleBusySlots(
 }
 
 // Creates a Google Calendar event with a Google Meet conference attached.
-// Returns the hangoutLink (Meet URL) on success, or null on any failure
-// (expired token, insufficient scope, network error, etc.) — best-effort.
+// Returns { link, eventId } on success, or null on any failure (expired token,
+// insufficient scope, network error, etc.) — best-effort. The eventId is the
+// Google Calendar event id (persisted for future update/cancel sync).
 // Requires OAuth token with calendar.events write scope.
 export async function createGoogleCalendarEventWithMeet(
   providerToken: string,
   title: string,
   startAt: string,
   endAt: string,
-): Promise<string | null> {
+): Promise<{ link: string | null; eventId: string | null } | null> {
   const result = await createGoogleCalendarEvent(providerToken, {
     summary: title,
     startAt,
     endAt,
     createMeet: true,
   });
-  return result.ok ? result.link : null;
+  return result.ok ? { link: result.link, eventId: result.eventId } : null;
 }

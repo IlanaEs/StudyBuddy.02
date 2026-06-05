@@ -78,6 +78,28 @@
   outline: none;
 }
 
+/* Spinner for in-flight states. */
+@keyframes tow-spin { to { transform: rotate(360deg); } }
+.tow-spin { animation: tow-spin 800ms linear infinite; }
+
+/* "Ants marching" animated dashed outline while a file uploads. */
+@keyframes tow-ants { to { background-position: 16px 0, -16px 100%, 0 -16px, 100% 16px; } }
+.tow-ants {
+  background-image:
+    linear-gradient(90deg, var(--tow-neon) 50%, transparent 0),
+    linear-gradient(90deg, var(--tow-neon) 50%, transparent 0),
+    linear-gradient(0deg, var(--tow-neon) 50%, transparent 0),
+    linear-gradient(0deg, var(--tow-neon) 50%, transparent 0);
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+  background-size: 16px 1.5px, 16px 1.5px, 1.5px 16px, 1.5px 16px;
+  background-position: 0 0, 0 100%, 0 0, 100% 0;
+  animation: tow-ants 500ms linear infinite;
+}
+
+/* Bookable availability slot: hover lift + neon glow (250ms ease-out). */
+.tow-slot { transition: transform 250ms ease-out, box-shadow 250ms ease-out, background 250ms ease-out, border-color 250ms ease-out; }
+.tow-slot--available:hover { transform: translateY(-2px); box-shadow: 0 0 14px -2px color-mix(in oklab, var(--tow-neon) 80%, transparent); background: color-mix(in oklab, var(--tow-neon) 16%, transparent); }
+
 @keyframes tow-chip-pop { 0% { transform: scale(0.9); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
 .tow-chip-pop { animation: tow-chip-pop 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 
@@ -228,14 +250,18 @@ a {
 }
 
 @media (max-width: 640px) {
+  /* Stay a compact corner pill on mobile — must not dominate the screen
+     (e.g. over the student dashboard, whose sidebar owns Sign Out). */
   .session-controls {
-    inset: auto 10px 10px 10px;
+    inset: auto 10px 10px auto;
+    max-width: calc(100vw - 20px);
     justify-content: flex-start;
     overflow-x: auto;
+    opacity: 0.92;
   }
 
   .session-controls__identity {
-    max-width: 44vw;
+    max-width: 38vw;
   }
 }
 

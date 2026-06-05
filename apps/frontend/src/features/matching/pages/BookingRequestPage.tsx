@@ -1,87 +1,97 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Info } from 'lucide-react';
+import { ChevronRight, Info, Send, Layers } from 'lucide-react';
+import { useMediaQuery } from '@mantine/hooks';
 import { useMatchingStore } from '../store/matchingStore';
-import { BookingSlotPicker } from '../components/BookingSlotPicker';
+import { BookingAvailabilityGrid } from '../components/BookingAvailabilityGrid';
+import type { GridSelection } from '../components/BookingAvailabilityGrid';
 import { useAuth } from '../../../auth/AuthProvider';
 import { createBookingRequest } from '../../../api/bookingRequests';
+import { linkAttachments } from '../../../api/attachments';
+import { getTeacherAvailableSlotsRange } from '../api/teacherAvailabilityRange';
+import type { DatedSlot } from '../api/teacherAvailabilityRange';
+import { AttachmentDropzone } from '../components/AttachmentDropzone';
+import { FloatingLabelInput } from '../../../components/onboarding/v2/FloatingLabelInput';
 import { FlowNav } from '../../../components/FlowNav';
-
-// Hebrew weekday name → JS Date.getDay() (0 = Sunday)
-const HEBREW_DAY_TO_DOW: Record<string, number> = {
-  ראשון: 0, שני: 1, שלישי: 2, רביעי: 3, חמישי: 4, שישי: 5, שבת: 6,
-};
-
-// Build an ISO 8601 datetime with local timezone offset for the next occurrence
-// of the given weekday at the given HH:mm time.
-function buildIsoDatetime(hebrewDay: string, time: string): string {
-  const targetDow = HEBREW_DAY_TO_DOW[hebrewDay];
-  if (targetDow === undefined) throw new Error(`Unknown day: ${hebrewDay}`);
-
-  const parts = time.split(':');
-  const hours = parseInt(parts[0] ?? '0', 10);
-  const minutes = parseInt(parts[1] ?? '0', 10);
-
-  const now = new Date();
-  const todayDow = now.getDay();
-  let daysAhead = ((targetDow - todayDow) + 7) % 7;
-
-  // If the slot falls today, check whether the time has already passed.
-  // If it has, push to the same day next week.
-  if (daysAhead === 0) {
-    const slotToday = new Date(now);
-    slotToday.setHours(hours, minutes, 0, 0);
-    if (slotToday <= now) daysAhead = 7;
-  }
-
-  const date = new Date(now);
-  date.setDate(date.getDate() + daysAhead);
-  date.setHours(hours, minutes, 0, 0);
-
-  // Format with explicit timezone offset so the backend z.string().datetime({ offset: true }) accepts it.
-  const tzOffsetMinutes = -date.getTimezoneOffset();
-  const sign = tzOffsetMinutes >= 0 ? '+' : '-';
-  const absHours = Math.floor(Math.abs(tzOffsetMinutes) / 60).toString().padStart(2, '0');
-  const absMins = (Math.abs(tzOffsetMinutes) % 60).toString().padStart(2, '0');
-
-  const yyyy = date.getFullYear();
-  const MM = (date.getMonth() + 1).toString().padStart(2, '0');
-  const dd = date.getDate().toString().padStart(2, '0');
-  const HH = hours.toString().padStart(2, '0');
-  const mm = minutes.toString().padStart(2, '0');
-
-  return `${yyyy}-${MM}-${dd}T${HH}:${mm}:00${sign}${absHours}:${absMins}`;
-}
+import { towTokens as T } from '../../../design/tokens';
+import { dayLabel, dayWindow, jerusalemHHMM, jerusalemToday, priceTotal } from '../utils/bookingGrid';
 
 export function BookingRequestPage() {
   const navigate = useNavigate();
   const auth = useAuth();
-  const { matchResults, selectedMatchId } = useMatchingStore();
+  const { matchResults, selectedMatchId, intake } = useMatchingStore();
   const match = matchResults.find((r) => r.id === selectedMatchId);
-  const [selectedDay, setSelectedDay] = useState('');
-  const [selectedTime, setSelectedTime] = useState('');
+  const isNarrow = useMediaQuery('(max-width: 820px)') ?? false;
+  const token = auth.session?.access_token ?? null;
+
+  const dates = useMemo(() => dayWindow(jerusalemToday(), 10), []);
+  const [availableByDate, setAvailableByDate] = useState<Record<string, DatedSlot[]>>({});
+  const [slotsLoading, setSlotsLoading] = useState(true);
+
+  const [doubleMode, setDoubleMode] = useState(false);
+  const [selection, setSelection] = useState<GridSelection | null>(null);
+  const [topic, setTopic] = useState('');
   const [message, setMessage] = useState('');
+  const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const teacherId = match?.teacher.id ?? null;
+
+  // Fetch the 10-day dated availability window once.
+  useEffect(() => {
+    if (!token || !teacherId) {
+      setSlotsLoading(false);
+      return;
+    }
+    setSlotsLoading(true);
+    getTeacherAvailableSlotsRange(token, teacherId, dates[0]!, 10, 60).then((res) => {
+      if (!('error' in res)) {
+        const map: Record<string, DatedSlot[]> = {};
+        for (const d of res.data.days) map[d.date] = d.available_slots;
+        setAvailableByDate(map);
+      }
+      setSlotsLoading(false);
+    });
+  }, [token, teacherId, dates]);
+
   if (!match) {
     return (
-      <div dir="rtl" lang="he" className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+      <div dir="rtl" lang="he" className="tow tow-bg-glow" style={{ minHeight: '100dvh', color: T.text, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <FlowNav to="/" label="חזרה לדף הבית" />
-        <div className="text-center">
-          <p style={{ color: 'var(--text-2)' }}>לא נמצאה התאמה. חזור לתוצאות.</p>
-          <button onClick={() => navigate('/onboarding/results')} className="mt-4 py-2 px-5 rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>חזרה לתוצאות</button>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ color: T.text2 }}>לא נמצאה התאמה. חזרו לתוצאות.</p>
+          <button
+            onClick={() => navigate('/onboarding/results')}
+            style={{ marginTop: 16, padding: '10px 20px', borderRadius: T.radiusSm, background: T.neon, color: '#04201f', border: 'none', cursor: 'pointer', fontWeight: 800 }}
+          >
+            חזרה לתוצאות
+          </button>
         </div>
       </div>
     );
   }
 
+  const rate = match.teacher.hourlyRate;
+  const subjects = match.teacher.subjects?.join(' · ');
+  const selectionMinutes = selection
+    ? Math.round((new Date(selection.endAt).getTime() - new Date(selection.startAt).getTime()) / 60000)
+    : 0;
+  const isDoubleSelection = selectionMinutes > 60;
+  const total = selection ? priceTotal(rate, isDoubleSelection) : null;
+
+  function toggleDouble() {
+    setDoubleMode((v) => !v);
+    setSelection(null); // selection shape changes with mode; reset to avoid mismatch
+    setError('');
+  }
+
   async function handleSubmit() {
-    if (!selectedDay || !selectedTime) {
-      setError('נא לבחור יום ושעה לשיעור');
+    if (!selection) {
+      setError('נא לבחור מועד לשיעור');
       return;
     }
-
     const accessToken = auth.session?.access_token;
     if (!accessToken) {
       setError('יש להתחבר מחדש כדי לשלוח בקשה');
@@ -92,93 +102,255 @@ export function BookingRequestPage() {
     setIsSubmitting(true);
 
     try {
-      const requestedStartAt = buildIsoDatetime(selectedDay, selectedTime);
-      // Construct end time as start + 1 hour
-      const startDate = new Date(requestedStartAt);
-      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
-      const requestedEndAt = buildIsoDatetime(
-        selectedDay,
-        `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`,
-      );
+      // The booking_request has a single free-text field; fold the lesson topic
+      // and the optional note into student_message (no lifecycle/schema change).
+      const parts = [topic.trim(), message.trim()].filter(Boolean);
+      const studentMessage = parts.join('\n\n');
 
       const result = await createBookingRequest(
         {
           match_result_id: match!.id,
-          requested_start_at: requestedStartAt,
-          requested_end_at: requestedEndAt,
-          ...(message.trim() ? { student_message: message.trim() } : {}),
+          requested_start_at: selection.startAt,
+          requested_end_at: selection.endAt,
+          ...(studentMessage ? { student_message: studentMessage } : {}),
         },
         accessToken,
       );
 
       if ('error' in result) {
-        setError(result.error ?? 'שגיאה בשליחת הבקשה. נסה שנית.');
+        setError(result.error ?? 'שגיאה בשליחת הבקשה. נסו שנית.');
         return;
       }
 
+      // Link any uploaded attachments to the new booking_request (additive,
+      // non-blocking: the booking is already created and valid).
+      if (attachmentIds.length > 0) {
+        await linkAttachments(accessToken, result.data.booking_request.id, attachmentIds);
+      }
+
+      const lbl = dayLabel(selection.date);
       navigate('/onboarding/confirmation', {
         state: {
           bookingId: result.data.booking_request.id,
           teacherName: match!.teacher.fullName,
+          subjectName: intake.subjectName || (match!.teacher.subjects?.[0] ?? null),
+          whenLabel: `${lbl.weekday} ${lbl.dm}, ${jerusalemHHMM(selection.startAt)}–${jerusalemHHMM(selection.endAt)}`,
+          priceLabel: total != null ? `₪${total}` : null,
         },
       });
     } catch {
-      setError('שגיאת תקשורת. בדוק חיבור לאינטרנט ונסה שנית.');
+      setError('שגיאת תקשורת. בדקו חיבור לאינטרנט ונסו שנית.');
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <div dir="rtl" lang="he" className="min-h-screen px-4 py-10" style={{ background: 'var(--bg)' }}>
+    <div dir="rtl" lang="he" className="tow tow-bg-glow" style={{ minHeight: '100dvh', color: T.text }}>
       <FlowNav to="/" label="חזרה לדף הבית" />
-      <div className="w-full max-w-lg mx-auto">
+      <div style={{ maxWidth: 1000, margin: '0 auto', padding: '24px 18px 64px' }}>
         <button
           onClick={() => navigate('/onboarding/results')}
-          className="mb-4 flex items-center gap-1 text-sm"
-          style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 16, background: 'none', border: 'none', color: T.text3, cursor: 'pointer', fontSize: 13.5 }}
         >
           <ChevronRight size={16} />
-          חזור לתוצאות
+          חזרה לתוצאות
         </button>
 
-        <div className="rounded-2xl p-5 mb-5" style={{ background: 'var(--surface)', border: '1px solid var(--line-2)' }}>
-          <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)' }}>קביעת שיעור עם {match.teacher.fullName} (Book a Lesson)</h1>
-          <p style={{ color: 'var(--text-2)', fontSize: 14 }}>{match.teacher.subjects?.join(', ')} | ₪{match.teacher.hourlyRate}/שעה</p>
-        </div>
+        <header style={{ marginBottom: 18 }}>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: T.neon }}>
+            קביעת שיעור (Book a Lesson)
+          </p>
+          <h1 style={{ margin: '4px 0 0', fontSize: 'clamp(20px, 3.4vw, 26px)', fontWeight: 800, color: T.text }}>
+            {match.teacher.fullName}
+          </h1>
+        </header>
 
-        <div className="rounded-2xl p-5 mb-5" style={{ background: 'var(--surface)', border: '1px solid var(--line-2)' }}>
-          <h2 className="font-bold mb-4" style={{ color: 'var(--text)' }}>בחר/י זמן לשיעור הראשון:</h2>
-          <BookingSlotPicker selectedDay={selectedDay} selectedTime={selectedTime} onDayChange={setSelectedDay} onTimeChange={setSelectedTime} availabilitySlots={match.teacher.availabilitySlots} />
-          {error && <div className="mt-3" style={{ color: 'var(--coral)', fontSize: 13 }}>{error}</div>}
-        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1.45fr 1fr', gap: 16, alignItems: 'start' }}>
+          {/* Left column: teacher profile + availability grid */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <Card>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div
+                  aria-hidden="true"
+                  style={{
+                    width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'color-mix(in oklab, #00f6ff 16%, transparent)', color: T.neon,
+                    fontWeight: 800, fontSize: 19, border: `1px solid ${T.line2}`,
+                  }}
+                >
+                  {initials(match.teacher.fullName)}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: T.text }}>{match.teacher.fullName}</div>
+                  <div style={{ fontSize: 13.5, color: T.text2 }}>
+                    {subjects ? `${subjects} · ` : ''}
+                    <span style={{ fontFamily: T.fontMono, color: T.gold }}>₪{rate}/שעה</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
 
-        <div className="rounded-2xl p-5 mb-5" style={{ background: 'var(--surface)', border: '1px solid var(--line-2)' }}>
-          <h2 className="font-bold mb-2" style={{ color: 'var(--text)' }}>הודעה למורה (אופציונלי):</h2>
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="ספר/י קצת על מה שצריך..."
-            rows={3}
-            className="w-full p-3 rounded-xl resize-none"
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', color: 'var(--text)', fontSize: 14, outline: 'none' }}
-          />
-        </div>
+            <Card title="בחירת מועד" english="Select Time">
+              <BookingAvailabilityGrid
+                availabilitySlots={match.teacher.availabilitySlots}
+                dates={dates}
+                availableByDate={availableByDate}
+                loading={slotsLoading}
+                doubleMode={doubleMode}
+                selection={selection}
+                onSelect={(sel) => {
+                  setSelection(sel);
+                  setError('');
+                }}
+              />
 
-        <div className="mb-4 p-3 rounded-lg flex items-start gap-2 text-sm" style={{ background: 'var(--surface)', border: '1px solid var(--line-2)', color: 'var(--text-3)' }}>
-          <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-          <span>אין תשלום בשלב זה — רק בקשת שיעור. הסכמה על תשלום תגיע ישירות מהמורה.</span>
-        </div>
+              {/* Double-lesson toggle */}
+              <button
+                type="button"
+                onClick={toggleDouble}
+                aria-pressed={doubleMode}
+                style={{
+                  marginTop: 14,
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  padding: '9px 14px', borderRadius: T.radiusSm,
+                  border: `1.5px solid ${doubleMode ? T.neon : T.ink}`,
+                  background: doubleMode ? 'color-mix(in oklab, #00f6ff 14%, transparent)' : 'transparent',
+                  color: doubleMode ? T.neon : T.text2,
+                  fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
+                  transition: 'border-color 250ms ease-out, color 250ms ease-out, background 250ms ease-out',
+                }}
+              >
+                <Layers size={16} />
+                שיעור כפול (Double Lesson)
+              </button>
+              {doubleMode && (
+                <p style={{ margin: '8px 0 0', fontSize: 12, color: T.text3 }}>
+                  בחרו משבצת פנויה ולצידה משבצת עוקבת פנויה — השיעור יוזמן ל-120 דקות.
+                </p>
+              )}
+            </Card>
+          </div>
 
-        <button
-          onClick={() => void handleSubmit()}
-          disabled={isSubmitting}
-          className="w-full py-4 font-bold rounded-xl text-lg"
-          style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}
-        >
-          {isSubmitting ? 'שולח בקשה...' : 'שלח בקשת שיעור (Send Request)'}
-        </button>
+          {/* Right column: lesson details + pricing + info + CTA */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <Card title="פרטי השיעור" english="Lesson Details">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <FloatingLabelInput label="על מה יהיה השיעור?" value={topic} onChange={setTopic} />
+
+                {/* Asset Dropzone — uploads to private storage; linked on submit. */}
+                <div>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: T.text2, marginBottom: 6 }}>
+                    צירוף קבצים (Attachments)
+                  </div>
+                  <AttachmentDropzone onChange={setAttachmentIds} />
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: T.text2, marginBottom: 6 }}>הודעה למורה (אופציונלי)</div>
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="ספרו קצת על מה שצריך…"
+                    rows={3}
+                    className="tow-focusable"
+                    style={{
+                      width: '100%', padding: 12, borderRadius: T.radiusSm, resize: 'vertical',
+                      background: 'color-mix(in oklab, #3f7e76 30%, transparent)',
+                      border: `1px solid ${T.ink}`, color: T.text, fontSize: 14, outline: 'none',
+                      fontFamily: 'inherit',
+                    }}
+                  />
+                </div>
+              </div>
+            </Card>
+
+            {/* Pricing summary */}
+            <Card title="תמחור" english="Price">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <Row label="מחיר לשעה" value={`₪${rate}`} />
+                <Row label={isDoubleSelection ? 'סה״כ (שיעור כפול)' : 'סה״כ'} value={total != null ? `₪${total}` : '—'} emphasize />
+                {!selection && <p style={{ margin: 0, fontSize: 12, color: T.text3 }}>בחרו מועד כדי לראות את המחיר הכולל.</p>}
+              </div>
+            </Card>
+
+            {/* Info bar — no payment at this stage. */}
+            <div
+              style={{
+                display: 'flex', alignItems: 'flex-start', gap: 8, padding: '12px 14px',
+                borderRadius: T.radiusSm, borderLeft: `3px solid ${T.success}`,
+                background: 'color-mix(in oklab, #3f7e76 30%, transparent)', color: T.text2, fontSize: 13,
+              }}
+            >
+              <Info size={15} style={{ flexShrink: 0, marginTop: 1, color: T.success }} />
+              <span>אין תשלום בשלב זה — רק בקשת שיעור. הסכמה על תשלום תגיע ישירות מהמורה.</span>
+            </div>
+
+            {error && <div style={{ color: T.alert, fontSize: 13 }}>{error}</div>}
+
+            <button
+              onClick={() => void handleSubmit()}
+              disabled={isSubmitting}
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                width: '100%', padding: '14px 18px', borderRadius: T.radiusSm, border: 'none',
+                background: T.orange, color: '#1a0b03', fontSize: 16, fontWeight: 800,
+                cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1,
+                transition: 'filter 250ms ease-out',
+              }}
+            >
+              <Send size={17} />
+              {isSubmitting ? 'שולח בקשה…' : 'שלח בקשת שיעור (Send Request)'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
+}
+
+function Row({ label, value, emphasize }: { label: string; value: string; emphasize?: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+      <span style={{ fontSize: 13.5, color: T.text2 }}>{label}</span>
+      <span
+        style={{
+          fontFamily: T.fontMono,
+          fontWeight: 800,
+          fontSize: emphasize ? 20 : 14,
+          color: emphasize ? T.neon : T.text,
+        }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function Card({ title, english, children, style }: { title?: string; english?: string; children: ReactNode; style?: CSSProperties }) {
+  return (
+    <section
+      style={{
+        padding: 18, borderRadius: T.radius, border: `1px solid ${T.ink}`,
+        background: 'color-mix(in oklab, #3f7e76 55%, transparent)',
+        backdropFilter: 'blur(12px) saturate(140%)', WebkitBackdropFilter: 'blur(12px) saturate(140%)',
+        boxShadow: '0 8px 28px -18px rgba(0,0,0,0.55)',
+        ...style,
+      }}
+    >
+      {title && (
+        <h2 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 800, color: T.text }}>
+          {title}
+          {english ? <span style={{ color: T.text3, fontWeight: 600 }}> ({english})</span> : null}
+        </h2>
+      )}
+      {children}
+    </section>
+  );
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).slice(0, 2);
+  return parts.map((p) => p[0] ?? '').join('') || '?';
 }

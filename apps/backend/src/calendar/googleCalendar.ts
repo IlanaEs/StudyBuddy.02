@@ -14,7 +14,7 @@ export type CreateCalendarEventInput = {
 };
 
 export type CalendarEventResult =
-  | { ok: true; link: string | null }
+  | { ok: true; link: string | null; eventId: string | null }
   | { ok: false; status: number };
 
 /**
@@ -66,8 +66,12 @@ export async function createGoogleCalendarEvent(
       return { ok: false, status: response.status };
     }
 
-    const data = (await response.json()) as { hangoutLink?: string; htmlLink?: string };
-    return { ok: true, link: (input.createMeet ? data.hangoutLink : data.htmlLink) ?? data.hangoutLink ?? null };
+    const data = (await response.json()) as { id?: string; hangoutLink?: string; htmlLink?: string };
+    return {
+      ok: true,
+      link: (input.createMeet ? data.hangoutLink : data.htmlLink) ?? data.hangoutLink ?? null,
+      eventId: data.id ?? null,
+    };
   } catch {
     return { ok: false, status: 0 };
   }

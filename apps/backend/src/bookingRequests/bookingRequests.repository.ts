@@ -729,17 +729,34 @@ export async function batchGetStudentNamesByStudentIds(
   return result;
 }
 
-// Updates the meeting_link column on a lesson row after a successful
-// Google Calendar event creation. Non-fatal if it fails at call site.
-export async function updateLessonMeetingLink(
+// Resolves a subject id → name (for the calendar event title). Best-effort:
+// returns null if the subject is missing.
+export async function getSubjectNameById(subjectId: string): Promise<string | null> {
+  const { data, error } = await adminClient()
+    .from('subjects')
+    .select('name')
+    .eq('id', subjectId)
+    .maybeSingle();
+
+  if (error) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((data as any)?.name as string | null) ?? null;
+}
+
+// Persists the Meet link + Google Calendar event id on a lesson after a
+// successful calendar event creation on approval. Non-fatal if it fails at the
+// call site. Only the provided fields are written.
+export async function updateLessonCalendarFields(
   lessonId: string,
-  meetingLink: string,
+  fields: { meetingLink?: string | null; calendarEventId?: string | null },
 ): Promise<void> {
-  const { error } = await adminClient()
-    .from('lessons')
-    .update({ meeting_link: meetingLink })
-    .eq('id', lessonId);
-  if (error) throw new AppError('Failed to update lesson meeting link', 500);
+  const payload: Record<string, unknown> = {};
+  if (fields.meetingLink !== undefined) payload['meeting_link'] = fields.meetingLink;
+  if (fields.calendarEventId !== undefined) payload['calendar_event_id'] = fields.calendarEventId;
+  if (Object.keys(payload).length === 0) return;
+
+  const { error } = await adminClient().from('lessons').update(payload).eq('id', lessonId);
+  if (error) throw new AppError('Failed to update lesson calendar fields', 500);
 }
 
 // Updates booking_request status to approved or rejected, persists the

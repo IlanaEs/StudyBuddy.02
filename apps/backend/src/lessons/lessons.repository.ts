@@ -58,6 +58,20 @@ export async function getLessonById(lessonId: string): Promise<LessonRow | null>
   return mapLessonRow(data as any);
 }
 
+// Resolves a teacher's hourly_rate (numeric) by teacher_profiles.id. Null when unknown.
+export async function getTeacherHourlyRate(teacherProfileId: string): Promise<number | null> {
+  const { data, error } = await adminClient()
+    .from('teacher_profiles')
+    .select('hourly_rate')
+    .eq('id', teacherProfileId)
+    .maybeSingle();
+
+  if (error) throw new AppError('Failed to load teacher rate', 500);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rate = (data as any)?.hourly_rate;
+  return rate == null ? null : Number(rate);
+}
+
 // Resolves a subject name for display (e.g. calendar event titles). Null when unknown.
 export async function getSubjectNameById(subjectId: string): Promise<string | null> {
   const { data, error } = await adminClient()
@@ -292,17 +306,18 @@ export async function insertLessonConfirmationTx(
     parentUserId: string;
     studentId: string;
     teacherMarkedCompletedAt: string;
+    amount: number | null;
   },
 ): Promise<LessonConfirmationRow> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows = (await sql`
     INSERT INTO lesson_confirmations (
       lesson_id, teacher_user_id, parent_user_id, student_id,
-      status, teacher_marked_completed_at
+      status, teacher_marked_completed_at, amount
     )
     VALUES (
       ${input.lessonId}, ${input.teacherUserId}, ${input.parentUserId},
-      ${input.studentId}, 'pending', ${input.teacherMarkedCompletedAt}
+      ${input.studentId}, 'pending', ${input.teacherMarkedCompletedAt}, ${input.amount}
     )
     RETURNING
       id, lesson_id, teacher_user_id, parent_user_id, student_id,
