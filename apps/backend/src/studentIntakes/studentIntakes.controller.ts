@@ -20,6 +20,7 @@ export async function createIntakeController(request: Request, response: Respons
 }
 
 export async function getMyLatestIntakeController(request: Request, response: Response) {
-  const intake = await getMyLatestIntake(request.auth!.user);
-  response.status(200).json({ data: { intake } });
+  // { student_id, intake } — or a 404 (no profile) raised by the service. Never a 500.
+  const result = await getMyLatestIntake(request.auth!.user);
+  response.status(200).json({ data: result });
 }

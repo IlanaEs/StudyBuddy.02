@@ -10,7 +10,7 @@ import {
   getStudentIdByUserId,
 } from './studentIntakes.repository.js';
 import type { CreateIntakeBody } from './studentIntakes.validation.js';
-import type { LatestIntakePrefill, StudentIntakeSummary } from './studentIntakes.types.js';
+import type { LatestIntakeResult, StudentIntakeSummary } from './studentIntakes.types.js';
 
 export async function createIntake(
   body: CreateIntakeBody,
@@ -52,8 +52,17 @@ export async function createIntake(
 }
 
 // Latest intake for the authenticated student — pre-fills the quick wizard.
-export async function getMyLatestIntake(currentUser: LocalUser): Promise<LatestIntakePrefill | null> {
+// Three distinct outcomes, none of which is a 500:
+//   • no students row (registration genuinely incomplete) → AppError 404
+//   • profile exists, no prior intake                     → { student_id, intake: null }
+//   • profile + prior intake                              → { student_id, intake }
+// The 404 vs intake:null split lets the client avoid falsely telling a profiled
+// student to "complete registration" when they simply have no previous search.
+export async function getMyLatestIntake(currentUser: LocalUser): Promise<LatestIntakeResult> {
   const studentId = await getStudentIdByUserId(currentUser.id);
-  if (!studentId) return null;
-  return getLatestStudentIntakeByStudentId(studentId);
+  if (!studentId) {
+    throw new AppError('No student profile found', 404);
+  }
+  const intake = await getLatestStudentIntakeByStudentId(studentId);
+  return { student_id: studentId, intake };
 }

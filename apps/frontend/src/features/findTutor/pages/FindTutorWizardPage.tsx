@@ -38,7 +38,11 @@ export function FindTutorWizardPage() {
   const store = useMatchingStore();
 
   const [loading, setLoading] = useState(true);
-  const [hasIntake, setHasIntake] = useState(false);
+  // true only when the student has no profile at all (endpoint 404) — i.e.
+  // registration is genuinely incomplete. A profiled student with no prior
+  // search renders the wizard fresh, NOT this message.
+  const [needsRegistration, setNeedsRegistration] = useState(false);
+  const [prefilled, setPrefilled] = useState(false);
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -57,18 +61,27 @@ export function FindTutorWizardPage() {
   const [days, setDays] = useState<string[]>([]);
   const [times, setTimes] = useState<string[]>([]);
 
-  // Prefill from the latest intake.
+  // Resolve the student's profile + (optional) latest intake for prefill.
   useEffect(() => {
     store.reset();
     if (!token) {
+      setNeedsRegistration(true);
       setLoading(false);
       return;
     }
     getLatestIntake(token).then((res) => {
-      if (!('error' in res) && res.data.intake) {
-        const p = res.data.intake;
-        setHasIntake(true);
-        setStudentId(p.student_id);
+      if ('error' in res) {
+        // 404 → no student profile → registration genuinely incomplete.
+        setNeedsRegistration(true);
+        setLoading(false);
+        return;
+      }
+      // Profile exists (so we can run the wizard); pull the id either way.
+      setStudentId(res.data.student_id);
+      const p = res.data.intake;
+      if (p) {
+        // Pre-fill from the previous search so login/level/budget aren't re-asked.
+        setPrefilled(true);
         setLevel(p.level);
         setGoal(p.goal ?? null);
         if (p.budget_min != null) setBudgetMin(p.budget_min);
@@ -77,6 +90,7 @@ export function FindTutorWizardPage() {
         setDays((p.preferred_days ?? []).map((i) => INDEX_TO_DAY[i]).filter((d): d is string => !!d));
         setTimes([...new Set((p.preferred_time_ranges ?? []).map((r) => rangeToBucket(r.start)))]);
       }
+      // No intake → wizard renders fresh (clean empty state), not a dead end.
       setLoading(false);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -163,13 +177,21 @@ export function FindTutorWizardPage() {
 
         {loading ? (
           <p style={{ marginTop: 20, color: T.text3, fontSize: 14 }}>טוען…</p>
-        ) : !hasIntake ? (
+        ) : needsRegistration ? (
+          // Only shown when the student has NO profile (endpoint 404) — i.e.
+          // registration is genuinely incomplete.
           <div style={{ marginTop: 24 }}>
-            <p style={{ color: T.text2, fontSize: 15 }}>כדי למצוא מורה חדש במהירות צריך קודם להשלים את ההרשמה.</p>
-            <button onClick={() => navigate('/onboarding/matching')} style={ctaStyle}>למעבר להרשמה</button>
+            <p style={{ color: T.text2, fontSize: 15 }}>כדי למצוא מורה צריך קודם להשלים את ההרשמה.</p>
+            <button onClick={() => navigate('/onboarding/matching')} style={ctaStyle}>להשלמת ההרשמה</button>
           </div>
         ) : (
           <>
+            {!prefilled && (
+              // Clean empty state: profiled student with no prior search.
+              <p style={{ margin: '10px 0 0', color: T.text3, fontSize: 13.5 }}>
+                זה החיפוש הראשון שלך — מלא/י את הפרטים ונמצא לך התאמה.
+              </p>
+            )}
             <div style={{ margin: '14px 0 20px' }}>
               <WizardProgress current={step} total={3} />
             </div>
