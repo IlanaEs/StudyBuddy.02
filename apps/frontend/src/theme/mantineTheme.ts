@@ -8,7 +8,7 @@ export const mantineTheme = createTheme({
   respectReducedMotion: true,
   cursorType: 'pointer',
   autoContrast: true,
-  fontFamily: 'Heebo, Inter, Rubik, system-ui, sans-serif',
+  fontFamily: 'Rubik, Heebo, Inter, system-ui, sans-serif',
   fontFamilyMonospace: '"JetBrains Mono", ui-monospace, monospace',
   headings: {
     fontFamily: '"Space Grotesk", Heebo, Inter, system-ui, sans-serif',

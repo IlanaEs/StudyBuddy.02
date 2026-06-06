@@ -28,13 +28,108 @@
   --radius-sm: 10px;
   --radius-lg: 22px;
   --font-display: "Space Grotesk", Heebo, Inter, system-ui, sans-serif;
-  --font-body: Heebo, Inter, Rubik, system-ui, sans-serif;
+  --font-body: "Rubik", Heebo, Inter, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
   font-feature-settings: "ss01", "ss02";
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   StudyBuddy Design System v1 — CANONICAL tokens (--sb-*)
+   Single source of truth for the visual language. New and migrated screens use
+   ONLY these tokens. The legacy systems above (app :root color vars, the .tow
+   scope below, and the Tailwind/Mantine color palettes) are DEPRECATED and are
+   migrated onto --sb-* incrementally. See docs/design-system.md for the full
+   spec + the old→new mapping. This block is ADDITIVE — it changes nothing until
+   a component opts in by consuming --sb-* (or sbTokens in design/tokens.ts).
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* Canvas & Shell */
+  --sb-bg-canvas: #0B2B2A;
+  --sb-bg-depth: #175655;
+  --sb-navbar-bg: rgba(11, 43, 42, 0.75);
+  --sb-navbar-border: #3f7e76;
+  /* Glass / Bento */
+  --sb-glass-base: rgba(23, 86, 85, 0.40);
+  --sb-glass-soft: rgba(63, 126, 118, 0.25);
+  --sb-border-cyber: #24747A;
+  --sb-border-muted: #016c7c;
+  --sb-hover-glow: rgba(0, 246, 255, 0.15);
+  /* Typography */
+  --sb-text-primary: #FAF9F6;
+  --sb-text-primary-alt: #F5F5F0;
+  --sb-text-secondary: #A3C7C4;
+  --sb-text-muted: #5A8F8A;
+  /* Actions & States */
+  --sb-active: #00F6FF;          /* active / focus / progress-completed */
+  --sb-primary-cta: #4CE7E3;     /* primary buttons (turquoise) */
+  --sb-success: #A3E635;
+  --sb-error: #e22b57;
+  --sb-warning: #fc6d17;         /* RESERVED: urgent/final/destructive-adjacent only */
+  --sb-locked: #1F2937;
+  /* Ink used for text ON primary/warning CTAs (per v1 button spec) */
+  --sb-on-primary: #0F1720;
+  /* Radius */
+  --sb-radius-card: 16px;
+  --sb-radius-button: 8px;
+  --sb-radius-small: 8px;
+  /* Motion */
+  --sb-motion-fast: 150ms;
+  --sb-motion-base: 200ms;
+  --sb-motion-slow: 300ms;
+  /* Fonts */
+  --sb-font-ui: "Rubik", "Heebo", "Inter", system-ui, sans-serif;
+  --sb-font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* ── Design System v1 — shared component styles (consume --sb-* only) ────────
+   Hover/keyframe behaviour that inline styles can't express. Used by the
+   components in src/design-system/. */
+.sb-card {
+  background: var(--sb-glass-base);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid var(--sb-border-cyber);
+  border-radius: var(--sb-radius-card);
+  transition: transform var(--sb-motion-base) ease-out, box-shadow var(--sb-motion-base) ease-out;
+}
+.sb-card--hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 12px var(--sb-hover-glow);
+}
+.sb-btn {
+  transition: filter var(--sb-motion-base) ease-out, transform var(--sb-motion-fast) ease-out,
+    background var(--sb-motion-base) ease-out, color var(--sb-motion-base) ease-out;
+}
+.sb-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.sb-btn-primary:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
+.sb-btn-primary:active:not(:disabled) { transform: translateY(0); }
+.sb-btn-secondary:hover:not(:disabled) { color: var(--sb-text-primary); text-decoration: underline; text-underline-offset: 3px; }
+.sb-btn-ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.05); }
+.sb-navbar {
+  position: fixed; top: 1.5rem; inset-inline: 0; margin-inline: auto; z-index: 100;
+  width: 85%; max-width: 1200px;
+  background: var(--sb-navbar-bg);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--sb-navbar-border);
+  border-radius: var(--sb-radius-card);
+}
+.sb-wizard-enter { animation: sb-wizard-enter var(--sb-motion-base) ease-out both; }
+@keyframes sb-wizard-enter {
+  from { opacity: 0; transform: translateX(-15px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.sb-drawer-enter { animation: sb-drawer-enter var(--sb-motion-base) ease-out both; }
+@keyframes sb-drawer-enter {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+.sb-spinner { animation: sb-spin 0.8s linear infinite; }
+@keyframes sb-spin { to { transform: rotate(360deg); } }
+.sb-pulse { animation: sb-pulse 1.6s ease-in-out infinite; }
+@keyframes sb-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 
 /* ── Teacher Onboarding Wizard v2 — SCOPED redesign tokens ──────────────────
    These variables apply only within a `.tow` wrapper so the rest of the app
