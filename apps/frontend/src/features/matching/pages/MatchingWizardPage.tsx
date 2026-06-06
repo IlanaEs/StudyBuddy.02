@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import {
   GraduationCap, Users, Target, Calendar, Zap, Repeat, BookOpen,
   ShieldCheck, Search, Monitor, Clock,
-  Loader2, Check, Circle, CalendarDays,
+  Loader2, Check, CalendarDays,
   Sparkles,
 } from 'lucide-react';
 import { useMatchingStore } from '../store/matchingStore';
+import { MatchingLoadingScreen } from '../components/MatchingLoadingScreen';
 import { WizardShell } from '../components/WizardShell';
 import { FlowNav } from '../../../components/FlowNav';
 import { WizardProgress } from '../components/WizardProgress';
@@ -19,6 +20,7 @@ import { subjectsByLevel, gradesByLevel } from '../data/subjectsByLevel';
 import type { EducationLevel, LearningGoal, TimeSlot } from '../types/matching.types';
 import { useAuth } from '../../../auth/AuthProvider';
 import { getSupabaseBrowserClient } from '../../../auth/supabaseClient';
+import { getDashboardPathByRole } from '../../../utils/getDashboardPathByRole';
 import { completeOAuthSignup, createStudentProfile, createStudentIntake, runMatching } from '../../../api/students';
 import {
   syncStudentCalendarAvailability,
@@ -95,6 +97,9 @@ export function MatchingWizardPage() {
   const [authLoading, setAuthLoading] = useState(false);
   const oauthReturnHandled = useRef(false);
   const calSyncReturnHandled = useRef(false);
+  // Guards the profile-create paths (post-OAuth + authenticated effect) from
+  // racing into TWO students rows for the same user.
+  const profileCreateStarted = useRef(false);
 
   // Availability step state
   const [availMode, setAvailMode] = useState<'sync' | 'manual' | 'synced'>('sync');
@@ -174,6 +179,11 @@ export function MatchingWizardPage() {
 
     if (isParent && !intake.childName.trim()) return;
 
+    // Single-flight: don't let this effect race the post-OAuth path into a
+    // duplicate students row.
+    if (profileCreateStarted.current) return;
+    profileCreateStarted.current = true;
+
     setAuthLoading(true);
     setAuthError(null);
     void createStudentProfile(
@@ -186,12 +196,14 @@ export function MatchingWizardPage() {
       auth.session.access_token,
     ).then((profileResult) => {
       if ('error' in profileResult) {
+        profileCreateStarted.current = false; // allow a retry
         setAuthError(toHebrewOnboardingError(profileResult.error));
         return;
       }
       updateIntake({ studentId: profileResult.data.student_id });
       setStep(AUTH_STEP + 1);
     }).catch(() => {
+      profileCreateStarted.current = false; // allow a retry
       setAuthError('שגיאה בעיבוד החשבון. נסו שנית.');
     }).finally(() => {
       setAuthLoading(false);
@@ -304,12 +316,27 @@ export function MatchingWizardPage() {
         return;
       }
 
+      // Existing StudyBuddy account → this is a normal login, not a signup.
+      // Skip onboarding entirely and go straight to the correct dashboard. No
+      // error, no duplicate profile creation.
+      if (!oauthResult.data.isNewUser) {
+        navigate(getDashboardPathByRole(oauthResult.data.user.role as 'teacher' | 'student' | 'parent' | 'admin'), { replace: true });
+        return;
+      }
+
       // Provisioning succeeded (role assigned + local user row created). Re-run
       // /api/auth/me so a fresh user flips from the unprovisioned
       // 'unauthenticated' state to 'authenticated' — otherwise they'd stay gated
       // even though they now have a role, and createStudentProfile (role-guarded)
       // would be rejected.
       await auth.refreshProfile();
+
+      // Guard against the authenticated effect also firing createStudentProfile.
+      if (profileCreateStarted.current) {
+        setStep(AUTH_STEP + 1);
+        return;
+      }
+      profileCreateStarted.current = true;
 
       const profileResult = await createStudentProfile(
         {
@@ -321,6 +348,7 @@ export function MatchingWizardPage() {
         auth.session.access_token,
       );
       if ('error' in profileResult) {
+        profileCreateStarted.current = false; // allow a retry
         setAuthError(toHebrewOnboardingError(profileResult.error));
         return;
       }
@@ -328,6 +356,7 @@ export function MatchingWizardPage() {
       updateIntake({ studentId: profileResult.data.student_id });
       setStep(AUTH_STEP + 1);
     } catch {
+      profileCreateStarted.current = false; // allow a retry
       setAuthError('שגיאה בעיבוד החשבון. נסו שנית.');
     } finally {
       setAuthLoading(false);
@@ -1085,7 +1114,7 @@ export function MatchingWizardPage() {
   const goalLabels: Record<string, string> = { single_session: 'שיעור חד-פעמי', ongoing: 'מורה קבוע', exam_prep: 'מרתון לבחינה' };
 
   if (isLoading) {
-    return <MatchingLoadingScreen name={intake.fullName} />;
+    return <MatchingLoadingScreen />;
   }
 
   return (
@@ -1158,38 +1187,3 @@ function toHebrewOnboardingError(error: string) {
   return error && /[א-ת]/.test(error) ? error : 'אירעה שגיאה. נסו שוב.';
 }
 
-function MatchingLoadingScreen({ name }: { name: string }) {
-  const [msgIdx, setMsgIdx] = useState(0);
-  const messages = [
-    `מנתחים את הדרישות והיעדים הלימודיים של ${name || 'התלמיד'}...`,
-    'מסננים מורים פעילים ומאומתים בלבד במערכת...',
-    'מצליבים חלונות זמינות וטווחי תקציב מבוקשים...',
-    'מבצעים אופטימיזציה ומייצרים את ה-Top 3 המדויק עבורך...',
-  ];
-
-  useEffect(() => {
-    const interval = setInterval(() => setMsgIdx((i) => (i + 1) % messages.length), 550);
-    return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <div dir="rtl" lang="he" className="min-h-screen flex flex-col items-center justify-center px-4" style={{ background: 'var(--bg)' }}>
-      <div className="mb-6" style={{ color: 'var(--cyan)' }}>
-        <Loader2 size={48} className="animate-spin" />
-      </div>
-      <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)', textAlign: 'center' }}>מוצאים את ה-Top 3 שלך...</h2>
-      <p className="text-center mb-8 max-w-xs" style={{ color: 'var(--text-2)', minHeight: 44 }}>{messages[msgIdx]}</p>
-      <div className="flex flex-col gap-3 w-full max-w-xs">
-        {['בודקים התאמת מקצוע', 'בודקים זמינות', 'בודקים טווח מחיר', 'מייצרים Top 3 מורים'].map((loadingStep, i) => (
-          <div key={loadingStep} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'var(--surface)', border: '1px solid var(--line-2)' }}>
-            <span style={{ color: i <= msgIdx ? 'var(--lime)' : 'var(--text-3)', flexShrink: 0 }}>
-              {i <= msgIdx ? <Check size={16} /> : <Circle size={16} />}
-            </span>
-            <span style={{ color: i <= msgIdx ? 'var(--text)' : 'var(--text-3)', fontSize: 14 }}>{loadingStep}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}

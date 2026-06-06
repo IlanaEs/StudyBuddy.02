@@ -89,7 +89,7 @@ export async function verifyAccessToken(accessToken: string) {
 export async function completeOAuthSignup(
   accessToken: string,
   input: CompleteOAuthSignupInput,
-): Promise<{ user: LocalUser }> {
+): Promise<{ user: LocalUser; isNewUser: boolean }> {
   const { data, error } = await publicClient().auth.getUser(accessToken);
 
   if (error || !data.user) {
@@ -97,6 +97,20 @@ export async function completeOAuthSignup(
   }
 
   const authUser = data.user;
+
+  // Existing StudyBuddy user clicking "Sign Up" again is a NORMAL journey, not an
+  // error: return the existing user idempotently with isNewUser=false. The caller
+  // redirects to the dashboard for the user's ACTUAL role — no re-provisioning, no
+  // "account already exists" error, no onboarding restart, and (critically) no
+  // second profile insert. We deliberately do NOT 403 on an account_type that
+  // differs from the existing role; we just send them to their real dashboard.
+  const priorUser = await findLocalUserByAuthId(authUser.id);
+  if (priorUser) {
+    return { user: priorUser, isNewUser: false };
+  }
+
+  // Brand-new user: assign the role from the chosen account_type (unless the auth
+  // user somehow already carries one) and create the local user row.
   const existingRole = authUser.app_metadata?.role;
   const expectedRole = roleForAccountType(input.account_type);
 
@@ -109,8 +123,6 @@ export async function completeOAuthSignup(
     if (metadataError) {
       throw new AppError('Unable to assign user role', 500);
     }
-  } else if (existingRole !== expectedRole) {
-    throw new AppError('החשבון המחובר לא מתאים למסלול שנבחר.', 403);
   }
 
   const user = await syncLocalUser({
@@ -120,7 +132,7 @@ export async function completeOAuthSignup(
     fullName: input.full_name ?? authUser.user_metadata?.full_name ?? '',
   });
 
-  return { user };
+  return { user, isNewUser: true };
 }
 
 export async function logout(accessToken: string) {

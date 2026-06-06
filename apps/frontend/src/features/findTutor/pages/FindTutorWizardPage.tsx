@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useMediaQuery } from '@mantine/hooks';
 import { GraduationCap, CalendarHeart, Flame, KeyRound } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthProvider';
 import { useMatchingStore } from '../../matching/store/matchingStore';
+import { MatchingLoadingScreen } from '../../matching/components/MatchingLoadingScreen';
 import { DualRangeSlider } from '../../matching/components/DualRangeSlider';
 import { AvailabilityGrid } from '../../matching/components/AvailabilityGrid';
 import { WizardProgress } from '../../matching/components/WizardProgress';
@@ -10,7 +12,7 @@ import { ScreenHeader, CardSelect, ChipSelect, NavButtons } from '../../../compo
 import { towTokens as T } from '../../../design/tokens';
 import { createStudentIntake, runMatching } from '../../../api/students';
 import type { SoftCriteria } from '../../../api/students';
-import { getLatestIntake, requestSubjectAddition } from '../api/findTutor';
+import { getLatestIntake, getMyStudentProfile, requestSubjectAddition } from '../api/findTutor';
 import { SubjectAutocomplete } from '../components/SubjectAutocomplete';
 
 const INDEX_TO_DAY = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
@@ -31,27 +33,35 @@ const GOALS = [
   { value: 'exam_prep', label: 'מרתון לפני מבחן (Exam Bootcamp)', icon: <Flame size={20} /> },
 ];
 
+// Step-3 one-tap availability presets (operate on the day/time-bucket model).
+const PRESETS = [
+  { id: 'after16', label: 'כל יום אחרי 16:00', days: [...INDEX_TO_DAY], times: ['afternoon', 'evening'] },
+  { id: 'evenings', label: 'ערבים בלבד', days: [...INDEX_TO_DAY], times: ['evening'] },
+  { id: 'weekend', label: 'סופ״ש בלבד', days: ['שישי', 'שבת'], times: ['morning', 'afternoon', 'evening'] },
+];
+
 export function FindTutorWizardPage() {
   const navigate = useNavigate();
   const auth = useAuth();
   const token = auth.session?.access_token ?? null;
   const store = useMatchingStore();
+  const isNarrow = useMediaQuery('(max-width: 720px)') ?? false;
 
   const [loading, setLoading] = useState(true);
-  // true only when the student has no profile at all (endpoint 404) — i.e.
-  // registration is genuinely incomplete. A profiled student with no prior
-  // search renders the wizard fresh, NOT this message.
-  const [needsRegistration, setNeedsRegistration] = useState(false);
+  // Non-null ONLY when the profile bootstrap fails (404 = no profile, or a real
+  // error). Renders a small clean error state — Find Tutor NEVER routes into the
+  // onboarding wizard. A profiled student always opens directly on Step 1.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [prefilled, setPrefilled] = useState(false);
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Pulled (not re-asked)
+  // Pulled from the profile (not re-asked)
   const [studentId, setStudentId] = useState<string | null>(null);
   const [level, setLevel] = useState<string | null>(null);
 
-  // Collected / pre-filled
+  // Collected / optionally pre-filled
   const [goal, setGoal] = useState<string | null>(null);
   const [subject, setSubject] = useState('');
   const [subjectIsCustom, setSubjectIsCustom] = useState(false);
@@ -61,38 +71,52 @@ export function FindTutorWizardPage() {
   const [days, setDays] = useState<string[]>([]);
   const [times, setTimes] = useState<string[]>([]);
 
-  // Resolve the student's profile + (optional) latest intake for prefill.
+  // Bootstrap: gate on the student PROFILE (not the intakes endpoint). Then
+  // optionally prefill from the latest intake as non-blocking defaults.
   useEffect(() => {
+    let cancelled = false;
     store.reset();
-    if (!token) {
-      setNeedsRegistration(true);
-      setLoading(false);
-      return;
-    }
-    getLatestIntake(token).then((res) => {
-      if ('error' in res) {
-        // 404 → no student profile → registration genuinely incomplete.
-        setNeedsRegistration(true);
+    (async () => {
+      if (!token) {
+        setLoadError('צריך להתחבר כדי למצוא מורה.');
         setLoading(false);
         return;
       }
-      // Profile exists (so we can run the wizard); pull the id either way.
-      setStudentId(res.data.student_id);
-      const p = res.data.intake;
-      if (p) {
-        // Pre-fill from the previous search so login/level/budget aren't re-asked.
-        setPrefilled(true);
-        setLevel(p.level);
-        setGoal(p.goal ?? null);
-        if (p.budget_min != null) setBudgetMin(p.budget_min);
-        if (p.budget_max != null) setBudgetMax(p.budget_max);
-        setSoft(p.soft_criteria ?? {});
-        setDays((p.preferred_days ?? []).map((i) => INDEX_TO_DAY[i]).filter((d): d is string => !!d));
-        setTimes([...new Set((p.preferred_time_ranges ?? []).map((r) => rangeToBucket(r.start)))]);
+      const prof = await getMyStudentProfile(token);
+      if (cancelled) return;
+      if ('error' in prof) {
+        // 404 = no student profile; anything else = a real load error. Either way
+        // a small clean error state — never the onboarding wizard, never hidden.
+        setLoadError(
+          prof.status === 404
+            ? 'לא נמצא פרופיל תלמיד פעיל לחשבון הזה.'
+            : 'לא הצלחנו לטעון את הפרופיל כרגע. נסו שוב בעוד רגע.',
+        );
+        setLoading(false);
+        return;
       }
-      // No intake → wizard renders fresh (clean empty state), not a dead end.
+      setStudentId(prof.data.student_id);
+      store.setFlow('quick');
+
+      // Optional prefill — never gates, never forces old state.
+      const latest = await getLatestIntake(token);
+      if (cancelled) return;
+      if (!('error' in latest) && latest.data.intake) {
+        const i = latest.data.intake;
+        setPrefilled(true);
+        setLevel(i.level);
+        setGoal(i.goal ?? null);
+        if (i.budget_min != null) setBudgetMin(i.budget_min);
+        if (i.budget_max != null) setBudgetMax(i.budget_max);
+        setSoft(i.soft_criteria ?? {});
+        setDays((i.preferred_days ?? []).map((d) => INDEX_TO_DAY[d]).filter((d): d is string => !!d));
+        setTimes([...new Set((i.preferred_time_ranges ?? []).map((r) => rangeToBucket(r.start)))]);
+      }
       setLoading(false);
-    });
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
@@ -100,10 +124,15 @@ export function FindTutorWizardPage() {
     setSoft((s) => ({ ...s, teacher_gender: s.teacher_gender === g ? null : g }));
   }
 
+  function applyPreset(p: (typeof PRESETS)[number]) {
+    setDays([...p.days]);
+    setTimes([...p.times]);
+  }
+
   async function runMatch() {
     if (!token || !studentId) return;
     if (subjectIsCustom) {
-      // Off-taxonomy → capture + block (never submit an off-taxonomy subject).
+      // Off-taxonomy → capture + block (never submit an off-taxonomy subject; no matching).
       if (subject.trim()) await requestSubjectAddition(token, subject.trim());
       setError('המקצוע נשלח לבדיקה ויתווסף בקרוב. בחרו מקצוע מהרשימה כדי להמשיך.');
       setStep(1);
@@ -138,6 +167,7 @@ export function FindTutorWizardPage() {
         setError(matching.error ?? 'שגיאה בהרצת ההתאמה. נסו שוב.');
         return;
       }
+      store.setFlow('quick');
       store.updateIntake({ subjectName: subject, studentId, fullName: auth.user?.full_name ?? '' });
       store.setMatchResults(
         matching.data.matches.map((m) => ({
@@ -168,21 +198,23 @@ export function FindTutorWizardPage() {
   const canNext1 = !!goal && (subjectIsCustom ? subject.trim().length > 0 : subject.length > 0);
   const canNext3 = days.length > 0 && times.length > 0;
 
+  // Full-screen algorithmic loading overlay while matching runs (not for the bypass).
+  if (submitting) return <MatchingLoadingScreen />;
+
   return (
     <div dir="rtl" lang="he" className="tow tow-bg-glow" style={{ minHeight: '100dvh', color: T.text }}>
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '28px 18px 64px' }}>
+      <div style={{ maxWidth: 860, margin: '0 auto', padding: '28px 18px 64px' }}>
         <p style={{ margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: T.neon }}>
           מצא לי מורה חדש (Find Tutor)
         </p>
 
         {loading ? (
           <p style={{ marginTop: 20, color: T.text3, fontSize: 14 }}>טוען…</p>
-        ) : needsRegistration ? (
-          // Only shown when the student has NO profile (endpoint 404) — i.e.
-          // registration is genuinely incomplete.
+        ) : loadError ? (
+          // Small clean error state. Find Tutor never routes into onboarding.
           <div style={{ marginTop: 24 }}>
-            <p style={{ color: T.text2, fontSize: 15 }}>כדי למצוא מורה צריך קודם להשלים את ההרשמה.</p>
-            <button onClick={() => navigate('/onboarding/matching')} style={ctaStyle}>להשלמת ההרשמה</button>
+            <p style={{ color: T.text2, fontSize: 15 }}>{loadError}</p>
+            <button onClick={() => navigate('/student/dashboard')} style={ctaStyle}>חזרה לדשבורד (Dashboard)</button>
           </div>
         ) : (
           <>
@@ -199,29 +231,48 @@ export function FindTutorWizardPage() {
             {step === 1 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                 <ScreenHeader title="הגדרת שיעור" english="Lesson Setup" subtitle="מה המטרה ובאיזה מקצוע?" />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {GOALS.map((g) => (
-                    <CardSelect key={g.value} label={g.label} icon={g.icon} selected={goal === g.value} onClick={() => setGoal(g.value)} />
-                  ))}
-                </div>
-                <SubjectAutocomplete
-                  value={subject}
-                  isCustom={subjectIsCustom}
-                  onChange={(s, custom) => { setSubject(s); setSubjectIsCustom(custom); setError(''); }}
-                />
+                <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '2fr 1fr', gap: 16, alignItems: 'start' }}>
+                  {/* Right 2/3: goal + subject */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {GOALS.map((g) => (
+                        <CardSelect key={g.value} label={g.label} icon={g.icon} selected={goal === g.value} onClick={() => setGoal(g.value)} />
+                      ))}
+                    </div>
+                    <SubjectAutocomplete
+                      value={subject}
+                      isCustom={subjectIsCustom}
+                      onChange={(s, custom) => { setSubject(s); setSubjectIsCustom(custom); setError(''); }}
+                    />
+                  </div>
 
-                {/* Direct Tutor Code bypass — disabled (Phase 2, backend not built). */}
-                <div
-                  aria-disabled="true"
-                  title="בקרוב"
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8, padding: '14px',
-                    borderRadius: T.radiusSm, border: `1.5px dashed ${T.line2}`,
-                    background: 'color-mix(in oklab, #3f7e76 18%, transparent)', color: T.text3, opacity: 0.7,
-                  }}
-                >
-                  <KeyRound size={16} />
-                  <span style={{ fontSize: 13 }}>הזן קוד מורה (Enter Tutor Code) — בקרוב</span>
+                  {/* Left 1/3: Direct Tutor Search — DISABLED (Phase 2, backend not built). */}
+                  <div
+                    aria-disabled="true"
+                    title="בקרוב"
+                    style={{
+                      display: 'flex', flexDirection: 'column', gap: 10, padding: 16,
+                      borderRadius: T.radius, border: `1.5px dashed ${T.line2}`,
+                      background: 'color-mix(in oklab, #3f7e76 18%, transparent)', opacity: 0.7,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: T.text2 }}>
+                      <KeyRound size={16} />
+                      <span style={{ fontSize: 13.5, fontWeight: 800 }}>חיפוש מורה ישיר (Direct Tutor)</span>
+                    </div>
+                    <input
+                      disabled
+                      placeholder="קוד / שם מורה"
+                      style={{
+                        width: '100%', padding: '10px 12px', borderRadius: T.radiusSm,
+                        background: 'color-mix(in oklab, #3f7e76 26%, transparent)',
+                        border: `1px solid ${T.ink}`, color: T.text3, fontSize: 13.5, outline: 'none',
+                      }}
+                    />
+                    <p style={{ margin: 0, fontSize: 12, color: T.text3, lineHeight: 1.6 }}>
+                      בקרוב — קביעת שיעור ישירה לפי קוד מורה, ללא תהליך התאמה.
+                    </p>
+                  </div>
                 </div>
 
                 {error && <div style={{ color: T.alert, fontSize: 13 }}>{error}</div>}
@@ -247,7 +298,7 @@ export function FindTutorWizardPage() {
                   <ChipSelect label="מורה גבר" selected={soft.teacher_gender === 'male'} onClick={() => toggleGender('male')} />
                   <ChipSelect label="קצב מהיר ותכלס" selected={!!soft.fast_pace} onClick={() => setSoft((s) => ({ ...s, fast_pace: !s.fast_pace }))} />
                   <ChipSelect label="ניסיון עם ADHD" selected={!!soft.adhd_experience} onClick={() => setSoft((s) => ({ ...s, adhd_experience: !s.adhd_experience }))} />
-                  <ChipSelect label="גישה מכילה" selected={!!soft.inclusive_approach} onClick={() => setSoft((s) => ({ ...s, inclusive_approach: !s.inclusive_approach }))} />
+                  <ChipSelect label="גישה תומכת ומחזקת ביטחון" selected={!!soft.inclusive_approach} onClick={() => setSoft((s) => ({ ...s, inclusive_approach: !s.inclusive_approach }))} />
                 </div>
                 <NavButtons onBack={() => setStep(1)} onNext={() => setStep(3)} nextLabel="המשך ללוח זמנים" nextEnglish="Next to Schedule" />
               </div>
@@ -256,14 +307,31 @@ export function FindTutorWizardPage() {
             {step === 3 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 <ScreenHeader title="חלונות זמינות" english="Select Availability" />
+                {/* One-tap presets */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {PRESETS.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => applyPreset(p)}
+                      style={{
+                        padding: '8px 14px', borderRadius: 999, cursor: 'pointer',
+                        border: `1px solid ${T.ink}`, background: 'color-mix(in oklab, #3f7e76 24%, transparent)',
+                        color: T.text2, fontSize: 13, fontWeight: 700,
+                        transition: 'border-color 250ms ease-out, color 250ms ease-out',
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
                 <AvailabilityGrid selectedDays={days} selectedTimes={times} onChangeDays={setDays} onChangeTimes={setTimes} />
                 {error && <div style={{ color: T.alert, fontSize: 13 }}>{error}</div>}
                 <NavButtons
                   onBack={() => setStep(2)}
                   onNext={() => void runMatch()}
-                  nextLabel={submitting ? 'מחפש…' : 'מצא לי התאמות'}
+                  nextLabel="מצא לי התאמות"
                   nextEnglish="Run AI Match"
-                  loading={submitting}
                   disabled={!canNext3}
                 />
               </div>

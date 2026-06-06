@@ -9,10 +9,14 @@ import type { MatchResult } from '../types/matching.types';
 
 export function MatchResultsPage() {
   const navigate = useNavigate();
-  const { matchResults, intake, selectMatch } = useMatchingStore();
+  const { matchResults, intake, selectMatch, flow } = useMatchingStore();
   const [previewMatch, setPreviewMatch] = useState<MatchResult | null>(null);
   const userContext = intake.accountType === 'parent_for_child' ? 'parent' : 'student';
   const isParent = userContext === 'parent';
+  // In the quick (Find-Tutor) flow, "edit search" returns to the condensed
+  // wizard and "back" goes to the student dashboard — never the onboarding flow.
+  const isQuick = flow === 'quick';
+  const editTarget = isQuick ? '/find-tutor' : '/onboarding/matching';
 
   const title = intake.fullName
     ? (isParent ? `${intake.fullName}, מצאנו את 3 המורים המתאימים ביותר:` : `${intake.fullName}, הנה ה-Top 3 שלך:`)
@@ -47,7 +51,15 @@ export function MatchResultsPage() {
             <SearchX size={48} />
           </div>
           <p style={{ color: 'var(--text-2)' }}>לא נמצאו תוצאות. נסו לשנות את הקריטריונים.</p>
-          <button onClick={() => navigate('/onboarding/matching')} className="mt-4 py-2 px-5 rounded-xl font-medium" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>חזרה לחיפוש</button>
+          {isQuick ? (
+            <div className="mt-5 flex flex-col gap-2 w-full max-w-xs mx-auto">
+              <button onClick={() => navigate('/find-tutor')} className="py-2.5 px-5 rounded-xl font-bold text-sm" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>עריכת העדפות (Edit Preferences)</button>
+              <button onClick={() => navigate('/find-tutor')} className="py-2.5 px-5 rounded-xl font-medium text-sm" style={{ background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--text-2)', cursor: 'pointer' }}>הרחבת החיפוש (Expand Search)</button>
+              <button onClick={() => navigate('/student/dashboard')} className="py-2.5 px-5 rounded-xl font-medium text-sm" style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזרה לדשבורד (Dashboard)</button>
+            </div>
+          ) : (
+            <button onClick={() => navigate('/onboarding/matching')} className="mt-4 py-2 px-5 rounded-xl font-medium" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>חזרה לחיפוש</button>
+          )}
         </div>
       </div>
     );
@@ -78,13 +90,23 @@ export function MatchResultsPage() {
         ))}
 
         <button
-          onClick={() => navigate('/onboarding/matching')}
+          onClick={() => navigate(editTarget)}
           className="w-full mt-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2"
           style={{ background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--text-3)', cursor: 'pointer' }}
         >
           <RotateCcw size={14} />
           חיפוש מחדש עם קריטריונים שונים (New Search)
         </button>
+
+        {isQuick && (
+          <button
+            onClick={() => navigate('/student/dashboard')}
+            className="w-full mt-2 py-2 rounded-xl font-medium text-sm"
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}
+          >
+            חזרה לדשבורד (Dashboard)
+          </button>
+        )}
       </div>
 
       {previewMatch && (

@@ -6,12 +6,19 @@ export type { AccountType, UserContext, LearningGoal, EducationLevel, LocationPr
 
 const STORAGE_KEY = 'sb_student_onboarding';
 
+// Which entry flow the match results belong to. 'quick' = the condensed
+// Find-Tutor wizard (dashboard), 'onboarding' = the full registration wizard.
+// Shared result/booking/confirmation pages branch their back/return targets on
+// this instead of duplicating routes.
+export type MatchingFlow = 'onboarding' | 'quick' | null;
+
 interface MatchingStore {
   step: number;
   intake: StudentIntakeState;
   matchResults: MatchResult[];
   selectedMatchId: string | null;
   isLoading: boolean;
+  flow: MatchingFlow;
 
   setStep: (step: number) => void;
   nextStep: () => void;
@@ -20,6 +27,7 @@ interface MatchingStore {
   setMatchResults: (results: MatchResult[]) => void;
   selectMatch: (id: string) => void;
   setLoading: (v: boolean) => void;
+  setFlow: (flow: MatchingFlow) => void;
   reset: () => void;
   persistDraft: () => void;
   restoreFromStorage: () => boolean;
@@ -78,6 +86,7 @@ export const useMatchingStore = create<MatchingStore>((set, get) => ({
   matchResults: [],
   selectedMatchId: null,
   isLoading: false,
+  flow: null,
 
   setStep: (step) => {
     set({ step });
@@ -102,9 +111,10 @@ export const useMatchingStore = create<MatchingStore>((set, get) => ({
   setMatchResults: (results) => set({ matchResults: results }),
   selectMatch: (id) => set({ selectedMatchId: id }),
   setLoading: (v) => set({ isLoading: v }),
+  setFlow: (flow) => set({ flow }),
   reset: () => {
     localStorage.removeItem(STORAGE_KEY);
-    set({ step: 0, intake: defaultIntake, matchResults: [], selectedMatchId: null });
+    set({ step: 0, intake: defaultIntake, matchResults: [], selectedMatchId: null, flow: null });
   },
 
   persistDraft: () => {

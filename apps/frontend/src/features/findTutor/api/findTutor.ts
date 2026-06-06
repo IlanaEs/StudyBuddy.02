@@ -2,6 +2,19 @@ import { apiRequest } from '../../../api/client';
 import type { ApiResponse } from '../../../api/client';
 import type { SoftCriteria } from '../../../api/students';
 
+export type StudentProfile = {
+  student_id: string;
+  full_name: string;
+  grade_level: string | null;
+};
+
+// GET /api/students/me — the Quick Wizard's bootstrap/gate. 200 → profile (so the
+// wizard can run, using student_id). 404 → { error } → registration genuinely
+// incomplete. This replaces /me/latest as the gate; /me/latest is prefill only.
+export function getMyStudentProfile(token: string): Promise<ApiResponse<StudentProfile>> {
+  return apiRequest('/api/students/me', undefined, token);
+}
+
 export type LatestIntakePrefill = {
   student_id: string;
   subject_name: string | null;

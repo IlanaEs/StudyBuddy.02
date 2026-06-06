@@ -119,7 +119,7 @@ function buildSaveBody(data: TeacherOnboardingData, step: number) {
 export async function completeTeacherOAuthSignup(
   fullName: string,
   accessToken: string,
-): Promise<ApiResponse<{ user: { id: string; role: string } }>> {
+): Promise<ApiResponse<{ user: { id: string; role: string }; isNewUser: boolean }>> {
   return apiRequest(
     '/api/auth/complete-oauth-signup',
     {
