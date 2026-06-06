@@ -27,6 +27,31 @@ StudyBuddy is **Hebrew-first (RTL)**. A defined subset of UI labels carries a co
 
 **Reference vocabulary (baseline):** דשבורד מורה (Teacher Dashboard) · תלמידים (Students) · שיעורים (Lessons) · זמינות (Availability) · בקשות חדשות (New Requests) · שידוכים (Matches) · פרופיל (Profile) · הגדרות (Settings) · שיעור הבא (Next Lesson) · דירוג ממוצע (Average Rating).
 
+## Design System (CRITICAL — read before building/editing ANY UI)
+
+**`docs/design-system.md` is the single source of truth** for the visual language (StudyBuddy Design System v1: Cyber-Professional / Bento / Glass / RTL-first, turquoise-first). Read it before any UI work.
+
+- **Tokens only — no raw hex in components.** The canonical tokens are the `--sb-*` CSS variables (defined once in `apps/frontend/src/styles.css` `:root`) with a TS mirror `sbTokens` in `apps/frontend/src/design/tokens.ts`. Use `--sb-*` / `sbTokens` (e.g. `sbTokens.bgCanvas`), never literal hex, in component code. The CI guard (`npm run lint:colors`) is a ratchet — raw-hex count may only decrease, and `src/design-system/` must stay at zero.
+- **Three legacy token systems are DEPRECATED** and migrate onto `--sb-*` incrementally: the app `:root` color vars (`--bg`/`--cyan`/…), the `.tow` scope + `towTokens`, and the Tailwind/Mantine color palettes. Don't add new usages.
+- **Canonical components** live in `apps/frontend/src/design-system/` (`AppShell`, `FloatingTopNavbar`, `BentoCard`, `DashboardGrid`, `WizardShell`, `SegmentedProgressBar`, `WizardFooter`, `PrimaryButton`/`SecondaryButton`/`GhostButton`/`UrgentButton`, `GlobalStateCard`, `RoleBadge`, `SideDrawer`, `DetailPanel`). Reuse them; don't reinvent per screen. Visual sandbox: route `/design-system`.
+- **Navigation: one floating top navbar for all roles — NO sidebar** (v1 decision; the older student-dashboard sidebar + teacher tabs are superseded and replaced in migration phase P2).
+- **One wizard system** (`WizardShell` + `SegmentedProgressBar` + `WizardFooter`); progress is **segmented only — never "Step X of Y" text**.
+- **Fonts:** Rubik (UI) + JetBrains Mono (numbers/dates/prices/scores).
+- **Primary CTA is turquoise** (`--sb-primary-cta`); **orange (`--sb-warning`) is reserved** for urgent/final/destructive-adjacent actions only.
+- Adoption is **additive + phased** (see `docs/design-system.md` §17). Don't bulk-migrate screens; migrate per the phases, wizards first.
+
+## Booking lifecycle (locked)
+
+`booking_request (pending) → teacher approve → lesson (scheduled)`. A **lesson does NOT exist while the request is pending** — `lesson_status` has no `pending`; pending lives on `booking_requests`. Booking from any flow (matching, find-tutor, rebook) creates a **pending `booking_request` only**; the lesson row is created **on approval** (`respondToBookingRequest`). Lifecycle transitions are **atomic** (`withTransaction`) and must prevent double-booking. The dashboard shows pending requests until approved.
+
+## Database Migrations
+
+Current state:
+- Migrations are applied **manually** to the target database.
+- Migrations must be executed **before or together with** the merge/deployment process.
+- All migrations must be **idempotent**.
+- Validation is performed through **`db:validate`**.
+
 ## Commands
 
 Run from the repo root. This is an npm workspaces monorepo (`apps/backend` = `@studybuddy/backend`, `apps/frontend` = `@studybuddy/frontend`).

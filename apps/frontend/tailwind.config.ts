@@ -14,8 +14,10 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'Heebo', 'Rubik', 'system-ui', 'sans-serif'],
+        // Design System v1: Rubik is the primary UI font; JetBrains Mono for numbers.
+        sans: ['Rubik', 'Heebo', 'Inter', 'system-ui', 'sans-serif'],
         display: ['Space Grotesk', 'Inter', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
     },
   },

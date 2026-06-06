@@ -22,6 +22,7 @@ import { FindTutorWizardPage } from '../features/findTutor/pages/FindTutorWizard
 import { TeacherDashboardPage } from '../pages/TeacherDashboardPage';
 import { TeacherBookingInboxPage } from '../pages/TeacherBookingInboxPage';
 import { TeacherLessonManagePage } from '../pages/TeacherLessonManagePage';
+import { DesignSystemPreview } from '../design-system/preview/DesignSystemPreview';
 
 export function App() {
   return (
@@ -29,6 +30,8 @@ export function App() {
       <Routes>
         <Route path="/" element={<MainLandingRoute />} />
         <Route path="/teachers" element={<TeachersLandingRoute />} />
+        {/* Design System v1 visual sandbox (foundation reference) */}
+        <Route path="/design-system" element={<DesignSystemPreview />} />
         <Route path="/intake" element={<SafePlaceholderRoute title="Intake placeholder" />} />
         <Route path="/teacher-onboarding" element={<TeacherOnboardingPage />} />
         <Route path="/onboarding/matching" element={<MatchingWizardPage />} />
