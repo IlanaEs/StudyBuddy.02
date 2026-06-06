@@ -46,6 +46,14 @@ export type LatestIntakePrefill = {
   soft_criteria: SoftCriteria | null;
 };
 
+// GET /me/latest payload. `intake` is null when the student has a profile but no
+// prior search yet (a clean empty state). "No profile" is surfaced as a 404 by
+// the service — never an empty intake, and never a 500.
+export type LatestIntakeResult = {
+  student_id: string;
+  intake: LatestIntakePrefill | null;
+};
+
 // Subset of columns returned after creation (sufficient for the API response).
 export type StudentIntakeSummary = {
   id: string;

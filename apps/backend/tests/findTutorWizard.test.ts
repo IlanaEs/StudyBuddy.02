@@ -67,14 +67,23 @@ describe('createIntake — soft_criteria persistence', () => {
   });
 });
 
-describe('getMyLatestIntake — prefill', () => {
-  it('returns null when the student has no profile', async () => {
+describe('getMyLatestIntake — profile + latest intake', () => {
+  it('404s when the student has no profile row (registration incomplete — never 500)', async () => {
     vi.mocked(getStudentIdByUserId).mockResolvedValue(null);
-    expect(await getMyLatestIntake(student)).toBeNull();
+    await expect(getMyLatestIntake(student)).rejects.toMatchObject({ statusCode: 404 });
     expect(getLatestStudentIntakeByStudentId).not.toHaveBeenCalled();
   });
 
-  it('returns the latest intake prefill for the student', async () => {
+  it('returns { student_id, intake: null } when the profile exists but there is no prior intake', async () => {
+    // The clean empty state: a profiled student with no previous search. The
+    // frontend must NOT read this as "complete registration".
+    vi.mocked(getStudentIdByUserId).mockResolvedValue('stu-1');
+    vi.mocked(getLatestStudentIntakeByStudentId).mockResolvedValue(null);
+
+    expect(await getMyLatestIntake(student)).toEqual({ student_id: 'stu-1', intake: null });
+  });
+
+  it('returns { student_id, intake } with the latest intake prefill', async () => {
     vi.mocked(getStudentIdByUserId).mockResolvedValue('stu-1');
     const prefill = {
       student_id: 'stu-1',
@@ -89,7 +98,7 @@ describe('getMyLatestIntake — prefill', () => {
     };
     vi.mocked(getLatestStudentIntakeByStudentId).mockResolvedValue(prefill);
 
-    expect(await getMyLatestIntake(student)).toEqual(prefill);
+    expect(await getMyLatestIntake(student)).toEqual({ student_id: 'stu-1', intake: prefill });
   });
 });
 

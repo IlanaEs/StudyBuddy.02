@@ -15,7 +15,12 @@ export type LatestIntakePrefill = {
 };
 
 // GET /api/student-intakes/me/latest — prefill source for the quick wizard.
-export function getLatestIntake(token: string): Promise<ApiResponse<{ intake: LatestIntakePrefill | null }>> {
+// 200 → { student_id, intake } where intake is null for a profiled student with
+// no prior search. A 404 (no student profile) comes back as { error } and means
+// registration is genuinely incomplete.
+export function getLatestIntake(
+  token: string,
+): Promise<ApiResponse<{ student_id: string; intake: LatestIntakePrefill | null }>> {
   return apiRequest('/api/student-intakes/me/latest', undefined, token);
 }
 
