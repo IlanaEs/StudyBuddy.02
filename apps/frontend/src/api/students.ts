@@ -9,6 +9,9 @@ export type OAuthSignupResult = {
     full_name: string;
     status: string;
   };
+  // false when the Google account already belonged to an existing StudyBuddy user
+  // — the caller redirects straight to that user's dashboard (no onboarding).
+  isNewUser: boolean;
 };
 
 export type CreateStudentProfileResult = {

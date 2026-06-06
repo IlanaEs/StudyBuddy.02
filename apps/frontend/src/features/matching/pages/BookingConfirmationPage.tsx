@@ -2,8 +2,12 @@ import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CheckCircle2, Mail, Check, Calendar, Clock } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthProvider';
+import { useMatchingStore } from '../store/matchingStore';
 import { FlowNav } from '../../../components/FlowNav';
 import { getDashboardPathByRole } from '../../../utils/getDashboardPathByRole';
+
+// Quick-wizard success → auto-return to the dashboard after this delay.
+const QUICK_AUTO_RETURN_MS = 5000;
 
 type ConfirmationState = {
   bookingId: string;
@@ -34,6 +38,9 @@ export function BookingConfirmationPage() {
   const location = useLocation();
   const state = isConfirmationState(location.state) ? location.state : null;
   const dashboardRoute = useDashboardRoute();
+  const flow = useMatchingStore((s) => s.flow);
+  const resetMatching = useMatchingStore((s) => s.reset);
+  const isQuick = flow === 'quick';
 
   // No real booking state means the user landed here without submitting
   // (e.g. direct URL or page refresh). Redirect to dashboard silently.
@@ -43,7 +50,24 @@ export function BookingConfirmationPage() {
     }
   }, [state, navigate, dashboardRoute]);
 
+  // Quick-wizard success: auto-return to the dashboard after 5s and clear the
+  // quick-wizard state so re-entry starts clean. Cancelled if the user leaves first.
+  useEffect(() => {
+    if (!state || !isQuick) return;
+    const timer = setTimeout(() => {
+      resetMatching();
+      navigate(dashboardRoute, { replace: true });
+    }, QUICK_AUTO_RETURN_MS);
+    return () => clearTimeout(timer);
+  }, [state, isQuick, navigate, dashboardRoute, resetMatching]);
+
   if (!state) return null;
+
+  // Manual return — also clears quick-wizard state when in the quick flow.
+  const goDashboard = () => {
+    if (isQuick) resetMatching();
+    navigate(dashboardRoute);
+  };
 
   const { teacherName, subjectName, whenLabel, priceLabel } = state;
   const receipt: Array<{ label: string; value: string }> = [
@@ -99,12 +123,17 @@ export function BookingConfirmationPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <button onClick={() => navigate(dashboardRoute)} className="w-full py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>
+          <button onClick={goDashboard} className="w-full py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>
             לדשבורד שלי (My Dashboard)
           </button>
           <button onClick={() => navigate('/find-tutor')} className="w-full py-3 rounded-xl font-medium text-sm" style={{ background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--text-3)', cursor: 'pointer' }}>
             חיפוש מורה נוסף
           </button>
+          {isQuick && (
+            <p style={{ color: 'var(--text-3)', fontSize: 12.5, textAlign: 'center', marginTop: 2 }}>
+              חוזרים לדשבורד באופן אוטומטי תוך 5 שניות…
+            </p>
+          )}
         </div>
       </div>
     </div>
