@@ -40,7 +40,7 @@ export function SubjectAutocomplete({
           style={inputStyle}
         />
         <p style={{ margin: '8px 0 0', fontSize: 12, color: sb.textSecondary }}>
-          מקצוע זה אינו ברשימה — הוא יישלח לבדיקה ולא ניתן להזמין עליו שיעור עדיין.
+          הקלד את שם הקורס המדויק, ואנחנו נבצע התאמה ידנית עבורך.
         </p>
         <button type="button" onClick={() => { setManual(false); onChange('', false); }} style={linkStyle(sb.textMuted)}>
           חזרה לבחירה מהרשימה
@@ -91,7 +91,7 @@ export function SubjectAutocomplete({
       {/* Off-taxonomy fallback link. */}
       <button type="button" onClick={() => { setManual(true); onChange(search.trim(), true); }} style={linkStyle(sb.error)}>
         <PenLine size={13} style={{ marginInlineEnd: 4, verticalAlign: '-2px' }} />
-        לא מצאת את המקצוע? הקלד להתאמה ידנית
+        לא מצאת את הקורס שלך?
       </button>
     </div>
   );

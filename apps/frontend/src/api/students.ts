@@ -65,6 +65,9 @@ export interface CreateStudentIntakeInput {
   student_id: string;
   subject_id?: string;
   subject_name?: string;
+  /** Off-taxonomy manual-match lead: free-text course + flag (no resolved subject). */
+  custom_subject_text?: string;
+  needs_manual_match?: boolean;
   level?: string;
   goal?: string | null;
   location_preference: 'online' | 'frontal' | 'both';

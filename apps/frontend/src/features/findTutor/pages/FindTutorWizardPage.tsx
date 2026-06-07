@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GraduationCap, CalendarHeart, Flame, KeyRound, AlertCircle } from 'lucide-react';
+import { GraduationCap, CalendarHeart, Flame, KeyRound, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthProvider';
 import { useMatchingStore } from '../../matching/store/matchingStore';
 import { DualRangeSlider } from '../../matching/components/DualRangeSlider';
@@ -9,7 +9,7 @@ import { AvailabilityGrid } from '../../matching/components/AvailabilityGrid';
 import { WizardShell, WizardFooter, BentoCard, GlobalStateCard, sbTokens as sb } from '../../../design-system';
 import { createStudentIntake, runMatching } from '../../../api/students';
 import type { SoftCriteria } from '../../../api/students';
-import { getLatestIntake, getMyStudentProfile, requestSubjectAddition } from '../api/findTutor';
+import { getLatestIntake, getMyStudentProfile } from '../api/findTutor';
 import { SubjectAutocomplete } from '../components/SubjectAutocomplete';
 
 const INDEX_TO_DAY = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
@@ -74,6 +74,7 @@ export function FindTutorWizardPage() {
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [manualDone, setManualDone] = useState(false);
 
   // Pulled from the profile (not re-asked)
   const [studentId, setStudentId] = useState<string | null>(null);
@@ -154,15 +155,46 @@ export function FindTutorWizardPage() {
     setTimes([...p.times]);
   }
 
+  // Off-taxonomy course → store a manual-match lead on the intake (free-text +
+  // flag), no automatic matching. We'll match the student manually.
+  async function submitManualMatch() {
+    if (!token || !studentId) return;
+    setError('');
+    setSubmitting(true);
+    try {
+      const res = await createStudentIntake(
+        {
+          student_id: studentId,
+          custom_subject_text: subject.trim(),
+          needs_manual_match: true,
+          level: level ?? undefined,
+          goal,
+          location_preference: 'online',
+          budget_min: budgetMin,
+          budget_max: budgetMax,
+          preferred_days: days.map((d) => DAY_TO_INDEX[d]).filter((n): n is number => typeof n === 'number'),
+          preferred_time_ranges: times.map((t) => BUCKET_TO_RANGE[t]).filter((r): r is { start: string; end: string } => !!r),
+          soft_criteria: soft,
+        },
+        token,
+      );
+      if ('error' in res) {
+        setError(res.error ?? 'שגיאה בשליחת הבקשה. נסו שוב.');
+        return;
+      }
+      setManualDone(true);
+    } catch {
+      setError('שגיאת תקשורת. בדקו חיבור ונסו שוב.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function runMatch() {
     if (!token || !studentId) return;
     if (subjectIsCustom) {
-      // Off-taxonomy → capture + block (never submit an off-taxonomy subject; no matching).
-      if (subject.trim()) await requestSubjectAddition(token, subject.trim());
-      setError('המקצוע נשלח לבדיקה ויתווסף בקרוב. בחרו מקצוע מהרשימה כדי להמשיך.');
-      setStep(1);
-      setSubject('');
-      setSubjectIsCustom(false);
+      // Off-taxonomy course → manual-match lead, not an automatic search.
+      await submitManualMatch();
       return;
     }
     setError('');
@@ -228,6 +260,20 @@ export function FindTutorWizardPage() {
     return (
       <Canvas>
         <GlobalStateCard variant="loading" fullPage title="מחפשים מורים מתאימים…" description="מצליבים זמינות, תקציב והעדפות כדי לבנות לך התאמות." />
+      </Canvas>
+    );
+  }
+  if (manualDone) {
+    return (
+      <Canvas>
+        <GlobalStateCard
+          variant="success"
+          fullPage
+          icon={<CheckCircle2 size={32} />}
+          title="קיבלנו את הבקשה (Request Received)"
+          description="הקורס שביקשת אינו בקטלוג — נבצע עבורך התאמה ידנית ונחזור אליך בהקדם."
+          cta={{ label: 'חזרה לדשבורד (Dashboard)', onClick: () => navigate('/student/dashboard') }}
+        />
       </Canvas>
     );
   }

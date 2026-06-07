@@ -36,6 +36,8 @@ export async function createStudentIntake(
     .insert({
       student_id: input.studentId,
       subject_id: input.subjectId,
+      custom_subject_text: input.customSubjectText,
+      needs_manual_match: input.needsManualMatch,
       created_by_user_id: input.createdByUserId,
       level: input.level,
       goal: input.goal,
@@ -62,7 +64,7 @@ export async function createStudentIntake(
   return {
     id: row.id as string,
     studentId: row.student_id as string,
-    subjectId: row.subject_id as string,
+    subjectId: (row.subject_id as string | null) ?? null,
     status: row.status as 'open' | 'matched' | 'closed',
   };
 }

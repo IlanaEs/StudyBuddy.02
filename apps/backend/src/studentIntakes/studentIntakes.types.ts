@@ -18,7 +18,9 @@ export type SoftCriteria = {
 // Input shape for the repository insert function (all normalization already applied).
 export type CreateIntakeInput = {
   studentId: string;
-  subjectId: string;
+  subjectId: string | null;            // null for a manual-match lead
+  customSubjectText: string | null;    // free-text course (manual-match only)
+  needsManualMatch: boolean;
   level: string | null;
   goal: string | null;
   locationPreference: 'online' | 'frontal' | 'both';
@@ -58,6 +60,6 @@ export type LatestIntakeResult = {
 export type StudentIntakeSummary = {
   id: string;
   studentId: string;
-  subjectId: string;
+  subjectId: string | null;
   status: StudentIntakeStatus;
 };

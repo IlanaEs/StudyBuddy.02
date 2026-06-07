@@ -27,15 +27,23 @@ export async function createIntake(
     body.preferred_days != null
       ? [...new Set(body.preferred_days)].sort((a, b) => a - b)
       : null;
-  const subjectId = body.subject_id ?? (body.subject_name ? await findSubjectIdByName(body.subject_name) : null);
+  // Manual-match lead (off-taxonomy course): store the free-text on the intake,
+  // flagged for manual matching — no resolved subject, no automatic matching.
+  const isManualMatch = body.needs_manual_match === true && !!body.custom_subject_text?.trim();
 
-  if (!subjectId) {
+  const subjectId = isManualMatch
+    ? null
+    : (body.subject_id ?? (body.subject_name ? await findSubjectIdByName(body.subject_name) : null));
+
+  if (!isManualMatch && !subjectId) {
     throw new AppError('לא נמצא מקצוע מתאים במערכת. בחרו מקצוע מהרשימה ונסו שוב.', 422);
   }
 
   return repoCreate({
     studentId: body.student_id,
     subjectId,
+    customSubjectText: isManualMatch ? body.custom_subject_text!.trim() : null,
+    needsManualMatch: isManualMatch,
     level: body.level ?? null,
     goal: body.goal ?? null,
     locationPreference: body.location_preference,
