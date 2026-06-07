@@ -38,6 +38,21 @@ const PRESETS = [
   { id: 'weekend', label: 'סופ״ש בלבד', days: ['שישי', 'שבת'], times: ['morning', 'afternoon', 'evening'] },
 ];
 
+// Level categories (the matching-relevant value; mirrors students.grade_level and
+// teacher_subjects.level). The quick wizard lets a student temporarily override the
+// level for THIS search only — never persisted back to the profile.
+const LEVELS: { value: string; he: string; en: string }[] = [
+  { value: 'elementary', he: 'יסודי', en: 'Elementary' },
+  { value: 'middle', he: 'חטיבה', en: 'Middle' },
+  { value: 'high', he: 'תיכון', en: 'High School' },
+  { value: 'academic', he: 'אקדמי', en: 'Academic' },
+];
+function levelLabel(value: string | null): string {
+  if (!value) return 'לא הוגדר (Not set)';
+  const m = LEVELS.find((l) => l.value === value);
+  return m ? `${m.he} (${m.en})` : value;
+}
+
 const STEP_HEADERS: Record<number, { title: string; english: string; subtitle?: string }> = {
   1: { title: 'הגדרת שיעור', english: 'Lesson Setup', subtitle: 'מה המטרה ובאיזה מקצוע?' },
   2: { title: 'תקציב', english: 'Budget', subtitle: 'מה טווח המחיר לשעה שמתאים לך?' },
@@ -64,7 +79,10 @@ export function FindTutorWizardPage() {
 
   // Pulled from the profile (not re-asked)
   const [studentId, setStudentId] = useState<string | null>(null);
+  // Level context: defaults from the stable students.grade_level; can be temporarily
+  // overridden for this search via the subject-step control (never persisted).
   const [level, setLevel] = useState<string | null>(null);
+  const [levelEditing, setLevelEditing] = useState(false);
 
   // Collected / optionally pre-filled
   const [goal, setGoal] = useState<string | null>(null);
@@ -103,13 +121,17 @@ export function FindTutorWizardPage() {
       setStudentId(prof.data.student_id);
       store.setFlow('quick');
 
+      // Default the level context from the STABLE profile grade_level.
+      setLevel(prof.data.grade_level);
+
       // Optional prefill — never gates, never forces old state.
       const latest = await getLatestIntake(token);
       if (cancelled) return;
       if (!('error' in latest) && latest.data.intake) {
         const i = latest.data.intake;
         setPrefilled(true);
-        setLevel(i.level);
+        // Fall back to the last search's level only when no stable grade_level is saved.
+        if (prof.data.grade_level == null) setLevel(i.level);
         setGoal(i.goal ?? null);
         if (i.budget_min != null) setBudgetMin(i.budget_min);
         if (i.budget_max != null) setBudgetMax(i.budget_max);
@@ -273,6 +295,13 @@ export function FindTutorWizardPage() {
               ))}
             </div>
             <SubjectAutocomplete value={subject} isCustom={subjectIsCustom} onChange={(s, custom) => { setSubject(s); setSubjectIsCustom(custom); setError(''); }} />
+
+            <LevelContextControl
+              level={level}
+              editing={levelEditing}
+              onToggle={() => setLevelEditing((v) => !v)}
+              onPick={(v) => { setLevel(v); setLevelEditing(false); }}
+            />
           </div>
 
           {/* Left 1/3: Direct Tutor Search — DISABLED (Phase 2). */}
@@ -351,6 +380,60 @@ function GoalCard({ icon, label, selected, onClick }: { icon: ReactNode; label: 
         <span style={{ color: selected ? sb.active : sb.textSecondary, display: 'flex' }}>{icon}</span>
         <span style={{ fontWeight: 700, color: sb.textPrimary, fontFamily: sb.fontUi }}>{label}</span>
       </div>
+    </BentoCard>
+  );
+}
+
+// Subject-step control: shows the current level/academic context (defaulted from the
+// saved profile) and lets the student temporarily change it for THIS search only.
+function LevelContextControl({
+  level,
+  editing,
+  onToggle,
+  onPick,
+}: {
+  level: string | null;
+  editing: boolean;
+  onToggle: () => void;
+  onPick: (value: string) => void;
+}) {
+  const isAcademic = level === 'academic';
+  const contextLabel = isAcademic ? 'הקשר אקדמי (Academic Context)' : 'רמה (Level)';
+  const changeLabel = isAcademic ? 'החלפת הקשר אקדמי (Change academic context)' : 'החלפת רמה (Change level)';
+  return (
+    <BentoCard hover={false} style={{ padding: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: sb.textSecondary, fontSize: 13.5, fontWeight: 700 }}>
+          <GraduationCap size={16} />
+          {contextLabel}: <span style={{ color: sb.textPrimary }}>{levelLabel(level)}</span>
+        </span>
+        <button
+          type="button"
+          onClick={onToggle}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: sb.active,
+            fontFamily: sb.fontUi,
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: 'pointer',
+            padding: 0,
+          }}
+        >
+          {editing ? 'סגירה (Close)' : changeLabel}
+        </button>
+      </div>
+      {editing && (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {LEVELS.map((l) => (
+              <Chip key={l.value} label={`${l.he} (${l.en})`} selected={level === l.value} onClick={() => onPick(l.value)} />
+            ))}
+          </div>
+          <p style={{ margin: '10px 0 0', fontSize: 12, color: sb.textMuted }}>השינוי זמני וחל על חיפוש זה בלבד.</p>
+        </div>
+      )}
     </BentoCard>
   );
 }
