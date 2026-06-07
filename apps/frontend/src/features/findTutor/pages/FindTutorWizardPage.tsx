@@ -35,10 +35,21 @@ const GOALS = [
 ];
 
 // Step-3 one-tap availability presets (operate on the day/time-bucket model).
+// Days MUST match AvailabilityGrid's columns: ראשון–שישי (Sun–Fri, א'–ו'); there
+// is NO שבת column, so the weekend day available in this grid is ו' (Friday) only.
+const GRID_DAYS = INDEX_TO_DAY.slice(0, 6); // ראשון–שישי
+const ALL_TIME_BUCKETS = Object.keys(BUCKET_TO_RANGE); // morning, afternoon, evening
+// "After 16:00" = every band whose range extends past 16:00 (derived from the band
+// ranges, not hardcoded): afternoon (…–17:00) + evening (…–22:00); morning excluded.
+const AFTER_16_BUCKETS = Object.entries(BUCKET_TO_RANGE)
+  .filter(([, r]) => parseInt(r.end.split(':')[0] ?? '0', 10) > 16)
+  .map(([bucket]) => bucket);
+
 const PRESETS = [
-  { id: 'after16', label: 'כל יום אחרי 16:00', days: [...INDEX_TO_DAY], times: ['afternoon', 'evening'] },
-  { id: 'evenings', label: 'ערבים בלבד', days: [...INDEX_TO_DAY], times: ['evening'] },
-  { id: 'weekend', label: 'סופ״ש בלבד', days: ['שישי', 'שבת'], times: ['morning', 'afternoon', 'evening'] },
+  { id: 'after16', label: 'כל יום אחרי 16:00', days: GRID_DAYS, times: AFTER_16_BUCKETS },
+  { id: 'evenings', label: 'ערבים בלבד', days: GRID_DAYS, times: ['evening'] },
+  // ו' (Friday) is the only weekend day in this Sun–Fri grid (no שבת column).
+  { id: 'weekend', label: 'סופ״ש בלבד', days: ['שישי'], times: ALL_TIME_BUCKETS },
 ];
 
 // Level categories (the matching-relevant value; mirrors students.grade_level and
@@ -96,6 +107,10 @@ export function FindTutorWizardPage() {
   const [soft, setSoft] = useState<SoftCriteria>({});
   const [days, setDays] = useState<string[]>([]);
   const [times, setTimes] = useState<string[]>([]);
+  // Quick-filter presets: which one is active, and a key that remounts the grid so it
+  // re-reads the new selection (the grid is otherwise uncontrolled after mount).
+  const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [gridKey, setGridKey] = useState(0);
 
   // Shared Google-Calendar sync. The quick wizard's basic login token lacks the
   // calendar scope, so Connect goes through INCREMENTAL authorization (redirect to
@@ -186,9 +201,20 @@ export function FindTutorWizardPage() {
     setSoft((s) => ({ ...s, teacher_gender: s.teacher_gender === g ? null : g }));
   }
 
+  // Toggle a quick-filter preset: clicking it applies its day×band selection;
+  // clicking the active one again clears it. Bumping gridKey remounts the grid so
+  // it re-reads the selection (busy cells are excluded by the grid on rebuild).
   function applyPreset(p: (typeof PRESETS)[number]) {
-    setDays([...p.days]);
-    setTimes([...p.times]);
+    if (activePreset === p.id) {
+      setDays([]);
+      setTimes([]);
+      setActivePreset(null);
+    } else {
+      setDays([...p.days]);
+      setTimes([...p.times]);
+      setActivePreset(p.id);
+    }
+    setGridKey((k) => k + 1);
   }
 
   // Off-taxonomy course → store a manual-match lead on the intake (free-text +
@@ -432,10 +458,17 @@ export function FindTutorWizardPage() {
             <>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {PRESETS.map((p) => (
-                  <Chip key={p.id} label={p.label} onClick={() => applyPreset(p)} />
+                  <Chip key={p.id} label={p.label} selected={activePreset === p.id} onClick={() => applyPreset(p)} />
                 ))}
               </div>
-              <AvailabilityGrid selectedDays={days} selectedTimes={times} onChangeDays={setDays} onChangeTimes={setTimes} busyKeys={cal.busyCellKeys.size > 0 ? cal.busyCellKeys : undefined} />
+              <AvailabilityGrid
+                key={gridKey}
+                selectedDays={days}
+                selectedTimes={times}
+                onChangeDays={(d) => { setDays(d); setActivePreset(null); }}
+                onChangeTimes={(t) => { setTimes(t); setActivePreset(null); }}
+                busyKeys={cal.busyCellKeys.size > 0 ? cal.busyCellKeys : undefined}
+              />
             </>
           )}
           {error && <div style={{ color: sb.error, fontSize: 13 }}>{error}</div>}
