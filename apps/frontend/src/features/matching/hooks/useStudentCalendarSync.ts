@@ -19,6 +19,13 @@ type Options = {
   redirect?: boolean;
   /** Where Google redirects back to (redirect mode only). */
   returnPath?: string;
+  /**
+   * Try the in-session provider token before redirecting. TRUE for onboarding
+   * (its sign-in granted calendar.readonly). FALSE for the quick wizard, whose
+   * basic login token lacks the scope — so Connect must go straight to incremental
+   * authorization (the redirect) rather than 403 on a scope-less token.
+   */
+  trustSessionToken?: boolean;
   /** Side effect to run once a sync succeeds (e.g. clear any manual selection). */
   onSynced?: () => void;
 };
@@ -30,7 +37,7 @@ type Options = {
  * granted calendar.readonly, sync runs with NO redirect.
  */
 export function useStudentCalendarSync(options: Options = {}) {
-  const { redirect = false, returnPath = '/onboarding/matching', onSynced } = options;
+  const { redirect = false, returnPath = '/onboarding/matching', trustSessionToken = true, onSynced } = options;
   const auth = useAuth();
   const [availMode, setAvailMode] = useState<AvailMode>('sync');
   const [calSyncing, setCalSyncing] = useState(false);
@@ -74,7 +81,8 @@ export function useStudentCalendarSync(options: Options = {}) {
     setCalSyncing(true);
     setCalSyncError(null);
 
-    const token = sessionProviderToken();
+    // Only reuse the in-session token when it's trusted to carry the calendar scope.
+    const token = trustSessionToken ? sessionProviderToken() : null;
     if (token && auth.session?.access_token) {
       void doCalendarSync(auth.session.access_token, token);
       return;

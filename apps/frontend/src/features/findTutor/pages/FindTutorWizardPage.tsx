@@ -13,6 +13,7 @@ import { createStudentIntake, runMatching } from '../../../api/students';
 import type { SoftCriteria } from '../../../api/students';
 import { getLatestIntake, getMyStudentProfile } from '../api/findTutor';
 import { SubjectAutocomplete } from '../components/SubjectAutocomplete';
+import { saveFindTutorDraft, loadFindTutorDraft, clearFindTutorDraft } from '../findTutorDraft';
 
 const INDEX_TO_DAY = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const DAY_TO_INDEX: Record<string, number> = { ראשון: 0, שני: 1, שלישי: 2, רביעי: 3, חמישי: 4, שישי: 5, שבת: 6 };
@@ -96,9 +97,16 @@ export function FindTutorWizardPage() {
   const [days, setDays] = useState<string[]>([]);
   const [times, setTimes] = useState<string[]>([]);
 
-  // Shared Google-Calendar sync (session-token-first; no redirect in the quick wizard
-  // so the in-progress search isn't lost). On sync, busy cells block the grid.
-  const cal = useStudentCalendarSync({ redirect: false, onSynced: () => { setDays([]); setTimes([]); } });
+  // Shared Google-Calendar sync. The quick wizard's basic login token lacks the
+  // calendar scope, so Connect goes through INCREMENTAL authorization (redirect to
+  // /find-tutor requesting calendar.readonly); the in-progress search is persisted
+  // across the round-trip (see onConnect). On sync, busy cells block the grid.
+  const cal = useStudentCalendarSync({
+    redirect: true,
+    returnPath: '/find-tutor',
+    trustSessionToken: false,
+    onSynced: () => { setDays([]); setTimes([]); },
+  });
 
   // Bootstrap: gate on the student PROFILE (not the intakes endpoint). Then
   // optionally prefill from the latest intake as non-blocking defaults.
@@ -126,6 +134,27 @@ export function FindTutorWizardPage() {
       }
       setStudentId(prof.data.student_id);
       store.setFlow('quick');
+
+      // Returning from the Google Calendar OAuth round-trip — restore the search
+      // exactly as it was (the calendar-sync result is applied by the hook), and
+      // land back on the availability step. Skip the fresh prefill.
+      const draft = loadFindTutorDraft();
+      if (draft) {
+        clearFindTutorDraft();
+        setSubject(draft.subject);
+        setSubjectIsCustom(draft.subjectIsCustom);
+        setGoal(draft.goal);
+        setLevel(draft.level);
+        setBudgetMin(draft.budgetMin);
+        setBudgetMax(draft.budgetMax);
+        setDays(draft.days);
+        setTimes(draft.times);
+        setSoft(draft.soft);
+        setPrefilled(true);
+        setStep(draft.step || 3);
+        setLoading(false);
+        return;
+      }
 
       // Default the level context from the STABLE profile grade_level.
       setLevel(prof.data.grade_level);
@@ -391,7 +420,11 @@ export function FindTutorWizardPage() {
             availMode={cal.availMode}
             calSyncing={cal.calSyncing}
             calSyncError={cal.calSyncError}
-            onConnect={() => void cal.startSync()}
+            onConnect={() => {
+              // Persist the in-progress search so it survives the Google redirect.
+              saveFindTutorDraft({ subject, subjectIsCustom, goal, level, budgetMin, budgetMax, days, times, soft, step });
+              void cal.startSync();
+            }}
             onManual={cal.setManual}
             onEdit={cal.setManual}
           />
