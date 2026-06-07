@@ -17,7 +17,9 @@ This document is the **single source of truth** for the visual language. The can
 /* Canvas & Shell */     --sb-bg-canvas:#0B2B2A;  --sb-bg-depth:#175655;
                          --sb-navbar-bg:rgba(11,43,42,.75);  --sb-navbar-border:#3f7e76;
 /* Glass / Bento */      --sb-glass-base:rgba(23,86,85,.40); --sb-glass-soft:rgba(63,126,118,.25);
-                         --sb-border-cyber:#24747A; --sb-border-muted:#016c7c; --sb-hover-glow:rgba(0,246,255,.15);
+                         --sb-border-cyber:#24747A; --sb-hover-glow:rgba(0,246,255,.15);
+                         --sb-input-border:rgba(76,231,227,.15); --sb-input-focus-glow:rgba(76,231,227,.45);
+                         --sb-grid-overlay:rgba(255,255,255,.02);  /* glass inputs + still bg line-grid */
 /* Typography */         --sb-text-primary:#FAF9F6; --sb-text-primary-alt:#F5F5F0;
                          --sb-text-secondary:#A3C7C4; --sb-text-muted:#5A8F8A;
 /* Actions & States */   --sb-active:#00F6FF; --sb-primary-cta:#4CE7E3; --sb-success:#A3E635;
@@ -29,10 +31,33 @@ This document is the **single source of truth** for the visual language. The can
 - Titles → `--sb-text-primary`; body → `--sb-text-secondary`; captions/timestamps → `--sb-text-muted`.
 - `--sb-active` = active/focus/progress-completed. `--sb-primary-cta` (turquoise) = primary buttons.
 - **Orange (`--sb-warning`) is reserved** for final/urgent/destructive-adjacent actions (emergency lesson, timer, final submission). **Never** a normal primary action.
+- **`--sb-border-cyber` (#24747A) is THE single bento/card border** (alias name "border-bento"). The old `--sb-border-muted` (#016c7c) is removed from the canonical layer; `sbTokens.borderMuted` is a deprecated alias of `borderCyber`.
+- **Single source of truth for #0F1720 is `--sb-on-primary`** (ink on turquoise/orange CTAs) — not a background token. **`--sb-bg-canvas` (#0B2B2A)** is the canvas; **`--sb-bg-depth` (#175655)** is the secondary depth surface.
 
 ## 2. Typography
 
 - **Rubik** = primary UI font (headings/body/labels). **JetBrains Mono** = prices, counters, dates, match scores. Both loaded in `index.html`; exposed as `--sb-font-ui` / `--sb-font-mono` (and `sbTokens.fontUi` / `.fontMono`).
+- **Scale** (responsive via `clamp`, desktop↔mobile) — utility classes in `styles.css`, sizes mirrored in `sbTokens`:
+
+  | Role | Class | Size var (desktop→mobile) | Weight / line-height |
+  |------|-------|---------------------------|----------------------|
+  | Heading (page titles) | `.sb-heading` | `--sb-fs-heading` 32→24px | 700 / 1.2 |
+  | Subheading (section headers) | `.sb-subheading` | `--sb-fs-subheading` 22→18px | 600 / 1.3 |
+  | Body | `.sb-body` | `--sb-fs-body` 15px | 400 / 1.6 |
+  | Caption / meta | `.sb-caption` | `--sb-fs-caption` 12px | 500 / 1.4 |
+
+- **`.data-mono`** = JetBrains Mono + `tabular-nums` for numbers/dates/prices/scores. Body has anti-aliasing (`-webkit-font-smoothing: antialiased` + `-moz-osx-font-smoothing: grayscale`).
+
+### Legacy `.tow` → canonical `--sb-*` map
+
+The deprecated `.tow` scope now points its byte-identical colors at canonical tokens (no visual change); the rest stay local until that scope is migrated off:
+
+| `.tow` var | → canonical | hex |
+|------------|-------------|-----|
+| `--tow-neon` | `--sb-active` | #00f6ff |
+| `--tow-orange` | `--sb-warning` | #fc6d17 |
+| `--tow-alert` | `--sb-error` | #e22b57 |
+| `--tow-bg` | `--sb-bg-depth` | #175655 |
 
 ## 3. Radius
 

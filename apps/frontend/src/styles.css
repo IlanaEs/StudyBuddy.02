@@ -54,9 +54,14 @@
   /* Glass / Bento */
   --sb-glass-base: rgba(23, 86, 85, 0.40);
   --sb-glass-soft: rgba(63, 126, 118, 0.25);
+  /* Single canonical bento/card border (doc alias: "border-bento"). */
   --sb-border-cyber: #24747A;
-  --sb-border-muted: #016c7c;
   --sb-hover-glow: rgba(0, 246, 255, 0.15);
+  /* Inputs (glassmorphism): subtle turquoise border, full turquoise glow on focus. */
+  --sb-input-border: rgba(76, 231, 227, 0.15);
+  --sb-input-focus-glow: rgba(76, 231, 227, 0.45);
+  /* Fixed, very subtle background line-grid sublayer (stays still under content). */
+  --sb-grid-overlay: rgba(255, 255, 255, 0.02);
   /* Typography */
   --sb-text-primary: #FAF9F6;
   --sb-text-primary-alt: #F5F5F0;
@@ -82,6 +87,50 @@
   /* Fonts */
   --sb-font-ui: "Rubik", "Heebo", "Inter", system-ui, sans-serif;
   --sb-font-mono: "JetBrains Mono", ui-monospace, monospace;
+  /* Typography scale (responsive desktop↔mobile via clamp). Rubik for text;
+     numerics use .data-mono (JetBrains Mono). See docs/design-system.md §2. */
+  --sb-fs-heading: clamp(1.5rem, 1.2rem + 1.4vw, 2rem);          /* 24→32 page titles */
+  --sb-fs-subheading: clamp(1.125rem, 1rem + 0.6vw, 1.375rem);   /* 18→22 section headers */
+  --sb-fs-body: 0.9375rem;                                       /* 15 body */
+  --sb-fs-caption: 0.75rem;                                      /* 12 captions / meta */
+}
+
+/* ── Design System v1 — typography utilities (consume --sb-* only) ───────────
+   Heading / Subheading / Body / Caption scale + numeric mono. Rubik for text,
+   JetBrains Mono (.data-mono) for numbers/dates/prices/scores. */
+.sb-heading {
+  font-family: var(--sb-font-ui);
+  font-size: var(--sb-fs-heading);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--sb-text-primary);
+}
+.sb-subheading {
+  font-family: var(--sb-font-ui);
+  font-size: var(--sb-fs-subheading);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--sb-text-primary);
+}
+.sb-body {
+  font-family: var(--sb-font-ui);
+  font-size: var(--sb-fs-body);
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--sb-text-secondary);
+}
+.sb-caption {
+  font-family: var(--sb-font-ui);
+  font-size: var(--sb-fs-caption);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--sb-text-muted);
+}
+.data-mono {
+  font-family: var(--sb-font-mono);
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
 }
 
 /* ── Design System v1 — shared component styles (consume --sb-* only) ────────
@@ -135,17 +184,19 @@
    These variables apply only within a `.tow` wrapper so the rest of the app
    (dashboards, student wizard, login) keeps its existing theme. */
 .tow {
-  --tow-bg: #175655;
+  /* Identity-equal values point at the canonical --sb-* tokens (single source of
+     truth); the rest stay local until this scope is migrated. See doc §2 map. */
+  --tow-bg: var(--sb-bg-depth);       /* ≡ #175655 */
   --tow-card: #3f7e76;
   --tow-card-2: #38716a;
   --tow-ink: #016c7c;        /* headers / strong labels */
   --tow-text: #eaf7f5;
   --tow-text-2: #c4dbd7;
   --tow-text-3: #93b4af;
-  --tow-neon: #00f6ff;       /* active / focus / progress */
+  --tow-neon: var(--sb-active);        /* ≡ #00f6ff — active / focus / progress */
   --tow-gold: #ffd166;       /* accent pop */
-  --tow-orange: #fc6d17;     /* accent pop / primary CTA */
-  --tow-alert: #e22b57;
+  --tow-orange: var(--sb-warning);     /* ≡ #fc6d17 — accent pop / primary CTA */
+  --tow-alert: var(--sb-error);        /* ≡ #e22b57 */
   --tow-success: #bbe341;
   --tow-line: rgba(234, 247, 245, 0.18);
   --tow-line-2: rgba(234, 247, 245, 0.30);
@@ -257,6 +308,7 @@ body {
     linear-gradient(180deg, var(--bg), var(--bg-2));
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: geometricPrecision;
 }
 
