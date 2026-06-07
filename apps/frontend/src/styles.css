@@ -188,6 +188,23 @@
     repeating-linear-gradient(to bottom, var(--sb-grid-overlay) 0 1px, transparent 1px 40px);
 }
 
+/* Glassmorphism input — subtle turquoise border; full turquoise glow on focus. */
+.sb-input {
+  background: var(--sb-glass-soft);
+  border: 1px solid var(--sb-input-border);
+  border-radius: var(--sb-radius-button);
+  color: var(--sb-text-primary);
+  font-family: var(--sb-font-ui);
+  outline: none;
+  transition: border-color var(--sb-motion-base) ease-out, box-shadow var(--sb-motion-base) ease-out;
+}
+.sb-input::placeholder { color: var(--sb-text-muted); }
+.sb-input:focus,
+.sb-input:focus-within {
+  border-color: var(--sb-primary-cta);
+  box-shadow: 0 0 0 3px var(--sb-input-focus-glow);
+}
+
 .sb-wizard-enter { animation: sb-wizard-enter var(--sb-motion-base) ease-out both; }
 @keyframes sb-wizard-enter {
   from { opacity: 0; transform: translateX(-15px); }

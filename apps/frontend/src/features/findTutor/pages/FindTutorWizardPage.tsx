@@ -292,7 +292,13 @@ export function FindTutorWizardPage() {
                 <GoalCard key={g.value} icon={g.icon} label={g.label} selected={goal === g.value} onClick={() => setGoal(g.value)} />
               ))}
             </div>
-            <SubjectAutocomplete value={subject} isCustom={subjectIsCustom} onChange={(s, custom) => { setSubject(s); setSubjectIsCustom(custom); setError(''); }} />
+            {/* Hero intake card — the current question (subject) is the visual anchor. */}
+            <BentoCard hover={false} style={{ padding: 18 }}>
+              <p style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800, color: sb.textPrimary, fontFamily: sb.fontUi }}>
+                באיזה מקצוע תרצו להתמקד? (Subject)
+              </p>
+              <SubjectAutocomplete value={subject} isCustom={subjectIsCustom} onChange={(s, custom) => { setSubject(s); setSubjectIsCustom(custom); setError(''); }} />
+            </BentoCard>
 
             <LevelContextControl
               level={level}

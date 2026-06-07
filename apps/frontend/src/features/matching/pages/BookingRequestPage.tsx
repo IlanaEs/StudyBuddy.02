@@ -291,16 +291,12 @@ export function BookingRequestPage() {
               <div>
                 <div style={{ fontSize: 12.5, fontWeight: 700, color: sb.textSecondary, marginBottom: 6 }}>הודעה למורה (אופציונלי)</div>
                 <textarea
+                  className="sb-input"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="ספרו קצת על מה שצריך…"
                   rows={3}
-                  style={{
-                    width: '100%', padding: 12, borderRadius: sb.radiusButton, resize: 'vertical',
-                    background: sb.glassSoft,
-                    border: `1px solid ${sb.borderCyber}`, color: sb.textPrimary, fontSize: 14, outline: 'none',
-                    fontFamily: sb.fontUi,
-                  }}
+                  style={{ width: '100%', padding: 12, resize: 'vertical', fontSize: 14 }}
                 />
               </div>
             </div>

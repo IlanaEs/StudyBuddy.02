@@ -30,6 +30,7 @@ export function SubjectAutocomplete({
       <div>
         <input
           autoFocus
+          className="sb-input"
           value={value}
           onChange={(e) => onChange(e.target.value, true)}
           placeholder="הקלידו את שם המקצוע"
@@ -50,6 +51,7 @@ export function SubjectAutocomplete({
       <div style={{ position: 'relative' }}>
         <Search size={15} style={{ position: 'absolute', insetInlineStart: 12, top: 13, color: sb.textMuted }} />
         <input
+          className="sb-input"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="חיפוש מקצוע…"
@@ -94,16 +96,12 @@ export function SubjectAutocomplete({
 
 export const CANONICAL_SUBJECT_SET = new Set(CANONICAL_SUBJECTS);
 
+// Layout only — color/border/background/focus come from the shared `.sb-input`
+// glass class (turquoise glow on focus).
 const inputStyle = {
   width: '100%',
   padding: '11px 12px',
-  borderRadius: sb.radiusSmall,
-  background: sb.glassSoft,
-  border: `1px solid ${sb.borderMuted}`,
-  color: sb.textPrimary,
-  fontFamily: sb.fontUi,
   fontSize: 14,
-  outline: 'none',
 } as const;
 
 function linkStyle(color: string) {
