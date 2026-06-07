@@ -297,7 +297,7 @@ export function FindTutorWizardPage() {
               <p style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800, color: sb.textPrimary, fontFamily: sb.fontUi }}>
                 באיזה מקצוע תרצו להתמקד? (Subject)
               </p>
-              <SubjectAutocomplete value={subject} isCustom={subjectIsCustom} onChange={(s, custom) => { setSubject(s); setSubjectIsCustom(custom); setError(''); }} />
+              <SubjectAutocomplete value={subject} isCustom={subjectIsCustom} level={level} onChange={(s, custom) => { setSubject(s); setSubjectIsCustom(custom); setError(''); }} />
             </BentoCard>
 
             <LevelContextControl

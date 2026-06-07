@@ -1,29 +1,32 @@
 import { useMemo, useState } from 'react';
 import { Search, Check, PenLine } from 'lucide-react';
 import { sbTokens as sb } from '../../../design/tokens';
-import { subjectsByLevel } from '../../matching/data/subjectsByLevel';
-
-// Flattened, de-duplicated canonical subject list (⊆ canonicalSubjects via P0-1's
-// guard). Strict: only these resolve at booking; off-taxonomy is captured, not submitted.
-const CANONICAL_SUBJECTS: string[] = [...new Set(Object.values(subjectsByLevel).flat())].sort();
+import { subjectsForLevel } from '../../matching/data/subjectsByLevel';
 
 export function SubjectAutocomplete({
   value,
   isCustom,
+  level,
   onChange,
 }: {
   value: string;
   isCustom: boolean;
+  /** Effective level (band key or specific grade) — the catalog is filtered to it. */
+  level: string | null;
   onChange: (subject: string, custom: boolean) => void;
 }) {
   const [search, setSearch] = useState('');
   const [manual, setManual] = useState(isCustom);
 
+  // Closed catalog scoped to the student's effective level (band). Falls back to
+  // the full catalog only when no band is resolvable.
+  const catalog = useMemo(() => subjectsForLevel(level), [level]);
+
   const filtered = useMemo(() => {
     const q = search.trim();
-    if (!q) return CANONICAL_SUBJECTS.slice(0, 24);
-    return CANONICAL_SUBJECTS.filter((s) => s.includes(q)).slice(0, 24);
-  }, [search]);
+    if (!q) return catalog.slice(0, 24);
+    return catalog.filter((s) => s.includes(q)).slice(0, 24);
+  }, [search, catalog]);
 
   if (manual) {
     return (
@@ -93,8 +96,6 @@ export function SubjectAutocomplete({
     </div>
   );
 }
-
-export const CANONICAL_SUBJECT_SET = new Set(CANONICAL_SUBJECTS);
 
 // Layout only — color/border/background/focus come from the shared `.sb-input`
 // glass class (turquoise glow on focus).

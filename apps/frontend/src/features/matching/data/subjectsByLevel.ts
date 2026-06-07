@@ -23,3 +23,30 @@ export const gradesByLevel: Record<string, string[]> = {
   high: ['י׳', 'י״א', 'י״ב'],
   academic: ['שנה א׳', 'שנה ב׳', 'שנה ג׳', 'שנה ד׳'],
 };
+
+/** The level bands, in order. Keys of subjectsByLevel / gradesByLevel. */
+export type LevelBand = 'elementary' | 'middle' | 'high' | 'academic';
+
+/**
+ * Resolve an effective level value to its band. The value may already be a band
+ * key ('middle'), or a specific grade ('ח׳' → 'middle', 'שנה ב׳' → 'academic').
+ * Returns null when it can't be resolved (caller falls back to the full catalog).
+ */
+export function bandForLevel(level: string | null | undefined): LevelBand | null {
+  if (!level) return null;
+  if (level in subjectsByLevel) return level as LevelBand;
+  for (const band of Object.keys(gradesByLevel) as LevelBand[]) {
+    if (gradesByLevel[band]!.includes(level)) return band;
+  }
+  return null;
+}
+
+/** All catalog subjects (de-duped, sorted) — used when no band is resolved. */
+export const ALL_SUBJECTS: string[] = [...new Set(Object.values(subjectsByLevel).flat())].sort();
+
+/** Subjects offered for an effective level; full catalog when the band is unknown. */
+export function subjectsForLevel(level: string | null | undefined): string[] {
+  const band = bandForLevel(level);
+  if (!band) return ALL_SUBJECTS;
+  return [...new Set(subjectsByLevel[band]!)].sort();
+}
