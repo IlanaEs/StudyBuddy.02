@@ -3,8 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { CheckCircle2, Mail, Check, Calendar, Clock } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthProvider';
 import { useMatchingStore } from '../store/matchingStore';
-import { FlowNav } from '../../../components/FlowNav';
 import { getDashboardPathByRole } from '../../../utils/getDashboardPathByRole';
+import { BentoCard, GlobalStateCard, GhostButton, sbTokens as sb } from '../../../design-system';
 
 // Quick-wizard success → auto-return to the dashboard after this delay.
 const QUICK_AUTO_RETURN_MS = 5000;
@@ -70,67 +70,63 @@ export function BookingConfirmationPage() {
   };
 
   const { teacherName, subjectName, whenLabel, priceLabel } = state;
-  const receipt: Array<{ label: string; value: string }> = [
+  const receipt: Array<{ label: string; value: string; mono?: boolean }> = [
     { label: 'מורה', value: teacherName },
     ...(subjectName ? [{ label: 'מקצוע', value: subjectName }] : []),
     ...(whenLabel ? [{ label: 'מועד', value: whenLabel }] : []),
-    ...(priceLabel ? [{ label: 'מחיר', value: priceLabel }] : []),
+    ...(priceLabel ? [{ label: 'מחיר', value: priceLabel, mono: true }] : []),
   ];
 
   return (
-    <div dir="rtl" lang="he" className="min-h-screen flex flex-col items-center justify-center px-4 py-10" style={{ background: 'var(--bg)' }}>
-      <FlowNav to="/" label="חזרה לדף הבית" />
-      <div className="w-full max-w-lg text-center">
-        <div className="flex justify-center mb-4" style={{ color: 'var(--cyan)' }}>
-          <CheckCircle2 size={56} />
-        </div>
-        <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)' }}>הבקשה נשלחה בהצלחה! (Request Sent)</h1>
-        <p className="mb-6" style={{ color: 'var(--text-2)', fontSize: 15 }}>
-          המורה {teacherName} יקבל/תקבל את בקשת השיעור ויאשר/תאשר בהקדם.
-        </p>
+    <div dir="rtl" lang="he" className="min-h-screen flex flex-col items-center justify-center px-4 py-10" style={{ background: sb.bgCanvas }}>
+      <div className="w-full max-w-lg">
+        <GlobalStateCard
+          variant="success"
+          icon={<CheckCircle2 size={56} />}
+          title="הבקשה נשלחה בהצלחה! (Request Sent)"
+          description={`המורה ${teacherName} יקבל/תקבל את בקשת השיעור ויאשר/תאשר בהקדם.`}
+          cta={{ label: 'לדשבורד שלי (My Dashboard)', onClick: goDashboard }}
+        />
 
-        {/* Receipt (Bento Summary) */}
-        <div className="rounded-2xl p-5 mb-4 text-right" style={{ background: 'var(--surface)', border: '1px solid var(--line-2)' }}>
-          <div className="font-bold mb-3" style={{ color: 'var(--text)' }}>סיכום הבקשה (Summary)</div>
+        {/* Receipt summary */}
+        <BentoCard title="סיכום הבקשה" english="Summary" hover={false} style={{ marginTop: 16 }}>
           {receipt.map((r) => (
             <div key={r.label} className="flex items-center justify-between gap-3 mb-2" style={{ fontSize: 14 }}>
-              <span style={{ color: 'var(--text-3)' }}>{r.label}</span>
-              <span style={{ color: 'var(--text)', fontWeight: 600 }}>{r.value}</span>
+              <span style={{ color: sb.textMuted }}>{r.label}</span>
+              <span className={r.mono ? 'data-mono' : undefined} style={{ color: sb.textPrimary, fontWeight: 600 }}>{r.value}</span>
             </div>
           ))}
-          <p className="mt-2" style={{ color: 'var(--text-3)', fontSize: 12.5, lineHeight: 1.6 }}>
+          <p className="mt-2" style={{ color: sb.textMuted, fontSize: 12.5, lineHeight: 1.6 }}>
             הודעה נשלחה למורה לאישור סופי. תוכלו לעקוב אחר סטטוס הבקשה בכרטיס הממתינים בדשבורד.
           </p>
-        </div>
+        </BentoCard>
 
-        <div className="rounded-2xl p-5 mb-6 text-right" style={{ background: 'var(--surface)', border: '1px solid var(--line-2)' }}>
-          <div className="font-bold mb-3" style={{ color: 'var(--text)' }}>מה קורה עכשיו?</div>
+        {/* What happens now */}
+        <BentoCard title="מה קורה עכשיו?" hover={false} style={{ marginTop: 16 }}>
           {[
             { icon: <Mail size={16} />, text: `המורה ${teacherName} מקבל/ת את הבקשה` },
             { icon: <Check size={16} />, text: 'המורה מאשר/ת ומתחיל/ה ליצור קשר דרך המערכת' },
             { icon: <Calendar size={16} />, text: 'תואמים את השיעור הראשון' },
           ].map((item) => (
-            <div key={item.text} className="flex items-start gap-3 mb-2" style={{ color: 'var(--text-2)', fontSize: 14 }}>
-              <span style={{ color: 'var(--cyan)', flexShrink: 0, marginTop: 1 }}>{item.icon}</span>
+            <div key={item.text} className="flex items-start gap-3 mb-2" style={{ color: sb.textSecondary, fontSize: 14 }}>
+              <span style={{ color: sb.active, flexShrink: 0, marginTop: 1 }}>{item.icon}</span>
               <span>{item.text}</span>
             </div>
           ))}
-        </div>
+        </BentoCard>
 
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6 text-sm" style={{ background: 'color-mix(in oklab, var(--gold) 15%, var(--surface))', color: 'var(--gold)', border: '1px solid var(--gold)' }}>
-          <Clock size={14} />
-          סטטוס: ממתין לאישור המורה
-        </div>
+        <div className="flex flex-col items-center gap-3" style={{ marginTop: 16 }}>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm" style={{ background: sb.glassSoft, color: sb.active, border: `1px solid ${sb.borderCyber}` }}>
+            <Clock size={14} />
+            סטטוס: ממתין לאישור המורה
+          </div>
 
-        <div className="flex flex-col gap-3">
-          <button onClick={goDashboard} className="w-full py-3 font-bold rounded-xl" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>
-            לדשבורד שלי (My Dashboard)
-          </button>
-          <button onClick={() => navigate('/find-tutor')} className="w-full py-3 rounded-xl font-medium text-sm" style={{ background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--text-3)', cursor: 'pointer' }}>
+          <GhostButton onClick={() => navigate('/find-tutor')} style={{ width: '100%', fontSize: 14 }}>
             חיפוש מורה נוסף
-          </button>
+          </GhostButton>
+
           {isQuick && (
-            <p style={{ color: 'var(--text-3)', fontSize: 12.5, textAlign: 'center', marginTop: 2 }}>
+            <p style={{ color: sb.textMuted, fontSize: 12.5, textAlign: 'center', marginTop: 2 }}>
               חוזרים לדשבורד באופן אוטומטי תוך 5 שניות…
             </p>
           )}

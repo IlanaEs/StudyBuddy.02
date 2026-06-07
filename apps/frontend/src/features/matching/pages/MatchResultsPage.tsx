@@ -4,7 +4,7 @@ import { Award, SearchX, RotateCcw } from 'lucide-react';
 import { useMatchingStore } from '../store/matchingStore';
 import { TeacherMatchCard } from '../components/TeacherMatchCard';
 import { TeacherPreviewModal } from '../components/TeacherPreviewModal';
-import { FlowNav } from '../../../components/FlowNav';
+import { GlobalStateCard, SecondaryButton, GhostButton, sbTokens as sb } from '../../../design-system';
 import type { MatchResult } from '../types/matching.types';
 
 export function MatchResultsPage() {
@@ -44,23 +44,17 @@ export function MatchResultsPage() {
 
   if (matchResults.length === 0) {
     return (
-      <div dir="rtl" lang="he" className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg)' }}>
-        <FlowNav to="/" label="חזרה לדף הבית" />
-        <div className="text-center">
-          <div className="flex justify-center mb-4" style={{ color: 'var(--text-3)' }}>
-            <SearchX size={48} />
-          </div>
-          <p style={{ color: 'var(--text-2)' }}>לא נמצאו תוצאות. נסו לשנות את הקריטריונים.</p>
-          {isQuick ? (
-            <div className="mt-5 flex flex-col gap-2 w-full max-w-xs mx-auto">
-              <button onClick={() => navigate('/find-tutor')} className="py-2.5 px-5 rounded-xl font-bold text-sm" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>עריכת העדפות (Edit Preferences)</button>
-              <button onClick={() => navigate('/find-tutor')} className="py-2.5 px-5 rounded-xl font-medium text-sm" style={{ background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--text-2)', cursor: 'pointer' }}>הרחבת החיפוש (Expand Search)</button>
-              <button onClick={() => navigate('/student/dashboard')} className="py-2.5 px-5 rounded-xl font-medium text-sm" style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזרה לדשבורד (Dashboard)</button>
-            </div>
-          ) : (
-            <button onClick={() => navigate('/onboarding/matching')} className="mt-4 py-2 px-5 rounded-xl font-medium" style={{ background: 'var(--cyan)', color: '#0f4544', border: 'none', cursor: 'pointer' }}>חזרה לחיפוש</button>
-          )}
-        </div>
+      <div dir="rtl" lang="he" style={{ minHeight: '100dvh', background: sb.bgCanvas, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '24px 16px' }}>
+        <GlobalStateCard
+          variant="empty"
+          icon={<SearchX size={32} />}
+          title="לא נמצאו תוצאות"
+          description="נסו לשנות את הקריטריונים ולחפש שוב."
+          cta={{ label: 'חזרה לחיפוש מורה (Find Tutor)', onClick: () => navigate(editTarget) }}
+        />
+        {isQuick && (
+          <GhostButton onClick={() => navigate('/student/dashboard')}>חזרה לדשבורד (Dashboard)</GhostButton>
+        )}
       </div>
     );
   }
@@ -68,17 +62,16 @@ export function MatchResultsPage() {
   const isPartialMatch = matchResults.some((r) => r.matchScore < 90);
 
   return (
-    <div dir="rtl" lang="he" className="min-h-screen px-4 py-10" style={{ background: 'var(--bg)' }}>
-      <FlowNav to="/" label="חזרה לדף הבית" />
+    <div dir="rtl" lang="he" className="min-h-screen px-4 py-10" style={{ background: sb.bgCanvas }}>
       <div className="w-full max-w-lg mx-auto">
         <div className="mb-6">
-          <div className="flex mb-3" style={{ color: 'var(--gold)' }}>
+          <div className="flex mb-3" style={{ color: sb.active }}>
             <Award size={32} />
           </div>
-          <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)' }}>
+          <h1 className="text-2xl font-bold mb-2" style={{ color: sb.textPrimary, fontFamily: sb.fontUi }}>
             {isPartialMatch ? noMatchTitle : title}
           </h1>
-          <p style={{ color: 'var(--text-2)', fontSize: 15 }}>
+          <p style={{ color: sb.textSecondary, fontSize: 15 }}>
             {isPartialMatch
               ? (isParent ? 'המורים הללו מומחים לחלוטין בחומר הלימוד וברמת הגיל, ומציעים גמישות רבה.' : 'מורים מעולים שמתמחים בדיוק בחומר שלך, עם סטייה קלה בלבד בשעות או במחיר. שווה להציץ.')
               : subtitle}
@@ -89,23 +82,21 @@ export function MatchResultsPage() {
           <TeacherMatchCard key={m.id} match={m} userContext={userContext} onSelect={handleSelect} />
         ))}
 
-        <button
+        <SecondaryButton
           onClick={() => navigate(editTarget)}
-          className="w-full mt-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2"
-          style={{ background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--text-3)', cursor: 'pointer' }}
+          style={{ width: '100%', marginTop: 16, fontSize: 14 }}
         >
           <RotateCcw size={14} />
           חיפוש מחדש עם קריטריונים שונים (New Search)
-        </button>
+        </SecondaryButton>
 
         {isQuick && (
-          <button
+          <SecondaryButton
             onClick={() => navigate('/student/dashboard')}
-            className="w-full mt-2 py-2 rounded-xl font-medium text-sm"
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}
+            style={{ width: '100%', marginTop: 8, fontSize: 14 }}
           >
             חזרה לדשבורד (Dashboard)
-          </button>
+          </SecondaryButton>
         )}
       </div>
 

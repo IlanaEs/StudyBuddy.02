@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { towTokens as T } from '../../../design/tokens';
+import { sbTokens as sb } from '../../../design-system';
 import type { TeacherAvailabilitySlot } from '../types/matching.types';
 import type { DatedSlot } from '../api/teacherAvailabilityRange';
 import { contiguousNext, dayLabel, isPastIso, jerusalemHHMM } from '../utils/bookingGrid';
@@ -85,7 +85,7 @@ export function BookingAvailabilityGrid({
         <PagerButton aria-label="ימים קודמים" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>
           <ChevronRight size={18} />
         </PagerButton>
-        <span style={{ fontSize: 12, color: T.text3, fontFamily: T.fontMono }}>
+        <span style={{ fontSize: 12, color: sb.textMuted, fontFamily: sb.fontMono }}>
           {page === 0 ? 'ימים 1–5' : `ימים ${page * PAGE_SIZE + 1}–${Math.min(dates.length, page * PAGE_SIZE + PAGE_SIZE)}`}
         </span>
         <PagerButton aria-label="ימים הבאים" disabled={page >= maxPage} onClick={() => setPage((p) => Math.min(maxPage, p + 1))}>
@@ -94,7 +94,7 @@ export function BookingAvailabilityGrid({
       </div>
 
       {loading ? (
-        <p style={{ fontSize: 13, color: T.text3 }}>טוען זמינות…</p>
+        <p style={{ fontSize: 13, color: sb.textMuted }}>טוען זמינות…</p>
       ) : (
         <div style={{ maxHeight: 340, overflowY: 'auto', overflowX: 'auto' }}>
           <div
@@ -106,9 +106,9 @@ export function BookingAvailabilityGrid({
             {visibleDates.map((date) => {
               const { weekday, dm } = dayLabel(date);
               return (
-                <div key={`h-${date}`} style={{ position: 'sticky', top: 0, textAlign: 'center', paddingBottom: 4, background: T.bg }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: T.text2 }}>{weekday}</div>
-                  <div style={{ fontSize: 11.5, color: T.text3, fontFamily: T.fontMono }}>{dm}</div>
+                <div key={`h-${date}`} style={{ position: 'sticky', top: 0, textAlign: 'center', paddingBottom: 4, background: sb.bgDepth }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: sb.textSecondary }}>{weekday}</div>
+                  <div style={{ fontSize: 11.5, color: sb.textMuted, fontFamily: sb.fontMono }}>{dm}</div>
                 </div>
               );
             })}
@@ -152,7 +152,7 @@ function Row({
 }) {
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontFamily: T.fontMono, fontSize: 12, color: T.text3, paddingInlineEnd: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontFamily: sb.fontMono, fontSize: 12, color: sb.textMuted, paddingInlineEnd: 4 }}>
         {hour}
       </div>
 
@@ -210,10 +210,10 @@ function PagerButton({ children, disabled, onClick, ...rest }: { children: React
         justifyContent: 'center',
         width: 34,
         height: 34,
-        borderRadius: T.radiusSm,
-        border: `1px solid ${T.ink}`,
-        background: 'color-mix(in oklab, #3f7e76 40%, transparent)',
-        color: disabled ? T.text3 : T.text,
+        borderRadius: sb.radiusButton,
+        border: `1px solid ${sb.borderCyber}`,
+        background: sb.glassSoft,
+        color: disabled ? sb.textMuted : sb.textPrimary,
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.4 : 1,
         transition: 'opacity 250ms ease-out',
@@ -227,8 +227,8 @@ function PagerButton({ children, disabled, onClick, ...rest }: { children: React
 function cellStyle({ kind }: { kind: 'taken' | 'past' | 'ineligible' | 'available' | 'selected' }): React.CSSProperties {
   const base: React.CSSProperties = {
     height: 36,
-    borderRadius: T.radiusSm,
-    fontFamily: T.fontMono,
+    borderRadius: sb.radiusButton,
+    fontFamily: sb.fontMono,
     fontSize: 12,
     fontWeight: 700,
     display: 'flex',
@@ -237,15 +237,15 @@ function cellStyle({ kind }: { kind: 'taken' | 'past' | 'ineligible' | 'availabl
   };
   switch (kind) {
     case 'available':
-      return { ...base, cursor: 'pointer', border: `1.5px solid ${T.neon}`, background: 'color-mix(in oklab, #00f6ff 8%, transparent)', color: T.neon };
+      return { ...base, cursor: 'pointer', border: `1.5px solid ${sb.active}`, background: `color-mix(in oklab, ${sb.active} 8%, transparent)`, color: sb.active };
     case 'selected':
-      return { ...base, cursor: 'pointer', border: `1.5px solid ${T.neon}`, background: T.neon, color: '#04201f', boxShadow: `0 0 14px -2px ${T.neon}` };
+      return { ...base, cursor: 'pointer', border: `1.5px solid ${sb.active}`, background: sb.active, color: sb.onPrimary, boxShadow: `0 0 14px -2px ${sb.active}` };
     case 'ineligible':
-      return { ...base, cursor: 'not-allowed', border: `1.5px solid ${T.line}`, background: 'color-mix(in oklab, #00f6ff 5%, transparent)', color: T.text3, opacity: 0.45 };
+      return { ...base, cursor: 'not-allowed', border: `1.5px solid ${sb.borderCyber}`, background: `color-mix(in oklab, ${sb.active} 5%, transparent)`, color: sb.textMuted, opacity: 0.45 };
     case 'past':
-      return { ...base, border: `1px dashed ${T.line}`, background: 'color-mix(in oklab, #0b2b2a 50%, transparent)', opacity: 0.35 };
+      return { ...base, border: `1px dashed ${sb.borderCyber}`, background: `color-mix(in oklab, ${sb.bgCanvas} 50%, transparent)`, opacity: 0.35 };
     case 'taken':
     default:
-      return { ...base, border: `1px dashed ${T.line}`, background: 'color-mix(in oklab, #0b2b2a 55%, transparent)', opacity: 0.5 };
+      return { ...base, border: `1px dashed ${sb.borderCyber}`, background: `color-mix(in oklab, ${sb.bgCanvas} 55%, transparent)`, opacity: 0.5 };
   }
 }
