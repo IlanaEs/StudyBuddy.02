@@ -21,6 +21,12 @@ const BUCKET_TO_RANGE: Record<string, { start: string; end: string }> = {
   afternoon: { start: '12:00', end: '17:00' },
   evening: { start: '17:00', end: '22:00' },
 };
+// Special preferences are OPTIONAL — an empty step writes soft_criteria = null
+// (a clean, valid state), not an empty object.
+function hasSoftCriteria(s: SoftCriteria): boolean {
+  return !!(s.teacher_gender || s.fast_pace || s.adhd_experience || s.inclusive_approach);
+}
+
 const GOALS = [
   { value: 'single_session', label: 'שיעור חד-פעמי (Single Lesson)', icon: <GraduationCap size={20} /> },
   { value: 'ongoing', label: 'מורה קבוע/ה (Ongoing)', icon: <CalendarHeart size={20} /> },
@@ -175,7 +181,7 @@ export function FindTutorWizardPage() {
           budget_max: budgetMax,
           preferred_days: days.map((d) => DAY_TO_INDEX[d]).filter((n): n is number => typeof n === 'number'),
           preferred_time_ranges: times.map((t) => BUCKET_TO_RANGE[t]).filter((r): r is { start: string; end: string } => !!r),
-          soft_criteria: soft,
+          soft_criteria: hasSoftCriteria(soft) ? soft : null,
         },
         token,
       );
@@ -212,7 +218,7 @@ export function FindTutorWizardPage() {
           budget_max: budgetMax,
           preferred_days: days.map((d) => DAY_TO_INDEX[d]).filter((n): n is number => typeof n === 'number'),
           preferred_time_ranges: times.map((t) => BUCKET_TO_RANGE[t]).filter((r): r is { start: string; end: string } => !!r),
-          soft_criteria: soft,
+          soft_criteria: hasSoftCriteria(soft) ? soft : null,
         },
         token,
       );
