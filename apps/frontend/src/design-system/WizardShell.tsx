@@ -23,14 +23,16 @@ type Props = {
  */
 export function WizardShell({ header, totalSteps, currentStep, children, footer, stepKey }: Props) {
   return (
-    <div dir="rtl" lang="he" style={{ minHeight: '100dvh', background: sb.bgCanvas, color: sb.textPrimary, fontFamily: sb.fontUi, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
+    <div dir="rtl" lang="he" style={{ position: 'relative', minHeight: '100dvh', background: sb.bgCanvas, color: sb.textPrimary, fontFamily: sb.fontUi, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
+      {/* Still line-grid sublayer (fixed); the card content animates above it. */}
+      <div className="sb-grid-bg" aria-hidden="true" />
       <section
-        className="sb-card"
+        className="sb-card sb-wizard-card"
         style={{
-          width: '100%',
-          maxWidth: 1200,
-          minHeight: 650,
-          maxHeight: 850,
+          position: 'relative',
+          zIndex: 1,
+          minHeight: 560,
+          maxHeight: '88vh',
           padding: 32,
           margin: '0 auto',
           display: 'flex',

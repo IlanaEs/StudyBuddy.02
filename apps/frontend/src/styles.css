@@ -165,6 +165,29 @@
   border: 1px solid var(--sb-navbar-border);
   border-radius: var(--sb-radius-card);
 }
+/* Wizard/global-state card — narrow centered layout (GLOBAL rule).
+   Desktop: 33.333vw, capped at 480px (floored so it never gets unusably narrow);
+   Mobile (≤768px): 92% width. Absolutely centered by the flex canvas. */
+.sb-wizard-card {
+  width: clamp(320px, 33.333vw, 480px);
+  max-width: 480px;
+}
+@media (max-width: 768px) {
+  .sb-wizard-card { width: 92%; min-width: 0; }
+}
+
+/* Fixed, very subtle background line-grid sublayer — stays COMPLETELY still while
+   the card content animates above it (layered motion). */
+.sb-grid-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(to right, var(--sb-grid-overlay) 0 1px, transparent 1px 40px),
+    repeating-linear-gradient(to bottom, var(--sb-grid-overlay) 0 1px, transparent 1px 40px);
+}
+
 .sb-wizard-enter { animation: sb-wizard-enter var(--sb-motion-base) ease-out both; }
 @keyframes sb-wizard-enter {
   from { opacity: 0; transform: translateX(-15px); }
