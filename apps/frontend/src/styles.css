@@ -163,7 +163,9 @@
   background: var(--sb-navbar-bg);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--sb-navbar-border);
-  border-radius: var(--sb-radius-card);
+  /* Capsule: fully-rounded ends + soft drop shadow for elevation. */
+  border-radius: 999px;
+  box-shadow: 0 12px 32px -14px rgba(0, 0, 0, 0.5);
 }
 /* Mobile: thin side margins (92%) + ≥44×44 thumb targets; all icons stay on the bar. */
 @media (max-width: 768px) {

@@ -29,7 +29,8 @@ const iconBtn = {
   justifyContent: 'center',
   width: 38,
   height: 38,
-  borderRadius: sb.radiusButton,
+  // Pill/circle: icon-only → the active fill reads as a concentric rounded square.
+  borderRadius: 999,
   background: 'transparent',
   border: 'none',
   cursor: 'pointer',
@@ -44,7 +45,7 @@ const iconBtn = {
 export function FloatingTopNavbar({ logo, onLogoClick, tabs, actions }: Props) {
   return (
     <nav dir="rtl" className="sb-navbar" aria-label="ניווט ראשי (Main navigation)">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '8px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '8px 22px' }}>
         {/* Right (RTL-first): brand — omit for a flat icon-only bar. */}
         {logo ? (
           <button onClick={onLogoClick} style={{ ...iconBtn, width: 'auto', padding: '0 6px', color: sb.textPrimary, fontFamily: sb.fontUi, fontWeight: 800 }} aria-label="StudyBuddy">
@@ -68,7 +69,7 @@ export function FloatingTopNavbar({ logo, onLogoClick, tabs, actions }: Props) {
               className="sb-focusable sb-navbar-icon"
               style={{
                 ...iconBtn,
-                position: 'relative',
+                // Active = filled concentric pill (existing accent); inactive = transparent.
                 color: t.active ? sb.active : sb.textSecondary,
                 background: t.active ? sb.hoverGlow : 'transparent',
                 opacity: t.disabled ? 0.4 : 1,
@@ -76,20 +77,6 @@ export function FloatingTopNavbar({ logo, onLogoClick, tabs, actions }: Props) {
               }}
             >
               {t.icon}
-              {t.active && (
-                <span
-                  aria-hidden
-                  style={{
-                    position: 'absolute',
-                    insetInline: 8,
-                    bottom: 2,
-                    height: 2,
-                    borderRadius: 2,
-                    background: sb.active,
-                    boxShadow: '0 0 8px var(--sb-hover-glow)',
-                  }}
-                />
-              )}
             </button>
           ))}
         </div>
