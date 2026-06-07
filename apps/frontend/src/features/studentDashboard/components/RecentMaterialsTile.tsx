@@ -1,7 +1,5 @@
 import { FileText, BookOpen } from 'lucide-react';
-import { towTokens as T } from '../../../design/tokens';
-import { BentoTile } from '../../teacher/components/BentoGrid';
-import { EmptyState } from '../../teacher/components/EmptyState';
+import { BentoCard, GlobalStateCard, sbTokens as sb } from '../../../design-system';
 import { formatDate } from './formatters';
 import type { StudentDashboardPayload } from '../api/types';
 
@@ -11,12 +9,21 @@ export function RecentMaterialsTile({
   materials: StudentDashboardPayload['recent_materials'];
 }) {
   return (
-    <BentoTile size="1x2" title="חומרי למידה אחרונים" english="Recent Materials" icon={<FileText size={18} />}>
+    <BentoCard
+      colSpan={1}
+      rowSpan={2}
+      title="חומרי למידה אחרונים"
+      english="Recent Materials"
+      icon={<FileText size={18} />}
+      style={{ display: 'flex', flexDirection: 'column' }}
+    >
       {!materials ? (
-        <EmptyState icon={<FileText size={24} />} message="אין סיכומים עדיין" />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <GlobalStateCard variant="empty" icon={<FileText size={24} />} title="אין סיכומים עדיין" />
+        </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
-          <div style={{ fontSize: 12.5, color: T.text3 }}>
+          <div style={{ fontSize: 12.5, color: sb.textMuted }}>
             {materials.teacher_name}
             {materials.lesson_at ? ` · ${formatDate(materials.lesson_at)}` : ''}
           </div>
@@ -25,7 +32,7 @@ export function RecentMaterialsTile({
               margin: 0,
               fontSize: 13.5,
               lineHeight: 1.5,
-              color: T.text,
+              color: sb.textPrimary,
               display: '-webkit-box',
               WebkitLineClamp: 4,
               WebkitBoxOrient: 'vertical',
@@ -44,9 +51,9 @@ export function RecentMaterialsTile({
                 gap: 7,
                 alignSelf: 'flex-start',
                 padding: '6px 10px',
-                borderRadius: T.radiusSm,
-                background: 'color-mix(in oklab, #ffd166 16%, transparent)',
-                color: T.gold,
+                borderRadius: sb.radiusSmall,
+                background: 'color-mix(in oklab, var(--sb-warning) 16%, transparent)',
+                color: sb.warning,
                 fontSize: 12.5,
                 fontWeight: 700,
               }}
@@ -57,6 +64,6 @@ export function RecentMaterialsTile({
           )}
         </div>
       )}
-    </BentoTile>
+    </BentoCard>
   );
 }

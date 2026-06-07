@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
-import { towTokens as T } from '../../../design/tokens';
-import { EmptyState } from '../../teacher/components/EmptyState';
+import { BentoCard, GlobalStateCard, sbTokens as sb } from '../../../design-system';
 import { formatDate, formatTime, formatWeekday } from './formatters';
 
 export type LessonListItem = {
@@ -24,26 +23,9 @@ export function LessonsListView({
   emptyMessage: string;
 }) {
   return (
-    <section
-      style={{
-        padding: 18,
-        borderRadius: T.radius,
-        border: `1px solid ${T.ink}`,
-        background: 'color-mix(in oklab, #3f7e76 55%, transparent)',
-        backdropFilter: 'blur(12px) saturate(140%)',
-        WebkitBackdropFilter: 'blur(12px) saturate(140%)',
-      }}
-    >
-      <header style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-        <span style={{ color: T.neon, display: 'flex' }}>{icon}</span>
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: T.text }}>
-          {title}
-          <span style={{ color: T.text3, fontWeight: 600 }}> ({english})</span>
-        </h2>
-      </header>
-
+    <BentoCard title={title} english={english} icon={icon} hover={false}>
       {items.length === 0 ? (
-        <EmptyState icon={icon} message={emptyMessage} />
+        <GlobalStateCard variant="empty" icon={icon} title={emptyMessage} />
       ) : (
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {items.map((l) => (
@@ -55,23 +37,23 @@ export function LessonsListView({
                 justifyContent: 'space-between',
                 gap: 10,
                 padding: '11px 13px',
-                borderRadius: T.radiusSm,
-                background: 'color-mix(in oklab, #3f7e76 32%, transparent)',
+                borderRadius: sb.radiusSmall,
+                background: sb.glassSoft,
               }}
             >
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: sb.textPrimary }}>
                   {l.subjectName ?? 'שיעור'} · {l.teacherName}
                 </div>
-                <div style={{ fontSize: 12.5, color: T.text3 }}>{formatWeekday(l.when)}</div>
+                <div style={{ fontSize: 12.5, color: sb.textMuted }}>{formatWeekday(l.when)}</div>
               </div>
-              <div style={{ fontSize: 13, color: T.text2, fontFamily: T.fontMono, whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: 13, color: sb.textSecondary, fontFamily: sb.fontMono, whiteSpace: 'nowrap' }}>
                 {formatDate(l.when)} · {formatTime(l.when)}
               </div>
             </li>
           ))}
         </ul>
       )}
-    </section>
+    </BentoCard>
   );
 }

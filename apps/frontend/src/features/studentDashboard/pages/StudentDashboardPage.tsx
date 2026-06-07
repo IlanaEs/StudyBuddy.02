@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { CalendarClock, History, Settings } from 'lucide-react';
 
 import { useAuth } from '../../../auth/AuthProvider';
-import { towTokens as T } from '../../../design/tokens';
-import { BentoGrid } from '../../teacher/components/BentoGrid';
+import { BentoCard, DashboardGrid, GlobalStateCard, sbTokens as sb } from '../../../design-system';
 import { useStudentDashboard } from '../hooks/useStudentDashboard';
 import { StudentDashboardLayout } from '../components/StudentDashboardLayout';
 import type { StudentView } from '../types';
@@ -45,22 +44,29 @@ export function StudentDashboardPage() {
       onSignOut={() => void handleSignOut()}
     >
       {loading ? (
-        <p style={{ color: T.text3, fontSize: 14 }}>טוען את לוח הבקרה…</p>
+        // Per-tile loading: keep the exact grid shape, each cell shows a spinner.
+        <DashboardSkeleton />
       ) : error || !data ? (
-        // Whole-payload failure (network/total). No raw backend error in the UI.
-        <p style={{ color: T.alert, fontSize: 14 }}>לא הצלחנו לטעון את הקטע הזה כרגע</p>
+        // Whole-payload failure (network/total). One retryable state; no raw backend error.
+        <GlobalStateCard
+          variant="error"
+          fullPage
+          title="לא הצלחנו לטעון את לוח הבקרה"
+          description="אירעה שגיאה בטעינת הנתונים. נסו שוב."
+          cta={{ label: 'נסה שוב', onClick: () => void refetch() }}
+        />
       ) : view === 'settings' ? (
         <SettingsStub gradeLevel={data.student?.grade_level ?? null} studentName={studentName} />
       ) : view === 'overview' ? (
         <>
           {isEmptyOverview(data) && (
-            <p style={{ color: T.text3, fontSize: 14, marginBottom: 14 }}>עדיין לא מולא שאלון</p>
+            <p style={{ color: sb.textMuted, fontSize: 14, marginBottom: 14 }}>עדיין לא מולא שאלון</p>
           )}
           {/* DOM order = row-major fill of the 3-column priority grid (RTL):
               row1 = col1 NextLesson · col2 MyTeachers · col3 FindTutor;
               row2 = col1 BookingRequests · col2 RecentMaterials · col3 MonthlyActivity.
               Mobile re-sequences to urgency order via .bento-grid--student (styles.css). */}
-          <BentoGrid className="bento-grid--student">
+          <DashboardGrid className="bento-grid bento-grid--student">
             <NextLessonTile lesson={data.next_lesson} />
             <MyTeachersTile
               teachers={data.my_teachers}
@@ -71,7 +77,7 @@ export function StudentDashboardPage() {
             <BookingRequestsTile requests={data.booking_requests} />
             <RecentMaterialsTile materials={data.recent_materials} />
             <MonthlyActivityTile activity={data.monthly_activity} onFullHistory={() => setView('history')} />
-          </BentoGrid>
+          </DashboardGrid>
         </>
       ) : view === 'lessons' ? (
         <LessonsListView
@@ -113,6 +119,34 @@ export function StudentDashboardPage() {
   );
 }
 
+// Mirrors the overview grid spans so the skeleton keeps the exact 3-column shape.
+const SKELETON_TILES: Array<{ colSpan: number; rowSpan: number }> = [
+  { colSpan: 2, rowSpan: 2 }, // NextLesson
+  { colSpan: 2, rowSpan: 2 }, // MyTeachers
+  { colSpan: 1, rowSpan: 2 }, // FindTutor
+  { colSpan: 1, rowSpan: 2 }, // BookingRequests
+  { colSpan: 1, rowSpan: 2 }, // RecentMaterials
+  { colSpan: 1, rowSpan: 2 }, // MonthlyActivity
+];
+
+function DashboardSkeleton() {
+  return (
+    <DashboardGrid className="bento-grid bento-grid--student">
+      {SKELETON_TILES.map((t, i) => (
+        <BentoCard
+          key={i}
+          colSpan={t.colSpan}
+          rowSpan={t.rowSpan}
+          hover={false}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 140 }}
+        >
+          <GlobalStateCard variant="loading" title="טוען…" />
+        </BentoCard>
+      ))}
+    </DashboardGrid>
+  );
+}
+
 function isEmptyOverview(data: StudentDashboardPayload): boolean {
   return (
     !data.next_lesson &&
@@ -126,27 +160,12 @@ function isEmptyOverview(data: StudentDashboardPayload): boolean {
 
 function SettingsStub({ studentName, gradeLevel }: { studentName: string; gradeLevel: string | null }) {
   return (
-    <section
-      style={{
-        padding: 18,
-        borderRadius: T.radius,
-        border: `1px solid ${T.ink}`,
-        background: 'color-mix(in oklab, #3f7e76 55%, transparent)',
-        backdropFilter: 'blur(12px) saturate(140%)',
-        WebkitBackdropFilter: 'blur(12px) saturate(140%)',
-      }}
-    >
-      <header style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <span style={{ color: T.neon, display: 'flex' }}><Settings size={18} /></span>
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: T.text }}>
-          פרופיל / הגדרות<span style={{ color: T.text3, fontWeight: 600 }}> (Profile / Settings)</span>
-        </h2>
-      </header>
-      <div style={{ fontSize: 14, color: T.text2, lineHeight: 1.7 }}>
+    <BentoCard title="פרופיל / הגדרות" english="Profile / Settings" icon={<Settings size={18} />} hover={false}>
+      <div style={{ fontSize: 14, color: sb.textSecondary, lineHeight: 1.7 }}>
         <div>{studentName}</div>
-        {gradeLevel && <div style={{ color: T.text3 }}>{gradeLevel}</div>}
+        {gradeLevel && <div style={{ color: sb.textMuted }}>{gradeLevel}</div>}
       </div>
-      <p style={{ marginTop: 14, marginBottom: 0, fontSize: 13.5, color: T.text3 }}>ההגדרות יהיו זמינות בקרוב</p>
-    </section>
+      <p style={{ marginTop: 14, marginBottom: 0, fontSize: 13.5, color: sb.textMuted }}>ההגדרות יהיו זמינות בקרוב</p>
+    </BentoCard>
   );
 }

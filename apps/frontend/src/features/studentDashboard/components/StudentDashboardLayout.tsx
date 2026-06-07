@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { Bell, LayoutDashboard, CalendarClock, History, MessageCircle, Settings, LogOut } from 'lucide-react';
-import { FloatingTopNavbar, type NavTab } from '../../../design-system';
-import { towTokens as T } from '../../../design/tokens';
+import { AppShell, FloatingTopNavbar, RoleBadge, sbTokens as sb, type NavTab } from '../../../design-system';
 import type { StudentView } from '../types';
 
 export function StudentDashboardLayout({
@@ -29,65 +28,68 @@ export function StudentDashboardLayout({
   ];
 
   return (
-    <div dir="rtl" lang="he" className="tow tow-bg-glow" style={{ minHeight: '100dvh', color: T.text }}>
-      <FloatingTopNavbar tabs={tabs} />
-      {/* Bottom padding clears the fixed bottom-right SessionControls widget so no card
-          (e.g. the "Full History" button) is occluded by it. */}
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: 'calc(1.5rem + 64px) 18px 96px' }}>
-        {/* Greeting header (identity, not nav) — sits below the floating bar. */}
-        <header
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 14,
-            marginBottom: 20,
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <p style={{ margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: T.neon }}>
+    <AppShell
+      navbar={<FloatingTopNavbar tabs={tabs} activeIndicator="underline" />}
+      maxWidth={1280}
+    >
+      {/* Greeting header (identity, not nav) — sits below the floating bar. */}
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 14,
+          marginBottom: 20,
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: sb.active }}>
               דשבורד תלמיד (Student Dashboard)
             </p>
-            <h1
-              style={{
-                margin: '4px 0 0',
-                fontSize: 'clamp(18px, 3.2vw, 24px)',
-                fontWeight: 800,
-                color: T.text,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              שלום, {studentName}
-            </h1>
+            <RoleBadge role="student" />
           </div>
+          <h1
+            style={{
+              margin: '4px 0 0',
+              fontSize: 'clamp(18px, 3.2vw, 24px)',
+              fontWeight: 800,
+              color: sb.textPrimary,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            שלום, {studentName}
+          </h1>
+        </div>
 
-          {/* Notification bell — present but inert (Notifications not built yet). */}
-          <button type="button" disabled aria-disabled="true" aria-label="התראות" title="בקרוב" style={iconButtonStyle(true)}>
-            <Bell size={20} />
-          </button>
-        </header>
+        {/* Notification bell — present but inert (Notifications not built yet). */}
+        <button type="button" disabled aria-disabled="true" aria-label="התראות" title="בקרוב" style={bellButtonStyle}>
+          <Bell size={20} />
+        </button>
+      </header>
 
-        <main style={{ minWidth: 0 }}>{children}</main>
-      </div>
-    </div>
+      <main style={{ minWidth: 0 }}>{children}</main>
+
+      {/* Clears the fixed bottom-right SessionControls widget (AppShell pads 64px;
+          this spacer brings total bottom clearance to ~96px). */}
+      <div aria-hidden style={{ height: 32 }} />
+    </AppShell>
   );
 }
 
-function iconButtonStyle(inert: boolean) {
-  return {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 42,
-    height: 42,
-    flexShrink: 0,
-    borderRadius: T.radiusSm,
-    border: `1px solid ${T.ink}`,
-    background: 'color-mix(in oklab, #3f7e76 40%, transparent)',
-    color: inert ? T.text3 : T.text,
-    cursor: inert ? 'not-allowed' : 'pointer',
-    opacity: inert ? 0.6 : 1,
-  } as const;
-}
+const bellButtonStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 42,
+  height: 42,
+  flexShrink: 0,
+  borderRadius: sb.radiusSmall,
+  border: `1px solid ${sb.borderCyber}`,
+  background: sb.glassSoft,
+  color: sb.textMuted,
+  cursor: 'not-allowed',
+  opacity: 0.6,
+} as const;

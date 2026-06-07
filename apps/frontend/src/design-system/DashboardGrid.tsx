@@ -4,10 +4,11 @@ import type { CSSProperties, ReactNode } from 'react';
  * Shared responsive Bento grid for every dashboard (student/teacher/parent/admin).
  * The only difference between dashboards is content hierarchy — the grid is one.
  */
-export function DashboardGrid({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+export function DashboardGrid({ children, style, className }: { children: ReactNode; style?: CSSProperties; className?: string }) {
   return (
     <div
       dir="rtl"
+      className={className}
       style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',

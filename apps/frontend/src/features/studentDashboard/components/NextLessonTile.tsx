@@ -1,7 +1,5 @@
 import { CalendarClock, Video } from 'lucide-react';
-import { towTokens as T } from '../../../design/tokens';
-import { BentoTile } from '../../teacher/components/BentoGrid';
-import { EmptyState } from '../../teacher/components/EmptyState';
+import { BentoCard, GlobalStateCard, sbTokens as sb } from '../../../design-system';
 import { AddLessonToCalendarButton } from '../../../components/AddLessonToCalendarButton';
 import { TeacherAvatar } from './TeacherAvatar';
 import { formatCountdown, formatTime, formatWeekday } from './formatters';
@@ -9,17 +7,26 @@ import type { StudentDashboardPayload } from '../api/types';
 
 export function NextLessonTile({ lesson }: { lesson: StudentDashboardPayload['next_lesson'] }) {
   return (
-    <BentoTile size="2x2" title="השיעור הקרוב" english="Next Lesson" icon={<CalendarClock size={18} />}>
+    <BentoCard
+      colSpan={2}
+      rowSpan={2}
+      title="השיעור הקרוב"
+      english="Next Lesson"
+      icon={<CalendarClock size={18} />}
+      style={{ display: 'flex', flexDirection: 'column' }}
+    >
       {!lesson ? (
-        <EmptyState icon={<CalendarClock size={26} />} message="אין שיעור מתוכנן כרגע" />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <GlobalStateCard variant="empty" icon={<CalendarClock size={26} />} title="אין שיעור מתוכנן כרגע" />
+        </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <TeacherAvatar name={lesson.teacher_name} photoUrl={lesson.teacher_photo_url} size={52} />
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 17, fontWeight: 800, color: T.text }}>{lesson.teacher_name}</div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: sb.textPrimary }}>{lesson.teacher_name}</div>
               {lesson.subject_name && (
-                <div style={{ fontSize: 14, color: T.text2 }}>{lesson.subject_name}</div>
+                <div style={{ fontSize: 14, color: sb.textSecondary }}>{lesson.subject_name}</div>
               )}
             </div>
           </div>
@@ -30,15 +37,15 @@ export function NextLessonTile({ lesson }: { lesson: StudentDashboardPayload['ne
               flexDirection: 'column',
               gap: 4,
               padding: '12px 14px',
-              borderRadius: T.radiusSm,
-              background: 'color-mix(in oklab, #00f6ff 10%, transparent)',
-              border: `1px solid ${T.line}`,
+              borderRadius: sb.radiusSmall,
+              background: sb.hoverGlow,
+              border: `1px solid ${sb.borderCyber}`,
             }}
           >
-            <span style={{ fontSize: 20, fontWeight: 800, color: T.neon, fontFamily: T.fontMono }}>
+            <span style={{ fontSize: 20, fontWeight: 800, color: sb.active, fontFamily: sb.fontMono }}>
               {formatCountdown(lesson.starts_at)}
             </span>
-            <span style={{ fontSize: 13, color: T.text2 }}>
+            <span style={{ fontSize: 13, color: sb.textSecondary }}>
               {formatWeekday(lesson.starts_at)} · {formatTime(lesson.starts_at)}–{formatTime(lesson.ends_at)}
             </span>
           </div>
@@ -57,10 +64,10 @@ export function NextLessonTile({ lesson }: { lesson: StudentDashboardPayload['ne
                   justifyContent: 'center',
                   gap: 8,
                   padding: '11px 16px',
-                  borderRadius: T.radiusSm,
+                  borderRadius: sb.radiusSmall,
                   border: 'none',
-                  background: T.neon,
-                  color: '#04201f',
+                  background: sb.active,
+                  color: sb.onPrimary,
                   fontSize: 14,
                   fontWeight: 800,
                   textDecoration: 'none',
@@ -82,10 +89,10 @@ export function NextLessonTile({ lesson }: { lesson: StudentDashboardPayload['ne
                   justifyContent: 'center',
                   gap: 8,
                   padding: '11px 16px',
-                  borderRadius: T.radiusSm,
-                  border: `1px solid ${T.ink}`,
-                  background: 'color-mix(in oklab, #3f7e76 40%, transparent)',
-                  color: T.text3,
+                  borderRadius: sb.radiusSmall,
+                  border: `1px solid ${sb.borderCyber}`,
+                  background: sb.glassBase,
+                  color: sb.textMuted,
                   fontSize: 14,
                   fontWeight: 700,
                   cursor: 'not-allowed',
@@ -101,6 +108,6 @@ export function NextLessonTile({ lesson }: { lesson: StudentDashboardPayload['ne
           </div>
         </div>
       )}
-    </BentoTile>
+    </BentoCard>
   );
 }

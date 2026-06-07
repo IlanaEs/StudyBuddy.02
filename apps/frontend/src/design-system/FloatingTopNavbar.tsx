@@ -21,6 +21,12 @@ type Props = {
   tabs: NavTab[];
   /** Left side (RTL): search / notifications / avatar, etc. Omit for a flat bar. */
   actions?: ReactNode;
+  /**
+   * Active-tab treatment. `pill` (default) = filled concentric pill; `underline`
+   * = transparent icon with a thin neon underline bar. Opt-in per instance so a
+   * single role (e.g. student) can differ without changing the shared default.
+   */
+  activeIndicator?: 'pill' | 'underline';
 };
 
 const iconBtn = {
@@ -42,7 +48,8 @@ const iconBtn = {
  * floating, glass, icon-only, RTL. Right = logo, center = role tabs, left =
  * actions. The active tab uses --sb-active with a thin neon indicator.
  */
-export function FloatingTopNavbar({ logo, onLogoClick, tabs, actions }: Props) {
+export function FloatingTopNavbar({ logo, onLogoClick, tabs, actions, activeIndicator = 'pill' }: Props) {
+  const underline = activeIndicator === 'underline';
   return (
     <nav dir="rtl" className="sb-navbar" aria-label="ניווט ראשי (Main navigation)">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '8px 22px' }}>
@@ -69,14 +76,32 @@ export function FloatingTopNavbar({ logo, onLogoClick, tabs, actions }: Props) {
               className="sb-focusable sb-navbar-icon"
               style={{
                 ...iconBtn,
-                // Active = filled concentric pill (existing accent); inactive = transparent.
+                position: 'relative',
+                // Active treatment: `underline` = transparent + neon bar below;
+                // `pill` (default) = filled concentric pill.
                 color: t.active ? sb.active : sb.textSecondary,
-                background: t.active ? sb.hoverGlow : 'transparent',
+                background: t.active && !underline ? sb.hoverGlow : 'transparent',
                 opacity: t.disabled ? 0.4 : 1,
                 cursor: t.disabled ? 'not-allowed' : 'pointer',
               }}
             >
               {t.icon}
+              {underline && t.active && (
+                <span
+                  aria-hidden
+                  style={{
+                    position: 'absolute',
+                    bottom: 1,
+                    insetInline: 0,
+                    margin: '0 auto',
+                    width: 18,
+                    height: 2,
+                    borderRadius: 2,
+                    background: sb.active,
+                    boxShadow: '0 0 6px var(--sb-hover-glow)',
+                  }}
+                />
+              )}
             </button>
           ))}
         </div>

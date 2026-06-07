@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { notifications } from '@mantine/notifications';
 import { X, CalendarPlus } from 'lucide-react';
-import { towTokens as T } from '../../../design/tokens';
+import { sbTokens as sb } from '../../../design-system';
 import { useAuth } from '../../../auth/AuthProvider';
 import { getTeacherAvailableSlots } from '../api/getTeacherAvailableSlots';
 import { createRebookRequest } from '../api/createRebookRequest';
@@ -90,38 +90,38 @@ export function RebookModal({
     >
       <div
         dir="rtl"
-        className="tow"
         onClick={(e) => e.stopPropagation()}
         style={{
           width: 'min(440px, 100%)',
           maxHeight: '85vh',
           overflowY: 'auto',
           padding: 22,
-          borderRadius: T.radius,
-          border: `1px solid ${T.ink}`,
-          background: T.bg,
-          color: T.text,
+          borderRadius: sb.radiusCard,
+          border: `1px solid ${sb.borderCyber}`,
+          background: sb.bgDepth,
+          color: sb.textPrimary,
+          fontFamily: sb.fontUi,
           boxShadow: '0 24px 70px -28px rgba(0,0,0,0.8)',
         }}
       >
         <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
           <div>
             <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>
-              הזמן שיעור נוסף<span style={{ color: T.text3, fontWeight: 600 }}> (Book Lesson)</span>
+              הזמן שיעור נוסף<span style={{ color: sb.textMuted, fontWeight: 600 }}> (Book Lesson)</span>
             </h2>
-            <p style={{ margin: '4px 0 0', fontSize: 13.5, color: T.text2 }}>עם {teacherName}</p>
+            <p style={{ margin: '4px 0 0', fontSize: 13.5, color: sb.textSecondary }}>עם {teacherName}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="סגור"
-            style={{ background: 'none', border: 'none', color: T.text3, cursor: 'pointer', padding: 4 }}
+            style={{ background: 'none', border: 'none', color: sb.textMuted, cursor: 'pointer', padding: 4 }}
           >
             <X size={20} />
           </button>
         </header>
 
-        <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: T.text2, marginBottom: 6 }}>
+        <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: sb.textSecondary, marginBottom: 6 }}>
           בחר תאריך
         </label>
         <input
@@ -132,21 +132,21 @@ export function RebookModal({
           style={{
             width: '100%',
             padding: '10px 12px',
-            borderRadius: T.radiusSm,
-            border: `1px solid ${T.ink}`,
-            background: 'color-mix(in oklab, #3f7e76 35%, transparent)',
-            color: T.text,
+            borderRadius: sb.radiusSmall,
+            border: `1px solid ${sb.borderCyber}`,
+            background: sb.glassBase,
+            color: sb.textPrimary,
             fontSize: 14,
             marginBottom: 16,
           }}
         />
 
-        <div style={{ fontSize: 13, fontWeight: 700, color: T.text2, marginBottom: 8 }}>שעות פנויות</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: sb.textSecondary, marginBottom: 8 }}>שעות פנויות</div>
 
         {loading ? (
-          <p style={{ fontSize: 13, color: T.text3 }}>טוען זמינות…</p>
+          <p style={{ fontSize: 13, color: sb.textMuted }}>טוען זמינות…</p>
         ) : slots.length === 0 ? (
-          <p style={{ fontSize: 13, color: T.text3 }}>אין שעות פנויות בתאריך זה</p>
+          <p style={{ fontSize: 13, color: sb.textMuted }}>אין שעות פנויות בתאריך זה</p>
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {slots.map((s) => {
@@ -158,13 +158,13 @@ export function RebookModal({
                   onClick={() => setSelected(s)}
                   style={{
                     padding: '8px 12px',
-                    borderRadius: T.radiusSm,
-                    border: `1.5px solid ${isSel ? T.neon : T.ink}`,
-                    background: isSel ? 'color-mix(in oklab, #00f6ff 16%, transparent)' : 'transparent',
-                    color: isSel ? T.neon : T.text,
+                    borderRadius: sb.radiusSmall,
+                    border: `1.5px solid ${isSel ? sb.active : sb.borderCyber}`,
+                    background: isSel ? sb.hoverGlow : 'transparent',
+                    color: isSel ? sb.active : sb.textPrimary,
                     fontSize: 13,
                     fontWeight: 700,
-                    fontFamily: T.fontMono,
+                    fontFamily: sb.fontMono,
                     cursor: 'pointer',
                     transition: 'border-color 250ms ease-out, color 250ms ease-out',
                   }}
@@ -188,10 +188,10 @@ export function RebookModal({
             justifyContent: 'center',
             gap: 8,
             padding: '12px 16px',
-            borderRadius: T.radiusSm,
+            borderRadius: sb.radiusSmall,
             border: 'none',
-            background: !selected || submitting ? 'color-mix(in oklab, #00f6ff 22%, transparent)' : T.neon,
-            color: '#04201f',
+            background: !selected || submitting ? sb.hoverGlow : sb.active,
+            color: sb.onPrimary,
             fontSize: 14,
             fontWeight: 800,
             cursor: !selected || submitting ? 'not-allowed' : 'pointer',

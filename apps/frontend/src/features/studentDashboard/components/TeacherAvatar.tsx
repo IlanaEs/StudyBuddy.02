@@ -1,4 +1,4 @@
-import { towTokens as T } from '../../../design/tokens';
+import { sbTokens as sb } from '../../../design-system';
 import { initialsOf } from './formatters';
 
 export function TeacherAvatar({
@@ -14,7 +14,7 @@ export function TeacherAvatar({
     width: size,
     height: size,
     borderRadius: '50%',
-    border: `1px solid ${T.line2}`,
+    border: `1px solid ${sb.borderCyber}`,
     flexShrink: 0,
   } as const;
 
@@ -30,8 +30,8 @@ export function TeacherAvatar({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'color-mix(in oklab, #00f6ff 16%, transparent)',
-        color: T.neon,
+        background: sb.hoverGlow,
+        color: sb.active,
         fontWeight: 800,
         fontSize: size * 0.36,
       }}
