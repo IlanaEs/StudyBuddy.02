@@ -7,7 +7,7 @@ import { towTokens as T } from '../../../design/tokens';
 import { BentoGrid } from '../../teacher/components/BentoGrid';
 import { useStudentDashboard } from '../hooks/useStudentDashboard';
 import { StudentDashboardLayout } from '../components/StudentDashboardLayout';
-import type { StudentView } from '../components/StudentSidebar';
+import type { StudentView } from '../types';
 import { NextLessonTile } from '../components/NextLessonTile';
 import { MyTeachersTile } from '../components/MyTeachersTile';
 import { BookingRequestsTile } from '../components/BookingRequestsTile';
