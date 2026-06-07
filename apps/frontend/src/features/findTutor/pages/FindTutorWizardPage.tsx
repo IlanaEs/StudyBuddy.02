@@ -19,11 +19,6 @@ const BUCKET_TO_RANGE: Record<string, { start: string; end: string }> = {
   afternoon: { start: '12:00', end: '17:00' },
   evening: { start: '17:00', end: '22:00' },
 };
-function rangeToBucket(start: string): string {
-  const h = parseInt(start.split(':')[0] ?? '0', 10);
-  return h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
-}
-
 const GOALS = [
   { value: 'single_session', label: 'שיעור חד-פעמי (Single Lesson)', icon: <GraduationCap size={20} /> },
   { value: 'ongoing', label: 'מורה קבוע/ה (Ongoing)', icon: <CalendarHeart size={20} /> },
@@ -135,8 +130,8 @@ export function FindTutorWizardPage() {
         if (i.budget_min != null) setBudgetMin(i.budget_min);
         if (i.budget_max != null) setBudgetMax(i.budget_max);
         setSoft(i.soft_criteria ?? {});
-        setDays((i.preferred_days ?? []).map((d) => INDEX_TO_DAY[d]).filter((d): d is string => !!d));
-        setTimes([...new Set((i.preferred_time_ranges ?? []).map((r) => rangeToBucket(r.start)))]);
+        // Availability is NOT prefilled — the grid opens empty (aligned with onboarding);
+        // the student picks fresh windows (or one-tap presets / calendar sync) per search.
       }
       setLoading(false);
     })();
