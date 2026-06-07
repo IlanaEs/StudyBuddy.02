@@ -56,6 +56,10 @@ export async function createStudentIntake(
     .single();
 
   if (error) {
+    // Log the real Postgres/PostgREST error server-side for diagnosis (e.g. a missing
+    // column or check-constraint violation). The client still gets a generic 500 —
+    // never leak raw DB errors.
+    console.error('[createStudentIntake] insert failed:', error);
     throw new AppError('Failed to create student intake', 500);
   }
 
