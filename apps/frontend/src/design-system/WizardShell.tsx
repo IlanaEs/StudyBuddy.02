@@ -37,7 +37,9 @@ export function WizardShell({ header, totalSteps, currentStep, children, footer,
           margin: '0 auto',
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'auto',
+          // Header + footer stay fixed; only the body scrolls (so the footer CTA is
+          // always visible and clickable, and nothing gets clipped).
+          overflow: 'hidden',
         }}
       >
         {header}
@@ -46,8 +48,8 @@ export function WizardShell({ header, totalSteps, currentStep, children, footer,
             <SegmentedProgressBar total={totalSteps} current={currentStep} />
           </div>
         )}
-        {/* Body morphs inside the fixed container. */}
-        <div key={stepKey} className="sb-wizard-enter" style={{ flex: 1, minHeight: 0 }}>
+        {/* Only the step body scrolls inside the fixed container. */}
+        <div key={stepKey} className="sb-wizard-enter" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           {children}
         </div>
         {footer}

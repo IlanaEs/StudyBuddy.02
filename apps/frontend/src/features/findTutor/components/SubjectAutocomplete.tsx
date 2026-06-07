@@ -62,7 +62,9 @@ export function SubjectAutocomplete({
         />
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, maxHeight: 180, overflowY: 'auto' }}>
+      {/* Chips flow in normal layout (no nested scroll) — the wizard card body owns
+          scrolling, so the Next button below stays reachable. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignContent: 'flex-start', gap: 8, marginTop: 12 }}>
         {filtered.map((s) => {
           const selected = !isCustom && value === s;
           return (
