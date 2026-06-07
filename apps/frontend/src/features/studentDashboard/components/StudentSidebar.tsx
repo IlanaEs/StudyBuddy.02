@@ -61,6 +61,7 @@ export function StudentSidebar({
           <button
             key={item.view}
             type="button"
+            className="student-nav-item"
             onClick={() => onSelect(item.view)}
             style={{
               ...ITEM_BASE,
@@ -80,12 +81,13 @@ export function StudentSidebar({
         );
       })}
 
-      {/* Inbox — disabled placeholder (Chat backend not built). */}
+      {/* Inbox — disabled placeholder (Chat backend not built). Pruned on mobile. */}
       <button
         type="button"
         disabled
         aria-disabled="true"
         title="בקרוב"
+        className="student-nav-item student-nav-item--secondary"
         style={{ ...ITEM_BASE, border: '1.5px solid transparent', background: 'transparent', color: T.text3, cursor: 'not-allowed', opacity: 0.5 }}
       >
         <span style={{ display: 'flex' }}><MessageCircle size={18} /></span>
@@ -98,6 +100,7 @@ export function StudentSidebar({
         return (
           <button
             type="button"
+            className="student-nav-item"
             onClick={() => onSelect('settings')}
             style={{
               ...ITEM_BASE,
@@ -120,6 +123,7 @@ export function StudentSidebar({
       {/* Sign Out — wired to the existing logout. */}
       <button
         type="button"
+        className="student-nav-item"
         onClick={onSignOut}
         style={{ ...ITEM_BASE, border: '1.5px solid transparent', background: 'transparent', color: T.text2, cursor: 'pointer' }}
       >

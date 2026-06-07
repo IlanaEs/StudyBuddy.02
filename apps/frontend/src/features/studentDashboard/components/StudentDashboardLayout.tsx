@@ -53,7 +53,7 @@ export function StudentDashboardLayout({
                 type="button"
                 onClick={() => setDrawerOpen(true)}
                 aria-label="פתח תפריט"
-                style={iconButtonStyle(false)}
+                style={{ ...iconButtonStyle(false), width: 44, height: 44 }}
               >
                 <Menu size={20} />
               </button>
@@ -114,7 +114,7 @@ export function StudentDashboardLayout({
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-                    <button type="button" onClick={() => setDrawerOpen(false)} aria-label="סגור תפריט" style={iconButtonStyle(false)}>
+                    <button type="button" onClick={() => setDrawerOpen(false)} aria-label="סגור תפריט" style={{ ...iconButtonStyle(false), width: 44, height: 44 }}>
                       <X size={20} />
                     </button>
                   </div>

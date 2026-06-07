@@ -203,6 +203,10 @@
   .bento-grid--student > *:nth-child(4) { order: 4; } /* recent materials */
   .bento-grid--student > *:nth-child(5) { order: 5; } /* monthly activity / graphs */
   .bento-grid--student > *:nth-child(6) { order: 6; } /* find tutor / matching */
+
+  /* Student nav (drawer) — comfortable thumb targets + prune non-essentials. */
+  .student-nav-item { min-height: 44px; }
+  .student-nav-item--secondary { display: none; }
 }
 
 /* Fixed, very subtle background line-grid sublayer — stays COMPLETELY still while
