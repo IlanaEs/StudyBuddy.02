@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Search, Check, PenLine } from 'lucide-react';
-import { towTokens as T } from '../../../design/tokens';
+import { sbTokens as sb } from '../../../design/tokens';
 import { subjectsByLevel } from '../../matching/data/subjectsByLevel';
 
 // Flattened, de-duplicated canonical subject list (⊆ canonicalSubjects via P0-1's
@@ -33,13 +33,12 @@ export function SubjectAutocomplete({
           value={value}
           onChange={(e) => onChange(e.target.value, true)}
           placeholder="הקלידו את שם המקצוע"
-          className="tow-focusable"
           style={inputStyle}
         />
-        <p style={{ margin: '8px 0 0', fontSize: 12, color: T.gold }}>
+        <p style={{ margin: '8px 0 0', fontSize: 12, color: sb.textSecondary }}>
           מקצוע זה אינו ברשימה — הוא יישלח לבדיקה ולא ניתן להזמין עליו שיעור עדיין.
         </p>
-        <button type="button" onClick={() => { setManual(false); onChange('', false); }} style={linkStyle(T.text3)}>
+        <button type="button" onClick={() => { setManual(false); onChange('', false); }} style={linkStyle(sb.textMuted)}>
           חזרה לבחירה מהרשימה
         </button>
       </div>
@@ -49,12 +48,11 @@ export function SubjectAutocomplete({
   return (
     <div>
       <div style={{ position: 'relative' }}>
-        <Search size={15} style={{ position: 'absolute', insetInlineStart: 12, top: 13, color: T.text3 }} />
+        <Search size={15} style={{ position: 'absolute', insetInlineStart: 12, top: 13, color: sb.textMuted }} />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="חיפוש מקצוע…"
-          className="tow-focusable"
           style={{ ...inputStyle, paddingInlineStart: 34 }}
         />
       </div>
@@ -69,12 +67,12 @@ export function SubjectAutocomplete({
               onClick={() => onChange(s, false)}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '8px 12px', borderRadius: T.radiusSm,
-                border: `1.5px solid ${selected ? T.neon : T.ink}`,
-                background: selected ? 'color-mix(in oklab, #00f6ff 14%, transparent)' : 'transparent',
-                color: selected ? T.neon : T.text2,
-                fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                transition: 'border-color 250ms ease-out, color 250ms ease-out, background 250ms ease-out',
+                padding: '8px 12px', borderRadius: sb.radiusSmall,
+                border: `1.5px solid ${selected ? sb.active : sb.borderMuted}`,
+                background: selected ? sb.hoverGlow : 'transparent',
+                color: selected ? sb.active : sb.textSecondary,
+                fontFamily: sb.fontUi, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                transition: 'border-color var(--sb-motion-base) ease-out, color var(--sb-motion-base) ease-out, background var(--sb-motion-base) ease-out',
               }}
             >
               {selected && <Check size={14} />}
@@ -82,11 +80,11 @@ export function SubjectAutocomplete({
             </button>
           );
         })}
-        {filtered.length === 0 && <span style={{ fontSize: 13, color: T.text3 }}>לא נמצא מקצוע תואם.</span>}
+        {filtered.length === 0 && <span style={{ fontSize: 13, color: sb.textMuted }}>לא נמצא מקצוע תואם.</span>}
       </div>
 
-      {/* Off-taxonomy fallback (pink alert link). */}
-      <button type="button" onClick={() => { setManual(true); onChange(search.trim(), true); }} style={linkStyle(T.alert)}>
+      {/* Off-taxonomy fallback link. */}
+      <button type="button" onClick={() => { setManual(true); onChange(search.trim(), true); }} style={linkStyle(sb.error)}>
         <PenLine size={13} style={{ marginInlineEnd: 4, verticalAlign: '-2px' }} />
         לא מצאת את המקצוע? הקלד להתאמה ידנית
       </button>
@@ -99,10 +97,11 @@ export const CANONICAL_SUBJECT_SET = new Set(CANONICAL_SUBJECTS);
 const inputStyle = {
   width: '100%',
   padding: '11px 12px',
-  borderRadius: T.radiusSm,
-  background: 'color-mix(in oklab, #3f7e76 30%, transparent)',
-  border: `1px solid ${T.ink}`,
-  color: T.text,
+  borderRadius: sb.radiusSmall,
+  background: sb.glassSoft,
+  border: `1px solid ${sb.borderMuted}`,
+  color: sb.textPrimary,
+  fontFamily: sb.fontUi,
   fontSize: 14,
   outline: 'none',
 } as const;
@@ -114,6 +113,7 @@ function linkStyle(color: string) {
     background: 'none',
     border: 'none',
     color,
+    fontFamily: sb.fontUi,
     fontSize: 13,
     fontWeight: 700,
     cursor: 'pointer',

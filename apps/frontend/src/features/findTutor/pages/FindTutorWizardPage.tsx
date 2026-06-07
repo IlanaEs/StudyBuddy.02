@@ -1,15 +1,13 @@
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMediaQuery } from '@mantine/hooks';
-import { GraduationCap, CalendarHeart, Flame, KeyRound } from 'lucide-react';
+import { GraduationCap, CalendarHeart, Flame, KeyRound, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthProvider';
 import { useMatchingStore } from '../../matching/store/matchingStore';
-import { MatchingLoadingScreen } from '../../matching/components/MatchingLoadingScreen';
 import { DualRangeSlider } from '../../matching/components/DualRangeSlider';
 import { AvailabilityGrid } from '../../matching/components/AvailabilityGrid';
-import { WizardProgress } from '../../matching/components/WizardProgress';
-import { ScreenHeader, CardSelect, ChipSelect, NavButtons } from '../../../components/onboarding/v2/primitives';
-import { towTokens as T } from '../../../design/tokens';
+import { WizardShell, WizardFooter, BentoCard, GlobalStateCard, sbTokens as sb } from '../../../design-system';
 import { createStudentIntake, runMatching } from '../../../api/students';
 import type { SoftCriteria } from '../../../api/students';
 import { getLatestIntake, getMyStudentProfile, requestSubjectAddition } from '../api/findTutor';
@@ -39,6 +37,12 @@ const PRESETS = [
   { id: 'evenings', label: 'ערבים בלבד', days: [...INDEX_TO_DAY], times: ['evening'] },
   { id: 'weekend', label: 'סופ״ש בלבד', days: ['שישי', 'שבת'], times: ['morning', 'afternoon', 'evening'] },
 ];
+
+const STEP_HEADERS: Record<number, { title: string; english: string; subtitle?: string }> = {
+  1: { title: 'הגדרת שיעור', english: 'Lesson Setup', subtitle: 'מה המטרה ובאיזה מקצוע?' },
+  2: { title: 'תקציב והעדפות', english: 'Budget & Preferences' },
+  3: { title: 'חלונות זמינות', english: 'Select Availability' },
+};
 
 export function FindTutorWizardPage() {
   const navigate = useNavigate();
@@ -198,158 +202,169 @@ export function FindTutorWizardPage() {
   const canNext1 = !!goal && (subjectIsCustom ? subject.trim().length > 0 : subject.length > 0);
   const canNext3 = days.length > 0 && times.length > 0;
 
-  // Full-screen algorithmic loading overlay while matching runs (not for the bypass).
-  if (submitting) return <MatchingLoadingScreen />;
+  // ── Pre-wizard states (DS GlobalStateCard on an --sb canvas) ───────────────
+  if (submitting) {
+    return (
+      <Canvas>
+        <GlobalStateCard variant="loading" fullPage title="מחפשים מורים מתאימים…" description="מצליבים זמינות, תקציב והעדפות כדי לבנות לך התאמות." />
+      </Canvas>
+    );
+  }
+  if (loading) {
+    return (
+      <Canvas>
+        <GlobalStateCard variant="loading" fullPage title="טוען…" />
+      </Canvas>
+    );
+  }
+  if (loadError) {
+    return (
+      <Canvas>
+        <GlobalStateCard
+          variant="error"
+          fullPage
+          icon={<AlertCircle size={32} />}
+          title={loadError}
+          cta={{ label: 'חזרה לדשבורד (Dashboard)', onClick: () => navigate('/student/dashboard') }}
+        />
+      </Canvas>
+    );
+  }
+
+  // ── Wizard ────────────────────────────────────────────────────────────────
+  const H = STEP_HEADERS[step] ?? STEP_HEADERS[1]!;
+  const header = (
+    <div>
+      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: sb.active, fontFamily: sb.fontUi }}>
+        מצא לי מורה חדש (Find Tutor)
+      </p>
+      <h2 style={{ margin: '6px 0 0', fontSize: 20, fontWeight: 800, color: sb.textPrimary, fontFamily: sb.fontUi }}>
+        {H.title}
+        {H.english ? <span style={{ color: sb.textMuted, fontWeight: 600 }}> ({H.english})</span> : null}
+      </h2>
+      {H.subtitle && <p style={{ margin: '4px 0 0', color: sb.textSecondary, fontSize: 14 }}>{H.subtitle}</p>}
+      {step === 1 && !prefilled && (
+        <p style={{ margin: '8px 0 0', color: sb.textMuted, fontSize: 13 }}>זה החיפוש הראשון שלך — מלא/י את הפרטים ונמצא לך התאמה.</p>
+      )}
+    </div>
+  );
+
+  const footer =
+    step === 1 ? (
+      <WizardFooter onNext={() => setStep(2)} nextLabel="המשך (Next)" nextDisabled={!canNext1} />
+    ) : step === 2 ? (
+      <WizardFooter onBack={() => setStep(1)} backLabel="חזרה (Back)" onNext={() => setStep(3)} nextLabel="המשך ללוח זמנים (Next)" />
+    ) : (
+      <WizardFooter onBack={() => setStep(2)} backLabel="חזרה (Back)" onNext={() => void runMatch()} nextLabel="מצא לי התאמות (Run AI Match)" nextDisabled={!canNext3} />
+    );
 
   return (
-    <div dir="rtl" lang="he" className="tow tow-bg-glow" style={{ minHeight: '100dvh', color: T.text }}>
-      <div style={{ maxWidth: 860, margin: '0 auto', padding: '28px 18px 64px' }}>
-        <p style={{ margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: T.neon }}>
-          מצא לי מורה חדש (Find Tutor)
-        </p>
-
-        {loading ? (
-          <p style={{ marginTop: 20, color: T.text3, fontSize: 14 }}>טוען…</p>
-        ) : loadError ? (
-          // Small clean error state. Find Tutor never routes into onboarding.
-          <div style={{ marginTop: 24 }}>
-            <p style={{ color: T.text2, fontSize: 15 }}>{loadError}</p>
-            <button onClick={() => navigate('/student/dashboard')} style={ctaStyle}>חזרה לדשבורד (Dashboard)</button>
-          </div>
-        ) : (
-          <>
-            {!prefilled && (
-              // Clean empty state: profiled student with no prior search.
-              <p style={{ margin: '10px 0 0', color: T.text3, fontSize: 13.5 }}>
-                זה החיפוש הראשון שלך — מלא/י את הפרטים ונמצא לך התאמה.
-              </p>
-            )}
-            <div style={{ margin: '14px 0 20px' }}>
-              <WizardProgress current={step} total={3} />
+    <WizardShell header={header} totalSteps={3} currentStep={step} stepKey={step} footer={footer}>
+      {step === 1 && (
+        <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '2fr 1fr', gap: 16, alignItems: 'start', marginTop: 4 }}>
+          {/* Right 2/3: goal + subject */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {GOALS.map((g) => (
+                <GoalCard key={g.value} icon={g.icon} label={g.label} selected={goal === g.value} onClick={() => setGoal(g.value)} />
+              ))}
             </div>
+            <SubjectAutocomplete value={subject} isCustom={subjectIsCustom} onChange={(s, custom) => { setSubject(s); setSubjectIsCustom(custom); setError(''); }} />
+          </div>
 
-            {step === 1 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                <ScreenHeader title="הגדרת שיעור" english="Lesson Setup" subtitle="מה המטרה ובאיזה מקצוע?" />
-                <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '2fr 1fr', gap: 16, alignItems: 'start' }}>
-                  {/* Right 2/3: goal + subject */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {GOALS.map((g) => (
-                        <CardSelect key={g.value} label={g.label} icon={g.icon} selected={goal === g.value} onClick={() => setGoal(g.value)} />
-                      ))}
-                    </div>
-                    <SubjectAutocomplete
-                      value={subject}
-                      isCustom={subjectIsCustom}
-                      onChange={(s, custom) => { setSubject(s); setSubjectIsCustom(custom); setError(''); }}
-                    />
-                  </div>
+          {/* Left 1/3: Direct Tutor Search — DISABLED (Phase 2). */}
+          <BentoCard hover={false} style={{ border: `1.5px dashed ${sb.borderMuted}`, opacity: 0.7, padding: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: sb.textSecondary }}>
+              <KeyRound size={16} />
+              <span style={{ fontSize: 13.5, fontWeight: 800 }}>חיפוש מורה ישיר (Direct Tutor)</span>
+            </div>
+            <input
+              disabled
+              placeholder="קוד / שם מורה"
+              style={{ width: '100%', marginTop: 10, padding: '10px 12px', borderRadius: sb.radiusSmall, background: sb.glassSoft, border: `1px solid ${sb.borderMuted}`, color: sb.textMuted, fontFamily: sb.fontUi, fontSize: 13.5, outline: 'none' }}
+            />
+            <p style={{ margin: '10px 0 0', fontSize: 12, color: sb.textMuted, lineHeight: 1.6 }}>בקרוב — קביעת שיעור ישירה לפי קוד מורה, ללא תהליך התאמה.</p>
+          </BentoCard>
 
-                  {/* Left 1/3: Direct Tutor Search — DISABLED (Phase 2, backend not built). */}
-                  <div
-                    aria-disabled="true"
-                    title="בקרוב"
-                    style={{
-                      display: 'flex', flexDirection: 'column', gap: 10, padding: 16,
-                      borderRadius: T.radius, border: `1.5px dashed ${T.line2}`,
-                      background: 'color-mix(in oklab, #3f7e76 18%, transparent)', opacity: 0.7,
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: T.text2 }}>
-                      <KeyRound size={16} />
-                      <span style={{ fontSize: 13.5, fontWeight: 800 }}>חיפוש מורה ישיר (Direct Tutor)</span>
-                    </div>
-                    <input
-                      disabled
-                      placeholder="קוד / שם מורה"
-                      style={{
-                        width: '100%', padding: '10px 12px', borderRadius: T.radiusSm,
-                        background: 'color-mix(in oklab, #3f7e76 26%, transparent)',
-                        border: `1px solid ${T.ink}`, color: T.text3, fontSize: 13.5, outline: 'none',
-                      }}
-                    />
-                    <p style={{ margin: 0, fontSize: 12, color: T.text3, lineHeight: 1.6 }}>
-                      בקרוב — קביעת שיעור ישירה לפי קוד מורה, ללא תהליך התאמה.
-                    </p>
-                  </div>
-                </div>
+          {error && <div style={{ gridColumn: '1 / -1', color: sb.error, fontSize: 13 }}>{error}</div>}
+        </div>
+      )}
 
-                {error && <div style={{ color: T.alert, fontSize: 13 }}>{error}</div>}
-                <NavButtons hideBack onNext={() => setStep(2)} nextLabel="המשך" nextEnglish="Next" disabled={!canNext1} />
-              </div>
-            )}
+      {step === 2 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 4 }}>
+          <DualRangeSlider min={0} max={500} step={10} valueMin={budgetMin} valueMax={budgetMax} onChangeMin={setBudgetMin} onChangeMax={setBudgetMax} formatValue={(v) => (v === 500 ? '₪500+' : `₪${v}`)} />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <Chip label="מורה אישה" selected={soft.teacher_gender === 'female'} onClick={() => toggleGender('female')} />
+            <Chip label="מורה גבר" selected={soft.teacher_gender === 'male'} onClick={() => toggleGender('male')} />
+            <Chip label="קצב מהיר ותכלס" selected={!!soft.fast_pace} onClick={() => setSoft((s) => ({ ...s, fast_pace: !s.fast_pace }))} />
+            <Chip label="ניסיון עם ADHD" selected={!!soft.adhd_experience} onClick={() => setSoft((s) => ({ ...s, adhd_experience: !s.adhd_experience }))} />
+            <Chip label="גישה תומכת ומחזקת ביטחון" selected={!!soft.inclusive_approach} onClick={() => setSoft((s) => ({ ...s, inclusive_approach: !s.inclusive_approach }))} />
+          </div>
+        </div>
+      )}
 
-            {step === 2 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                <ScreenHeader title="תקציב והעדפות" english="Budget & Preferences" />
-                <DualRangeSlider
-                  min={0}
-                  max={500}
-                  step={10}
-                  valueMin={budgetMin}
-                  valueMax={budgetMax}
-                  onChangeMin={setBudgetMin}
-                  onChangeMax={setBudgetMax}
-                  formatValue={(v) => (v === 500 ? '₪500+' : `₪${v}`)}
-                />
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  <ChipSelect label="מורה אישה" selected={soft.teacher_gender === 'female'} onClick={() => toggleGender('female')} />
-                  <ChipSelect label="מורה גבר" selected={soft.teacher_gender === 'male'} onClick={() => toggleGender('male')} />
-                  <ChipSelect label="קצב מהיר ותכלס" selected={!!soft.fast_pace} onClick={() => setSoft((s) => ({ ...s, fast_pace: !s.fast_pace }))} />
-                  <ChipSelect label="ניסיון עם ADHD" selected={!!soft.adhd_experience} onClick={() => setSoft((s) => ({ ...s, adhd_experience: !s.adhd_experience }))} />
-                  <ChipSelect label="גישה תומכת ומחזקת ביטחון" selected={!!soft.inclusive_approach} onClick={() => setSoft((s) => ({ ...s, inclusive_approach: !s.inclusive_approach }))} />
-                </div>
-                <NavButtons onBack={() => setStep(1)} onNext={() => setStep(3)} nextLabel="המשך ללוח זמנים" nextEnglish="Next to Schedule" />
-              </div>
-            )}
+      {step === 3 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 4 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {PRESETS.map((p) => (
+              <Chip key={p.id} label={p.label} onClick={() => applyPreset(p)} />
+            ))}
+          </div>
+          <AvailabilityGrid selectedDays={days} selectedTimes={times} onChangeDays={setDays} onChangeTimes={setTimes} />
+          {error && <div style={{ color: sb.error, fontSize: 13 }}>{error}</div>}
+        </div>
+      )}
+    </WizardShell>
+  );
+}
 
-            {step === 3 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                <ScreenHeader title="חלונות זמינות" english="Select Availability" />
-                {/* One-tap presets */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {PRESETS.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => applyPreset(p)}
-                      style={{
-                        padding: '8px 14px', borderRadius: 999, cursor: 'pointer',
-                        border: `1px solid ${T.ink}`, background: 'color-mix(in oklab, #3f7e76 24%, transparent)',
-                        color: T.text2, fontSize: 13, fontWeight: 700,
-                        transition: 'border-color 250ms ease-out, color 250ms ease-out',
-                      }}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-                <AvailabilityGrid selectedDays={days} selectedTimes={times} onChangeDays={setDays} onChangeTimes={setTimes} />
-                {error && <div style={{ color: T.alert, fontSize: 13 }}>{error}</div>}
-                <NavButtons
-                  onBack={() => setStep(2)}
-                  onNext={() => void runMatch()}
-                  nextLabel="מצא לי התאמות"
-                  nextEnglish="Run AI Match"
-                  disabled={!canNext3}
-                />
-              </div>
-            )}
-          </>
-        )}
-      </div>
+// ── Find-tutor-local --sb helpers ───────────────────────────────────────────
+function Canvas({ children }: { children: ReactNode }) {
+  return (
+    <div dir="rtl" lang="he" style={{ minHeight: '100dvh', background: sb.bgCanvas }}>
+      {children}
     </div>
   );
 }
 
-const ctaStyle = {
-  marginTop: 16,
-  padding: '11px 20px',
-  borderRadius: T.radiusSm,
-  background: T.neon,
-  color: '#04201f',
-  border: 'none',
-  cursor: 'pointer',
-  fontWeight: 800,
-} as const;
+function GoalCard({ icon, label, selected, onClick }: { icon: ReactNode; label: string; selected: boolean; onClick: () => void }) {
+  return (
+    <BentoCard
+      onClick={onClick}
+      style={{
+        cursor: 'pointer',
+        padding: 14,
+        border: `1px solid ${selected ? sb.active : sb.borderCyber}`,
+        boxShadow: selected ? '0 0 12px var(--sb-hover-glow)' : undefined,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ color: selected ? sb.active : sb.textSecondary, display: 'flex' }}>{icon}</span>
+        <span style={{ fontWeight: 700, color: sb.textPrimary, fontFamily: sb.fontUi }}>{label}</span>
+      </div>
+    </BentoCard>
+  );
+}
+
+function Chip({ label, selected, onClick }: { label: string; selected?: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        padding: '8px 14px',
+        borderRadius: 999,
+        cursor: 'pointer',
+        border: `1.5px solid ${selected ? sb.active : sb.borderMuted}`,
+        background: selected ? sb.hoverGlow : 'transparent',
+        color: selected ? sb.active : sb.textSecondary,
+        fontFamily: sb.fontUi,
+        fontSize: 13,
+        fontWeight: 700,
+        transition: 'border-color var(--sb-motion-base) ease-out, color var(--sb-motion-base) ease-out, background var(--sb-motion-base) ease-out',
+      }}
+    >
+      {label}
+    </button>
+  );
+}
