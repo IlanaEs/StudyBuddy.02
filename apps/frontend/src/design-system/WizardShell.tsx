@@ -14,6 +14,11 @@ type Props = {
   footer?: ReactNode;
   /** Bump to re-trigger the enter animation on step change. */
   stepKey?: string | number;
+  /**
+   * Opt out of the narrow 33vw/480px cap for content that needs more width
+   * (e.g. the booking weekly grid). Stays centered with a wider max-width.
+   */
+  wide?: boolean;
 };
 
 /**
@@ -21,13 +26,13 @@ type Props = {
  * student matching, find-tutor, booking). Fixed outer dimensions so the layout
  * never jumps between steps — only the inner body changes. RTL-first, glass.
  */
-export function WizardShell({ header, totalSteps, currentStep, children, footer, stepKey }: Props) {
+export function WizardShell({ header, totalSteps, currentStep, children, footer, stepKey, wide }: Props) {
   return (
     <div dir="rtl" lang="he" style={{ position: 'relative', minHeight: '100dvh', background: sb.bgCanvas, color: sb.textPrimary, fontFamily: sb.fontUi, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
       {/* Still line-grid sublayer (fixed); the card content animates above it. */}
       <div className="sb-grid-bg" aria-hidden="true" />
       <section
-        className="sb-card sb-wizard-card"
+        className={`sb-card ${wide ? 'sb-wizard-card--wide' : 'sb-wizard-card'}`}
         style={{
           position: 'relative',
           zIndex: 1,

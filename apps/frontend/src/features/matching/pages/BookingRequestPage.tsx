@@ -200,7 +200,7 @@ export function BookingRequestPage() {
   );
 
   return (
-    <WizardShell header={header} totalSteps={3} currentStep={2} stepKey="booking" footer={footer}>
+    <WizardShell wide header={header} totalSteps={3} currentStep={2} stepKey="booking" footer={footer}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 4 }}>
         {/* Left column: teacher profile + availability grid */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

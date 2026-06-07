@@ -176,6 +176,16 @@
   .sb-wizard-card { width: 92%; min-width: 0; }
 }
 
+/* Wide variant — opt-out of the 480 cap for content that needs more width (e.g. the
+   booking weekly grid). Centered; capped so it doesn't stretch edge-to-edge. */
+.sb-wizard-card--wide {
+  width: min(92vw, 720px);
+  max-width: 720px;
+}
+@media (max-width: 768px) {
+  .sb-wizard-card--wide { width: 92%; min-width: 0; }
+}
+
 /* Fixed, very subtle background line-grid sublayer — stays COMPLETELY still while
    the card content animates above it (layered motion). */
 .sb-grid-bg {
