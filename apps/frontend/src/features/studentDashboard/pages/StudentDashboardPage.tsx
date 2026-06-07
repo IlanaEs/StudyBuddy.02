@@ -56,6 +56,10 @@ export function StudentDashboardPage() {
           {isEmptyOverview(data) && (
             <p style={{ color: T.text3, fontSize: 14, marginBottom: 14 }}>עדיין לא מולא שאלון</p>
           )}
+          {/* DOM order = row-major fill of the 3-column priority grid (RTL):
+              row1 = col1 NextLesson · col2 MyTeachers · col3 FindTutor;
+              row2 = col1 BookingRequests · col2 RecentMaterials · col3 MonthlyActivity.
+              Mobile re-sequences to urgency order via .bento-grid--student (styles.css). */}
           <BentoGrid className="bento-grid--student">
             <NextLessonTile lesson={data.next_lesson} />
             <MyTeachersTile
@@ -63,10 +67,10 @@ export function StudentDashboardPage() {
               onBook={(id, name) => setRebookTarget({ id, name })}
               onAllTeachers={() => setView('history')}
             />
+            <FindTutorTile onFindTutor={goFindTutor} />
             <BookingRequestsTile requests={data.booking_requests} />
             <RecentMaterialsTile materials={data.recent_materials} />
             <MonthlyActivityTile activity={data.monthly_activity} onFullHistory={() => setView('history')} />
-            <FindTutorTile onFindTutor={goFindTutor} />
           </BentoGrid>
         </>
       ) : view === 'lessons' ? (

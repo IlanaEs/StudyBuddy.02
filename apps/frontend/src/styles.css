@@ -199,19 +199,26 @@
   .bento-grid { grid-template-columns: 1fr !important; }
   .bento-grid > * { grid-column: auto !important; grid-row: auto !important; }
 
-  /* Student dashboard mobile order (urgency, top → bottom). nth-child = DOM order:
-     1 NextLesson · 2 MyTeachers · 3 BookingRequests · 4 RecentMaterials ·
-     5 MonthlyActivity · 6 FindTutor. */
-  .bento-grid--student > *:nth-child(1) { order: 1; } /* upcoming lesson + timer + join */
-  .bento-grid--student > *:nth-child(3) { order: 2; } /* pending booking requests */
-  .bento-grid--student > *:nth-child(2) { order: 3; } /* teachers + CRM */
-  .bento-grid--student > *:nth-child(4) { order: 4; } /* recent materials */
-  .bento-grid--student > *:nth-child(5) { order: 5; } /* monthly activity / graphs */
-  .bento-grid--student > *:nth-child(6) { order: 6; } /* find tutor / matching */
+  /* Student dashboard mobile order (urgency, top → bottom). DOM order is row-major
+     for the desktop columns: 1 NextLesson · 2 MyTeachers · 3 FindTutor ·
+     4 BookingRequests · 5 RecentMaterials · 6 MonthlyActivity. */
+  .bento-grid--student > *:nth-child(1) { order: 1; } /* NextLesson — upcoming + timer + join */
+  .bento-grid--student > *:nth-child(4) { order: 2; } /* BookingRequests — pending */
+  .bento-grid--student > *:nth-child(2) { order: 3; } /* MyTeachers — teachers + CRM */
+  .bento-grid--student > *:nth-child(5) { order: 4; } /* RecentMaterials */
+  .bento-grid--student > *:nth-child(6) { order: 5; } /* MonthlyActivity — graphs */
+  .bento-grid--student > *:nth-child(3) { order: 6; } /* FindTutor — matching */
+}
 
-  /* Student nav (drawer) — comfortable thumb targets + prune non-essentials. */
-  .student-nav-item { min-height: 44px; }
-  .student-nav-item--secondary { display: none; }
+/* Student dashboard desktop — a clean 3-column priority grid (RTL). Each tile is one
+   column wide (equal widths, even gutters); row heights are content-driven (no forced
+   row-span dead space). Student-scoped → other dashboards keep the auto-fill grid. */
+@media (min-width: 861px) {
+  .bento-grid--student {
+    grid-template-columns: repeat(3, 1fr) !important;
+    grid-auto-rows: auto !important;
+  }
+  .bento-grid--student > * { grid-column: auto !important; grid-row: auto !important; }
 }
 
 /* Fixed, very subtle background line-grid sublayer — stays COMPLETELY still while

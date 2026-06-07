@@ -31,7 +31,9 @@ export function StudentDashboardLayout({
   return (
     <div dir="rtl" lang="he" className="tow tow-bg-glow" style={{ minHeight: '100dvh', color: T.text }}>
       <FloatingTopNavbar tabs={tabs} />
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: 'calc(1.5rem + 64px) 18px 56px' }}>
+      {/* Bottom padding clears the fixed bottom-right SessionControls widget so no card
+          (e.g. the "Full History" button) is occluded by it. */}
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: 'calc(1.5rem + 64px) 18px 96px' }}>
         {/* Greeting header (identity, not nav) — sits below the floating bar. */}
         <header
           style={{
