@@ -7,7 +7,7 @@ import type { BookingStatus, StudentDashboardPayload } from '../api/types';
 
 // Only pending / approved / rejected reach this tile (per the API contract).
 const STATUS_META: Record<string, { label: string; english: string; color: string }> = {
-  pending: { label: 'ממתין לאישור', english: 'Pending', color: T.gold },
+  pending: { label: 'ממתין לאישור', english: 'Pending Approval', color: T.gold },
   approved: { label: 'אושר', english: 'Approved', color: T.success },
   rejected: { label: 'נדחה', english: 'Declined', color: T.alert },
 };
