@@ -63,7 +63,7 @@ export function MatchResultsPage() {
 
   return (
     <div dir="rtl" lang="he" className="min-h-screen px-4 py-10" style={{ background: sb.bgCanvas }}>
-      <div className="w-full max-w-lg mx-auto">
+      <div className="w-full mx-auto" style={{ maxWidth: 480 }}>
         <div className="mb-6">
           <div className="flex mb-3" style={{ color: sb.active }}>
             <Award size={32} />

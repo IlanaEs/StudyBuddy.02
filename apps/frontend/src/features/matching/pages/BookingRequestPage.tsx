@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Info, Send, Layers, AlertCircle } from 'lucide-react';
-import { useMediaQuery } from '@mantine/hooks';
 import { useMatchingStore } from '../store/matchingStore';
 import { BookingAvailabilityGrid } from '../components/BookingAvailabilityGrid';
 import type { GridSelection } from '../components/BookingAvailabilityGrid';
@@ -28,7 +27,6 @@ export function BookingRequestPage() {
   const auth = useAuth();
   const { matchResults, selectedMatchId, intake } = useMatchingStore();
   const match = matchResults.find((r) => r.id === selectedMatchId);
-  const isNarrow = useMediaQuery('(max-width: 820px)') ?? false;
   const token = auth.session?.access_token ?? null;
 
   const dates = useMemo(() => dayWindow(jerusalemToday(), 10), []);
@@ -203,7 +201,7 @@ export function BookingRequestPage() {
 
   return (
     <WizardShell header={header} totalSteps={3} currentStep={2} stepKey="booking" footer={footer}>
-      <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1.45fr 1fr', gap: 16, alignItems: 'start', marginTop: 4 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 4 }}>
         {/* Left column: teacher profile + availability grid */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <BentoCard hover={false}>

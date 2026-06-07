@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMediaQuery } from '@mantine/hooks';
 import { GraduationCap, CalendarHeart, Flame, KeyRound, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthProvider';
 import { useMatchingStore } from '../../matching/store/matchingStore';
@@ -65,7 +64,6 @@ export function FindTutorWizardPage() {
   const auth = useAuth();
   const token = auth.session?.access_token ?? null;
   const store = useMatchingStore();
-  const isNarrow = useMediaQuery('(max-width: 720px)') ?? false;
 
   const [loading, setLoading] = useState(true);
   // Non-null ONLY when the profile bootstrap fails (404 = no profile, or a real
@@ -286,7 +284,7 @@ export function FindTutorWizardPage() {
   return (
     <WizardShell header={header} totalSteps={4} currentStep={step} stepKey={step} footer={footer}>
       {step === 1 && (
-        <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '2fr 1fr', gap: 16, alignItems: 'start', marginTop: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 4 }}>
           {/* Right 2/3: goal + subject */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
