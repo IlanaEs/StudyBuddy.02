@@ -40,8 +40,9 @@ const PRESETS = [
 
 const STEP_HEADERS: Record<number, { title: string; english: string; subtitle?: string }> = {
   1: { title: 'הגדרת שיעור', english: 'Lesson Setup', subtitle: 'מה המטרה ובאיזה מקצוע?' },
-  2: { title: 'תקציב והעדפות', english: 'Budget & Preferences' },
+  2: { title: 'תקציב', english: 'Budget', subtitle: 'מה טווח המחיר לשעה שמתאים לך?' },
   3: { title: 'חלונות זמינות', english: 'Select Availability' },
+  4: { title: 'העדפות מיוחדות', english: 'Preferences', subtitle: 'העדפות נוספות לחיפוש הזה (לא חובה).' },
 };
 
 export function FindTutorWizardPage() {
@@ -254,12 +255,14 @@ export function FindTutorWizardPage() {
       <WizardFooter onNext={() => setStep(2)} nextLabel="המשך (Next)" nextDisabled={!canNext1} />
     ) : step === 2 ? (
       <WizardFooter onBack={() => setStep(1)} backLabel="חזרה (Back)" onNext={() => setStep(3)} nextLabel="המשך ללוח זמנים (Next)" />
+    ) : step === 3 ? (
+      <WizardFooter onBack={() => setStep(2)} backLabel="חזרה (Back)" onNext={() => setStep(4)} nextLabel="המשך להעדפות (Next)" nextDisabled={!canNext3} />
     ) : (
-      <WizardFooter onBack={() => setStep(2)} backLabel="חזרה (Back)" onNext={() => void runMatch()} nextLabel="מצא לי התאמות (Run AI Match)" nextDisabled={!canNext3} />
+      <WizardFooter onBack={() => setStep(3)} backLabel="חזרה (Back)" onNext={() => void runMatch()} nextLabel="מצא לי התאמות (Run AI Match)" />
     );
 
   return (
-    <WizardShell header={header} totalSteps={3} currentStep={step} stepKey={step} footer={footer}>
+    <WizardShell header={header} totalSteps={4} currentStep={step} stepKey={step} footer={footer}>
       {step === 1 && (
         <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '2fr 1fr', gap: 16, alignItems: 'start', marginTop: 4 }}>
           {/* Right 2/3: goal + subject */}
@@ -293,13 +296,6 @@ export function FindTutorWizardPage() {
       {step === 2 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 4 }}>
           <DualRangeSlider min={0} max={500} step={10} valueMin={budgetMin} valueMax={budgetMax} onChangeMin={setBudgetMin} onChangeMax={setBudgetMax} formatValue={(v) => (v === 500 ? '₪500+' : `₪${v}`)} />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            <Chip label="מורה אישה" selected={soft.teacher_gender === 'female'} onClick={() => toggleGender('female')} />
-            <Chip label="מורה גבר" selected={soft.teacher_gender === 'male'} onClick={() => toggleGender('male')} />
-            <Chip label="קצב מהיר ותכלס" selected={!!soft.fast_pace} onClick={() => setSoft((s) => ({ ...s, fast_pace: !s.fast_pace }))} />
-            <Chip label="ניסיון עם ADHD" selected={!!soft.adhd_experience} onClick={() => setSoft((s) => ({ ...s, adhd_experience: !s.adhd_experience }))} />
-            <Chip label="גישה תומכת ומחזקת ביטחון" selected={!!soft.inclusive_approach} onClick={() => setSoft((s) => ({ ...s, inclusive_approach: !s.inclusive_approach }))} />
-          </div>
         </div>
       )}
 
@@ -311,6 +307,19 @@ export function FindTutorWizardPage() {
             ))}
           </div>
           <AvailabilityGrid selectedDays={days} selectedTimes={times} onChangeDays={setDays} onChangeTimes={setTimes} />
+          {error && <div style={{ color: sb.error, fontSize: 13 }}>{error}</div>}
+        </div>
+      )}
+
+      {step === 4 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 4 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <Chip label="מורה אישה" selected={soft.teacher_gender === 'female'} onClick={() => toggleGender('female')} />
+            <Chip label="מורה גבר" selected={soft.teacher_gender === 'male'} onClick={() => toggleGender('male')} />
+            <Chip label="קצב מהיר ותכלס" selected={!!soft.fast_pace} onClick={() => setSoft((s) => ({ ...s, fast_pace: !s.fast_pace }))} />
+            <Chip label="ניסיון עם ADHD" selected={!!soft.adhd_experience} onClick={() => setSoft((s) => ({ ...s, adhd_experience: !s.adhd_experience }))} />
+            <Chip label="גישה תומכת ומחזקת ביטחון" selected={!!soft.inclusive_approach} onClick={() => setSoft((s) => ({ ...s, inclusive_approach: !s.inclusive_approach }))} />
+          </div>
           {error && <div style={{ color: sb.error, fontSize: 13 }}>{error}</div>}
         </div>
       )}
