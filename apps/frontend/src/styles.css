@@ -186,6 +186,25 @@
   .sb-wizard-card--wide { width: 92%; min-width: 0; }
 }
 
+/* ── Dashboard Bento grid — mobile single-column stack (GLOBAL mechanism) ────────
+   On narrow screens the multi-column Bento collapses to ONE vertical column; every
+   dashboard that uses BentoGrid inherits this. The per-dashboard priority ORDER is
+   configured via a modifier class (e.g. .bento-grid--student) using nth-child. */
+@media (max-width: 860px) {
+  .bento-grid { grid-template-columns: 1fr !important; }
+  .bento-grid > * { grid-column: auto !important; grid-row: auto !important; }
+
+  /* Student dashboard mobile order (urgency, top → bottom). nth-child = DOM order:
+     1 NextLesson · 2 MyTeachers · 3 BookingRequests · 4 RecentMaterials ·
+     5 MonthlyActivity · 6 FindTutor. */
+  .bento-grid--student > *:nth-child(1) { order: 1; } /* upcoming lesson + timer + join */
+  .bento-grid--student > *:nth-child(3) { order: 2; } /* pending booking requests */
+  .bento-grid--student > *:nth-child(2) { order: 3; } /* teachers + CRM */
+  .bento-grid--student > *:nth-child(4) { order: 4; } /* recent materials */
+  .bento-grid--student > *:nth-child(5) { order: 5; } /* monthly activity / graphs */
+  .bento-grid--student > *:nth-child(6) { order: 6; } /* find tutor / matching */
+}
+
 /* Fixed, very subtle background line-grid sublayer — stays COMPLETELY still while
    the card content animates above it (layered motion). */
 .sb-grid-bg {

@@ -56,7 +56,7 @@ export function StudentDashboardPage() {
           {isEmptyOverview(data) && (
             <p style={{ color: T.text3, fontSize: 14, marginBottom: 14 }}>עדיין לא מולא שאלון</p>
           )}
-          <BentoGrid>
+          <BentoGrid className="bento-grid--student">
             <NextLessonTile lesson={data.next_lesson} />
             <MyTeachersTile
               teachers={data.my_teachers}
