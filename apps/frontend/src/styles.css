@@ -165,6 +165,11 @@
   border: 1px solid var(--sb-navbar-border);
   border-radius: var(--sb-radius-card);
 }
+/* Mobile: thin side margins (92%) + ≥44×44 thumb targets; all icons stay on the bar. */
+@media (max-width: 768px) {
+  .sb-navbar { width: 92%; }
+  .sb-navbar-icon { width: 44px; height: 44px; }
+}
 /* Wizard/global-state card — narrow centered layout (GLOBAL rule).
    Desktop: 33.333vw, capped at 480px (floored so it never gets unusably narrow);
    Mobile (≤768px): 92% width. Absolutely centered by the flex canvas. */

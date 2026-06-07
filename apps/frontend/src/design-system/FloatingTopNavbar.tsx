@@ -7,16 +7,19 @@ export type NavTab = {
   /** Tooltip / a11y label (bilingual allowed, e.g. "שיעורים (Lessons)"). */
   label: string;
   active?: boolean;
+  /** Inert tab (e.g. a not-yet-built feature) — muted, no action, tooltip kept. */
+  disabled?: boolean;
   onClick?: () => void;
 };
 
 type Props = {
-  /** Right side (RTL): brand logo; click returns to the role dashboard. */
-  logo: ReactNode;
+  /** Right side (RTL): brand logo; click returns to the role dashboard. Omit for a
+   *  flat icon-only bar (no logo/search). */
+  logo?: ReactNode;
   onLogoClick?: () => void;
   /** Center: icon-only role tabs. */
   tabs: NavTab[];
-  /** Left side (RTL): search / notifications / avatar, etc. */
+  /** Left side (RTL): search / notifications / avatar, etc. Omit for a flat bar. */
   actions?: ReactNode;
 };
 
@@ -42,26 +45,34 @@ export function FloatingTopNavbar({ logo, onLogoClick, tabs, actions }: Props) {
   return (
     <nav dir="rtl" className="sb-navbar" aria-label="ניווט ראשי (Main navigation)">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '8px 16px' }}>
-        {/* Right (RTL-first): brand */}
-        <button onClick={onLogoClick} style={{ ...iconBtn, width: 'auto', padding: '0 6px', color: sb.textPrimary, fontFamily: sb.fontUi, fontWeight: 800 }} aria-label="StudyBuddy">
-          {logo}
-        </button>
+        {/* Right (RTL-first): brand — omit for a flat icon-only bar. */}
+        {logo ? (
+          <button onClick={onLogoClick} style={{ ...iconBtn, width: 'auto', padding: '0 6px', color: sb.textPrimary, fontFamily: sb.fontUi, fontWeight: 800 }} aria-label="StudyBuddy">
+            {logo}
+          </button>
+        ) : (
+          <span aria-hidden />
+        )}
 
-        {/* Center: icon-only role tabs */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {/* Center: icon-only role tabs (centered; fills space when logo/actions absent) */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           {tabs.map((t) => (
             <button
               key={t.id}
-              onClick={t.onClick}
+              onClick={t.disabled ? undefined : t.onClick}
               title={t.label}
               aria-label={t.label}
               aria-current={t.active ? 'page' : undefined}
-              className="sb-focusable"
+              aria-disabled={t.disabled || undefined}
+              disabled={t.disabled}
+              className="sb-focusable sb-navbar-icon"
               style={{
                 ...iconBtn,
                 position: 'relative',
                 color: t.active ? sb.active : sb.textSecondary,
                 background: t.active ? sb.hoverGlow : 'transparent',
+                opacity: t.disabled ? 0.4 : 1,
+                cursor: t.disabled ? 'not-allowed' : 'pointer',
               }}
             >
               {t.icon}
@@ -83,8 +94,12 @@ export function FloatingTopNavbar({ logo, onLogoClick, tabs, actions }: Props) {
           ))}
         </div>
 
-        {/* Left (RTL): actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: sb.textSecondary }}>{actions}</div>
+        {/* Left (RTL): actions — omit for a flat icon-only bar. */}
+        {actions ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: sb.textSecondary }}>{actions}</div>
+        ) : (
+          <span aria-hidden />
+        )}
       </div>
     </nav>
   );
