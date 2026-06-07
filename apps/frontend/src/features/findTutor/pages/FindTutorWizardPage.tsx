@@ -7,6 +7,8 @@ import { useMatchingStore } from '../../matching/store/matchingStore';
 import { DualRangeSlider } from '../../matching/components/DualRangeSlider';
 import { AvailabilityGrid } from '../../matching/components/AvailabilityGrid';
 import { WizardShell, WizardFooter, BentoCard, GlobalStateCard, sbTokens as sb } from '../../../design-system';
+import { useStudentCalendarSync } from '../../matching/hooks/useStudentCalendarSync';
+import { CalendarSyncCard } from '../../matching/components/CalendarSyncCard';
 import { createStudentIntake, runMatching } from '../../../api/students';
 import type { SoftCriteria } from '../../../api/students';
 import { getLatestIntake, getMyStudentProfile } from '../api/findTutor';
@@ -87,6 +89,10 @@ export function FindTutorWizardPage() {
   const [soft, setSoft] = useState<SoftCriteria>({});
   const [days, setDays] = useState<string[]>([]);
   const [times, setTimes] = useState<string[]>([]);
+
+  // Shared Google-Calendar sync (session-token-first; no redirect in the quick wizard
+  // so the in-progress search isn't lost). On sync, busy cells block the grid.
+  const cal = useStudentCalendarSync({ redirect: false, onSynced: () => { setDays([]); setTimes([]); } });
 
   // Bootstrap: gate on the student PROFILE (not the intakes endpoint). Then
   // optionally prefill from the latest intake as non-blocking defaults.
@@ -374,13 +380,25 @@ export function FindTutorWizardPage() {
       )}
 
       {step === 3 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 4 }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {PRESETS.map((p) => (
-              <Chip key={p.id} label={p.label} onClick={() => applyPreset(p)} />
-            ))}
-          </div>
-          <AvailabilityGrid selectedDays={days} selectedTimes={times} onChangeDays={setDays} onChangeTimes={setTimes} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 4 }}>
+          <CalendarSyncCard
+            availMode={cal.availMode}
+            calSyncing={cal.calSyncing}
+            calSyncError={cal.calSyncError}
+            onConnect={() => void cal.startSync()}
+            onManual={cal.setManual}
+            onEdit={cal.setManual}
+          />
+          {(cal.availMode === 'manual' || cal.availMode === 'synced') && (
+            <>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {PRESETS.map((p) => (
+                  <Chip key={p.id} label={p.label} onClick={() => applyPreset(p)} />
+                ))}
+              </div>
+              <AvailabilityGrid selectedDays={days} selectedTimes={times} onChangeDays={setDays} onChangeTimes={setTimes} busyKeys={cal.busyCellKeys.size > 0 ? cal.busyCellKeys : undefined} />
+            </>
+          )}
           {error && <div style={{ color: sb.error, fontSize: 13 }}>{error}</div>}
         </div>
       )}
