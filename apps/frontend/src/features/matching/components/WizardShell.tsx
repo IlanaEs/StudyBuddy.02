@@ -1,39 +1,54 @@
 import type { PropsWithChildren } from 'react';
 
-import { FlowNav } from '../../../components/FlowNav';
+import { sbTokens as sb } from '../../../design/tokens';
 
 interface WizardShellProps {
   step?: number;
 }
 
+/**
+ * Onboarding wizard shell — renders the SHARED DS chrome (narrow 480px centered
+ * glass card on the still line-grid background) so onboarding and the quick
+ * wizard share ONE visual language. Keeps the children/step API so the 10 step
+ * blocks in MatchingWizardPage are untouched; the inner content composes its own
+ * WizardProgress (DS SegmentedProgressBar) + header + nav.
+ */
 export function WizardShell({ children, step }: PropsWithChildren<WizardShellProps>) {
   return (
     <div
       dir="rtl"
       lang="he"
-      className="min-h-screen flex flex-col items-center justify-center px-4 py-6 flow-shell-clear"
-      style={{ background: 'var(--bg)' }}
+      style={{
+        position: 'relative',
+        minHeight: '100dvh',
+        background: sb.bgCanvas,
+        color: sb.textPrimary,
+        fontFamily: sb.fontUi,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px 16px',
+      }}
     >
-      <FlowNav to="/" label="חזרה לדף הבית" />
-      <div
+      {/* Still line-grid sublayer (fixed); the card content animates above it. */}
+      <div className="sb-grid-bg" aria-hidden="true" />
+      <section
         key={step}
-        className="w-full max-w-lg overflow-y-auto wizard-step-animate"
+        className="sb-card sb-wizard-card sb-wizard-enter"
         style={{
-          background: 'color-mix(in oklab, var(--surface) 88%, transparent)',
-          backdropFilter: 'blur(20px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(160%)',
-          borderRadius: 'var(--radius-lg)',
-          border: '1px solid color-mix(in oklab, var(--cyan) 18%, var(--line-2))',
-          padding: '1.75rem',
-          maxHeight: '92vh',
-          boxShadow:
-            '0 12px 48px -12px rgba(0, 0, 0, 0.55), ' +
-            '0 0 0 1px var(--line), ' +
-            'inset 0 1px 0 rgba(220, 245, 240, 0.06)',
+          position: 'relative',
+          zIndex: 1,
+          minHeight: 560,
+          maxHeight: '88vh',
+          padding: 32,
+          margin: '0 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'auto',
         }}
       >
         {children}
-      </div>
+      </section>
     </div>
   );
 }

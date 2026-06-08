@@ -14,6 +14,11 @@ type Props = {
   footer?: ReactNode;
   /** Bump to re-trigger the enter animation on step change. */
   stepKey?: string | number;
+  /**
+   * Opt out of the narrow 33vw/480px cap for content that needs more width
+   * (e.g. the booking weekly grid). Stays centered with a wider max-width.
+   */
+  wide?: boolean;
 };
 
 /**
@@ -21,21 +26,25 @@ type Props = {
  * student matching, find-tutor, booking). Fixed outer dimensions so the layout
  * never jumps between steps — only the inner body changes. RTL-first, glass.
  */
-export function WizardShell({ header, totalSteps, currentStep, children, footer, stepKey }: Props) {
+export function WizardShell({ header, totalSteps, currentStep, children, footer, stepKey, wide }: Props) {
   return (
-    <div dir="rtl" lang="he" style={{ minHeight: '100dvh', background: sb.bgCanvas, color: sb.textPrimary, fontFamily: sb.fontUi, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
+    <div dir="rtl" lang="he" style={{ position: 'relative', minHeight: '100dvh', background: sb.bgCanvas, color: sb.textPrimary, fontFamily: sb.fontUi, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
+      {/* Still line-grid sublayer (fixed); the card content animates above it. */}
+      <div className="sb-grid-bg" aria-hidden="true" />
       <section
-        className="sb-card"
+        className={`sb-card ${wide ? 'sb-wizard-card--wide' : 'sb-wizard-card'}`}
         style={{
-          width: '100%',
-          maxWidth: 1200,
-          minHeight: 650,
-          maxHeight: 850,
+          position: 'relative',
+          zIndex: 1,
+          minHeight: 560,
+          maxHeight: '88vh',
           padding: 32,
           margin: '0 auto',
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'auto',
+          // Header + footer stay fixed; only the body scrolls (so the footer CTA is
+          // always visible and clickable, and nothing gets clipped).
+          overflow: 'hidden',
         }}
       >
         {header}
@@ -44,8 +53,8 @@ export function WizardShell({ header, totalSteps, currentStep, children, footer,
             <SegmentedProgressBar total={totalSteps} current={currentStep} />
           </div>
         )}
-        {/* Body morphs inside the fixed container. */}
-        <div key={stepKey} className="sb-wizard-enter" style={{ flex: 1, minHeight: 0 }}>
+        {/* Only the step body scrolls inside the fixed container. */}
+        <div key={stepKey} className="sb-wizard-enter" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           {children}
         </div>
         {footer}

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { PrimaryButton, SecondaryButton } from './buttons';
+import { sbTokens as sb } from '../design/tokens';
 
 type Props = {
   /** Right side (RTL): Back / Secondary. Omit to hide (e.g. first step). */
@@ -21,7 +22,7 @@ export function WizardFooter({ onBack, backLabel = 'חזרה', onNext, nextLabel
   return (
     <footer dir="rtl" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 24 }}>
       <div>{onBack ? <SecondaryButton onClick={onBack}>{backLabel}</SecondaryButton> : <span />}</div>
-      <div>{primary ?? <PrimaryButton onClick={onNext} disabled={nextDisabled}>{nextLabel}</PrimaryButton>}</div>
+      <div>{primary ?? <PrimaryButton onClick={onNext} disabled={nextDisabled} style={{ borderRadius: sb.radiusCard }}>{nextLabel}</PrimaryButton>}</div>
     </footer>
   );
 }

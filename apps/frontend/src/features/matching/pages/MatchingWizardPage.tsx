@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   GraduationCap, Users, Target, Calendar, Zap, Repeat, BookOpen,
   ShieldCheck, Search, Monitor, Clock,
-  Loader2, Check, CalendarDays,
+  Loader2,
   Sparkles,
 } from 'lucide-react';
 import { useMatchingStore } from '../store/matchingStore';
@@ -16,19 +16,14 @@ import { WizardOptionCard } from '../components/WizardOptionCard';
 import { WizardSummaryCard } from '../components/WizardSummaryCard';
 import { DualRangeSlider } from '../components/DualRangeSlider';
 import { AvailabilityGrid } from '../components/AvailabilityGrid';
+import { CalendarSyncCard } from '../components/CalendarSyncCard';
+import { useStudentCalendarSync } from '../hooks/useStudentCalendarSync';
 import { subjectsByLevel, gradesByLevel } from '../data/subjectsByLevel';
 import type { EducationLevel, LearningGoal, TimeSlot } from '../types/matching.types';
 import { useAuth } from '../../../auth/AuthProvider';
 import { getSupabaseBrowserClient } from '../../../auth/supabaseClient';
 import { getDashboardPathByRole } from '../../../utils/getDashboardPathByRole';
 import { completeOAuthSignup, createStudentProfile, createStudentIntake, runMatching } from '../../../api/students';
-import {
-  syncStudentCalendarAvailability,
-  initiateCalendarOAuth,
-  GCAL_SYNC_RETURN_KEY,
-} from '../../../api/studentCalendar';
-import { consumeEarlyProviderToken } from '../../../auth/supabaseClient';
-import { mapBusySlotsToGridCellKeys } from '../../../utils/mapBusySlotsToBlockKeys';
 
 const TOTAL_STEPS = 10;
 const AUTH_STEP = 2;
@@ -96,16 +91,17 @@ export function MatchingWizardPage() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
   const oauthReturnHandled = useRef(false);
-  const calSyncReturnHandled = useRef(false);
   // Guards the profile-create paths (post-OAuth + authenticated effect) from
   // racing into TWO students rows for the same user.
   const profileCreateStarted = useRef(false);
 
-  // Availability step state
-  const [availMode, setAvailMode] = useState<'sync' | 'manual' | 'synced'>('sync');
-  const [calSyncing, setCalSyncing] = useState(false);
-  const [calSyncError, setCalSyncError] = useState<string | null>(null);
-  const [busyCellKeys, setBusyCellKeys] = useState<Set<string>>(new Set());
+  // Availability step — shared calendar sync (redirect mode for onboarding, whose
+  // state survives the Google round-trip via the persisted draft).
+  const cal = useStudentCalendarSync({
+    redirect: true,
+    returnPath: '/onboarding/matching',
+    onSynced: () => updateIntake({ preferredDays: [], preferredTimeRanges: [] }),
+  });
   const isParent = intake.accountType === 'parent_for_child';
   const expectedRole = intake.accountType === 'parent_for_child' ? 'parent' : 'student';
   const hasRoleConflict =
@@ -210,92 +206,6 @@ export function MatchingWizardPage() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.status, step, intake.accountType, intake.studentId]);
-
-  // ── Calendar OAuth return: detect return, consume provider token, call backend ─
-  useEffect(() => {
-    if (auth.status !== 'authenticated') return;
-    if (calSyncReturnHandled.current) return;
-    if (!localStorage.getItem(GCAL_SYNC_RETURN_KEY)) return;
-
-    calSyncReturnHandled.current = true;
-    localStorage.removeItem(GCAL_SYNC_RETURN_KEY);
-
-    const providerToken =
-      consumeEarlyProviderToken() ??
-      // Fallback: Supabase session may carry provider_token after re-auth
-      (auth.session as { provider_token?: string } | null)?.provider_token;
-
-    if (!providerToken || !auth.session?.access_token) {
-      setCalSyncError('לא ניתן היה לקרוא את היומן. נסה/י שוב או בחר/י ידנית.');
-      setAvailMode('manual');
-      setCalSyncing(false);
-      return;
-    }
-
-    setCalSyncing(true);
-    setCalSyncError(null);
-    void doCalendarSync(auth.session.access_token, providerToken);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.status]);
-
-  // ── Perform the actual backend call + update intake ───────────────────────────
-  async function doCalendarSync(accessToken: string, providerToken: string) {
-    try {
-      const result = await syncStudentCalendarAvailability(accessToken, providerToken);
-      // Map busy periods to grid cell keys so the AvailabilityGrid can show them as blocked
-      const busyKeys = new Set(mapBusySlotsToGridCellKeys(result.busyPeriods));
-      setBusyCellKeys(busyKeys);
-      // Don't auto-select days/times — let the user pick from the free cells
-      updateIntake({ preferredDays: [], preferredTimeRanges: [] });
-      setAvailMode('synced');
-      setCalSyncError(null);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'שגיאה בסנכרון';
-      if (msg.includes('401') || msg.toLowerCase().includes('expired')) {
-        setCalSyncError('פג תוקף ההרשאה לגוגל קאלנדר. לחץ/י שוב לחיבור מחדש.');
-      } else if (msg.includes('403') || msg.toLowerCase().includes('permission')) {
-        setCalSyncError('אין גישה ליומן. ודא/י שאישרת את הגישה ל-Google Calendar.');
-      } else {
-        setCalSyncError('לא הצלחנו לקרוא את היומן. ניתן להמשיך ולסמן ידנית.');
-      }
-      setAvailMode('manual');
-    } finally {
-      setCalSyncing(false);
-    }
-  }
-
-  // ── GCal sync: try existing provider token first, fall back to OAuth redirect ──
-  async function handleCalSync() {
-    setCalSyncing(true);
-    setCalSyncError(null);
-
-    // Try using the provider token already in the session (from the initial Google sign-in
-    // that requested calendar.readonly scope).
-    const existingToken =
-      consumeEarlyProviderToken() ??
-      (auth.session as { provider_token?: string } | null)?.provider_token;
-
-    if (existingToken && auth.session?.access_token) {
-      void doCalendarSync(auth.session.access_token, existingToken);
-      return;
-    }
-
-    // No provider token available — redirect to Google with calendar scope
-    try {
-      localStorage.setItem(GCAL_SYNC_RETURN_KEY, '1');
-      await initiateCalendarOAuth();
-      // Page redirects to Google — execution does not continue here
-    } catch (err) {
-      localStorage.removeItem(GCAL_SYNC_RETURN_KEY);
-      setCalSyncError(
-        err instanceof Error && (err as { status?: number }).status === 403
-          ? 'ההתחברות עם גוגל אינה מופעלת. נסה/י לסמן ידנית.'
-          : 'שגיאה בחיבור לגוגל. נסה/י שוב.',
-      );
-      setCalSyncing(false);
-      setAvailMode('manual');
-    }
-  }
 
   // ── Post-OAuth: set role, create student profile, advance ─────────────────────
   async function handlePostOAuthReturn() {
@@ -895,121 +805,18 @@ export function MatchingWizardPage() {
           subtitle="נציג רק מורים שפנויים בשעות שלך"
         />
 
-        {/* ── Google Calendar sync card ───────────────────────────── */}
-        {availMode !== 'synced' && (
-          <div
-            className="p-4 rounded-2xl mb-4"
-            style={{
-              background: 'color-mix(in oklab, var(--cyan) 8%, var(--surface-2))',
-              border: '1px solid color-mix(in oklab, var(--cyan) 28%, var(--line-2))',
-              backdropFilter: 'blur(8px)',
-            }}
-          >
-            <div className="flex items-start gap-3 mb-3">
-              <div
-                className="flex items-center justify-center w-10 h-10 rounded-xl flex-shrink-0"
-                style={{
-                  background: 'color-mix(in oklab, var(--cyan) 18%, var(--surface))',
-                  color: 'var(--cyan)',
-                }}
-              >
-                <CalendarDays size={20} />
-              </div>
-              <div>
-                <div className="font-bold text-sm mb-0.5" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)' }}>
-                  ⚡ סנכרון מהיר (מומלץ)
-                </div>
-                <div style={{ color: 'var(--text-2)', fontSize: 12, lineHeight: 1.5 }}>
-                  חיבור קליק אחד ל-Google Calendar יחסוך לך זמן, ימנע כפילויות, ויציג לך רק מורים שבאמת פנויים בלו״ז שלך.
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => void handleCalSync()}
-              disabled={calSyncing}
-              className="w-full py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 wizard-cta-primary"
-              style={{
-                ...ctaPrimary,
-                opacity: calSyncing ? 0.7 : 1,
-                fontSize: 14,
-              }}
-            >
-              {calSyncing ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  מסנכרן עם יומן גוגל...
-                </>
-              ) : (
-                <>
-                  <CalendarDays size={16} />
-                  חבר את יומן גוגל
-                </>
-              )}
-            </button>
-
-            {/* ── Calendar sync error ─────────────────────────────── */}
-            {calSyncError && (
-              <div
-                className="mt-2 px-3 py-2 rounded-lg text-xs flex items-start gap-2"
-                style={{
-                  background: 'color-mix(in oklab, var(--coral) 10%, var(--surface-2))',
-                  border: '1px solid color-mix(in oklab, var(--coral) 30%, var(--line-2))',
-                  color: 'var(--coral)',
-                }}
-              >
-                {calSyncError}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Synced success state ────────────────────────────────── */}
-        {availMode === 'synced' && (
-          <div
-            className="p-4 rounded-2xl mb-4 flex items-center gap-3"
-            style={{
-              background: 'color-mix(in oklab, var(--lime) 10%, var(--surface-2))',
-              border: '1px solid color-mix(in oklab, var(--lime) 35%, var(--line-2))',
-            }}
-          >
-            <div
-              className="flex items-center justify-center w-9 h-9 rounded-xl flex-shrink-0"
-              style={{ background: 'color-mix(in oklab, var(--lime) 20%, var(--surface))', color: 'var(--lime)' }}
-            >
-              <Check size={18} />
-            </div>
-            <div>
-              <div className="font-semibold text-sm" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)' }}>
-                יומן גוגל מחובר
-              </div>
-              <div style={{ color: 'var(--text-3)', fontSize: 12 }}>
-                זמינות זוהתה אוטומטית — ניתן לשנות ידנית למטה
-              </div>
-            </div>
-            <button
-              onClick={() => setAvailMode('manual')}
-              style={{ marginRight: 'auto', color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}
-            >
-              ערוך
-            </button>
-          </div>
-        )}
-
-        {/* ── Manual link ─────────────────────────────────────────── */}
-        {availMode === 'sync' && (
-          <div className="text-center mb-4">
-            <button
-              onClick={() => setAvailMode('manual')}
-              style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 13 }}
-            >
-              מעדיף/ת לסמן ידנית ללא חיבור יומן?
-            </button>
-          </div>
-        )}
+        {/* ── Google Calendar sync (shared banner + hook) ─────────── */}
+        <CalendarSyncCard
+          availMode={cal.availMode}
+          calSyncing={cal.calSyncing}
+          calSyncError={cal.calSyncError}
+          onConnect={() => void cal.startSync()}
+          onManual={cal.setManual}
+          onEdit={cal.setManual}
+        />
 
         {/* ── Manual grid ─────────────────────────────────────────── */}
-        {(availMode === 'manual' || availMode === 'synced') && (
+        {(cal.availMode === 'manual' || cal.availMode === 'synced') && (
           <div className="mb-4">
             <div className="font-semibold mb-2 text-sm" style={{ color: 'var(--text-2)' }}>זמינות שבועית:</div>
             <AvailabilityGrid
@@ -1017,7 +824,7 @@ export function MatchingWizardPage() {
               selectedTimes={intake.preferredTimeRanges as string[]}
               onChangeDays={(days) => updateIntake({ preferredDays: days })}
               onChangeTimes={(times) => updateIntake({ preferredTimeRanges: times as TimeSlot[] })}
-              busyKeys={busyCellKeys.size > 0 ? busyCellKeys : undefined}
+              busyKeys={cal.busyCellKeys.size > 0 ? cal.busyCellKeys : undefined}
             />
             {errors.days && <div style={{ color: 'var(--coral)', fontSize: 13, marginTop: 4 }}>{errors.days}</div>}
           </div>

@@ -63,7 +63,7 @@ export async function syncStudentCalendarAvailability(
  * Before calling this, set GCAL_SYNC_RETURN_KEY in localStorage so that
  * MatchingWizardPage knows to run the real sync on return.
  */
-export async function initiateCalendarOAuth(): Promise<void> {
+export async function initiateCalendarOAuth(returnPath = '/onboarding/matching'): Promise<void> {
   const supabase = getSupabaseBrowserClient();
   await ensureActiveSupabaseSession();
   const { error } = await supabase.auth.linkIdentity({
@@ -71,7 +71,7 @@ export async function initiateCalendarOAuth(): Promise<void> {
     options: {
       scopes: 'https://www.googleapis.com/auth/calendar.readonly',
       queryParams: { access_type: 'offline', prompt: 'consent' },
-      redirectTo: `${window.location.origin}/onboarding/matching`,
+      redirectTo: `${window.location.origin}${returnPath}`,
     },
   });
   if (error) {

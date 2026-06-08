@@ -1,42 +1,46 @@
 import { useMemo, useState } from 'react';
 import { Search, Check, PenLine } from 'lucide-react';
 import { sbTokens as sb } from '../../../design/tokens';
-import { subjectsByLevel } from '../../matching/data/subjectsByLevel';
-
-// Flattened, de-duplicated canonical subject list (⊆ canonicalSubjects via P0-1's
-// guard). Strict: only these resolve at booking; off-taxonomy is captured, not submitted.
-const CANONICAL_SUBJECTS: string[] = [...new Set(Object.values(subjectsByLevel).flat())].sort();
+import { subjectsForLevel } from '../../matching/data/subjectsByLevel';
 
 export function SubjectAutocomplete({
   value,
   isCustom,
+  level,
   onChange,
 }: {
   value: string;
   isCustom: boolean;
+  /** Effective level (band key or specific grade) — the catalog is filtered to it. */
+  level: string | null;
   onChange: (subject: string, custom: boolean) => void;
 }) {
   const [search, setSearch] = useState('');
   const [manual, setManual] = useState(isCustom);
 
+  // Closed catalog scoped to the student's effective level (band). Falls back to
+  // the full catalog only when no band is resolvable.
+  const catalog = useMemo(() => subjectsForLevel(level), [level]);
+
   const filtered = useMemo(() => {
     const q = search.trim();
-    if (!q) return CANONICAL_SUBJECTS.slice(0, 24);
-    return CANONICAL_SUBJECTS.filter((s) => s.includes(q)).slice(0, 24);
-  }, [search]);
+    if (!q) return catalog.slice(0, 24);
+    return catalog.filter((s) => s.includes(q)).slice(0, 24);
+  }, [search, catalog]);
 
   if (manual) {
     return (
       <div>
         <input
           autoFocus
+          className="sb-input"
           value={value}
           onChange={(e) => onChange(e.target.value, true)}
           placeholder="הקלידו את שם המקצוע"
           style={inputStyle}
         />
         <p style={{ margin: '8px 0 0', fontSize: 12, color: sb.textSecondary }}>
-          מקצוע זה אינו ברשימה — הוא יישלח לבדיקה ולא ניתן להזמין עליו שיעור עדיין.
+          הקלד את שם הקורס המדויק, ואנחנו נבצע התאמה ידנית עבורך.
         </p>
         <button type="button" onClick={() => { setManual(false); onChange('', false); }} style={linkStyle(sb.textMuted)}>
           חזרה לבחירה מהרשימה
@@ -50,6 +54,7 @@ export function SubjectAutocomplete({
       <div style={{ position: 'relative' }}>
         <Search size={15} style={{ position: 'absolute', insetInlineStart: 12, top: 13, color: sb.textMuted }} />
         <input
+          className="sb-input"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="חיפוש מקצוע…"
@@ -57,7 +62,9 @@ export function SubjectAutocomplete({
         />
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, maxHeight: 180, overflowY: 'auto' }}>
+      {/* Chips flow in normal layout (no nested scroll) — the wizard card body owns
+          scrolling, so the Next button below stays reachable. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignContent: 'flex-start', gap: 8, marginTop: 12 }}>
         {filtered.map((s) => {
           const selected = !isCustom && value === s;
           return (
@@ -86,24 +93,18 @@ export function SubjectAutocomplete({
       {/* Off-taxonomy fallback link. */}
       <button type="button" onClick={() => { setManual(true); onChange(search.trim(), true); }} style={linkStyle(sb.error)}>
         <PenLine size={13} style={{ marginInlineEnd: 4, verticalAlign: '-2px' }} />
-        לא מצאת את המקצוע? הקלד להתאמה ידנית
+        לא מצאת את הקורס שלך?
       </button>
     </div>
   );
 }
 
-export const CANONICAL_SUBJECT_SET = new Set(CANONICAL_SUBJECTS);
-
+// Layout only — color/border/background/focus come from the shared `.sb-input`
+// glass class (turquoise glow on focus).
 const inputStyle = {
   width: '100%',
   padding: '11px 12px',
-  borderRadius: sb.radiusSmall,
-  background: sb.glassSoft,
-  border: `1px solid ${sb.borderMuted}`,
-  color: sb.textPrimary,
-  fontFamily: sb.fontUi,
   fontSize: 14,
-  outline: 'none',
 } as const;
 
 function linkStyle(color: string) {

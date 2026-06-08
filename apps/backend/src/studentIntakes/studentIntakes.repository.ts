@@ -36,6 +36,8 @@ export async function createStudentIntake(
     .insert({
       student_id: input.studentId,
       subject_id: input.subjectId,
+      custom_subject_text: input.customSubjectText,
+      needs_manual_match: input.needsManualMatch,
       created_by_user_id: input.createdByUserId,
       level: input.level,
       goal: input.goal,
@@ -54,6 +56,10 @@ export async function createStudentIntake(
     .single();
 
   if (error) {
+    // Log the real Postgres/PostgREST error server-side for diagnosis (e.g. a missing
+    // column or check-constraint violation). The client still gets a generic 500 —
+    // never leak raw DB errors.
+    console.error('[createStudentIntake] insert failed:', error);
     throw new AppError('Failed to create student intake', 500);
   }
 
@@ -62,7 +68,7 @@ export async function createStudentIntake(
   return {
     id: row.id as string,
     studentId: row.student_id as string,
-    subjectId: row.subject_id as string,
+    subjectId: (row.subject_id as string | null) ?? null,
     status: row.status as 'open' | 'matched' | 'closed',
   };
 }

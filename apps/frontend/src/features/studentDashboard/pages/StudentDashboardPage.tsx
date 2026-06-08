@@ -7,7 +7,7 @@ import { towTokens as T } from '../../../design/tokens';
 import { BentoGrid } from '../../teacher/components/BentoGrid';
 import { useStudentDashboard } from '../hooks/useStudentDashboard';
 import { StudentDashboardLayout } from '../components/StudentDashboardLayout';
-import type { StudentView } from '../components/StudentSidebar';
+import type { StudentView } from '../types';
 import { NextLessonTile } from '../components/NextLessonTile';
 import { MyTeachersTile } from '../components/MyTeachersTile';
 import { BookingRequestsTile } from '../components/BookingRequestsTile';
@@ -56,17 +56,21 @@ export function StudentDashboardPage() {
           {isEmptyOverview(data) && (
             <p style={{ color: T.text3, fontSize: 14, marginBottom: 14 }}>עדיין לא מולא שאלון</p>
           )}
-          <BentoGrid>
+          {/* DOM order = row-major fill of the 3-column priority grid (RTL):
+              row1 = col1 NextLesson · col2 MyTeachers · col3 FindTutor;
+              row2 = col1 BookingRequests · col2 RecentMaterials · col3 MonthlyActivity.
+              Mobile re-sequences to urgency order via .bento-grid--student (styles.css). */}
+          <BentoGrid className="bento-grid--student">
             <NextLessonTile lesson={data.next_lesson} />
             <MyTeachersTile
               teachers={data.my_teachers}
               onBook={(id, name) => setRebookTarget({ id, name })}
               onAllTeachers={() => setView('history')}
             />
+            <FindTutorTile onFindTutor={goFindTutor} />
             <BookingRequestsTile requests={data.booking_requests} />
             <RecentMaterialsTile materials={data.recent_materials} />
             <MonthlyActivityTile activity={data.monthly_activity} onFullHistory={() => setView('history')} />
-            <FindTutorTile onFindTutor={goFindTutor} />
           </BentoGrid>
         </>
       ) : view === 'lessons' ? (

@@ -13,9 +13,12 @@ const SPAN: Record<BentoSize, { col: number; row: number }> = {
  * Responsive bento grid. Children are <BentoTile> with a size that maps to
  * column/row spans. Reused across every dashboard tab.
  */
-export function BentoGrid({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+export function BentoGrid({ children, style, className }: { children: ReactNode; style?: CSSProperties; className?: string }) {
   return (
     <div
+      // `.bento-grid` carries the global single-column-on-mobile collapse (styles.css);
+      // a per-dashboard className (e.g. `bento-grid--student`) configures the mobile order.
+      className={`bento-grid ${className ?? ''}`}
       style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',

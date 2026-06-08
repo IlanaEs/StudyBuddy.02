@@ -26,15 +26,21 @@ interface AvailabilityGridProps {
   busyKeys?: Set<string>;
 }
 
-function buildInitialCells(days: string[], times: string[]): Set<string> {
+function buildInitialCells(days: string[], times: string[], busyKeys?: Set<string>): Set<string> {
   const s = new Set<string>();
-  days.forEach((d) => times.forEach((t) => s.add(`${d}:${t}`)));
+  days.forEach((d) =>
+    times.forEach((t) => {
+      const key = `${d}:${t}`;
+      // Never pre-select a calendar-busy cell (e.g. from a quick-filter preset).
+      if (!busyKeys?.has(key)) s.add(key);
+    }),
+  );
   return s;
 }
 
 export function AvailabilityGrid({ selectedDays, selectedTimes, onChangeDays, onChangeTimes, busyKeys }: AvailabilityGridProps) {
   const [cells, setCells] = useState<Set<string>>(() =>
-    buildInitialCells(selectedDays, selectedTimes),
+    buildInitialCells(selectedDays, selectedTimes, busyKeys),
   );
 
   function toggleCell(day: string, time: string) {

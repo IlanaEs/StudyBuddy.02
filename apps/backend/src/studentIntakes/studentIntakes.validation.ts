@@ -27,6 +27,9 @@ const bodySchema = z
     student_id: z.string().uuid(),
     subject_id: z.string().uuid().optional(),
     subject_name: z.string().min(1).max(100).optional(),
+    // Off-taxonomy manual-match lead: free-text course + flag, no resolved subject.
+    custom_subject_text: z.string().min(1).max(200).optional(),
+    needs_manual_match: z.boolean().optional(),
     level: z.string().max(100).nullable().optional(),
     goal: z.string().nullable().optional(),
     location_preference: z.literal('online').default('online'),
@@ -39,10 +42,12 @@ const bodySchema = z
     urgency: z.string().max(50).nullable().optional(),
     soft_criteria: softCriteriaSchema,
   })
-  .refine(({ subject_id, subject_name }) => !!subject_id || !!subject_name?.trim(), {
-    message: 'subject_id or subject_name is required',
-    path: ['subject_id'],
-  })
+  // Either a catalog subject (id/name) OR a flagged manual-match free-text course.
+  .refine(
+    ({ subject_id, subject_name, needs_manual_match, custom_subject_text }) =>
+      !!subject_id || !!subject_name?.trim() || (needs_manual_match === true && !!custom_subject_text?.trim()),
+    { message: 'subject_id, subject_name, or a manual-match custom_subject_text is required', path: ['subject_id'] },
+  )
   // Cross-field: when both budget bounds are present, min must not exceed max.
   .refine(
     ({ budget_min, budget_max }) =>

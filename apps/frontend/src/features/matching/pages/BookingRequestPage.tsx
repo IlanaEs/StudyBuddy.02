@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Info, Send, Layers } from 'lucide-react';
-import { useMediaQuery } from '@mantine/hooks';
+import { Info, Send, Layers, AlertCircle } from 'lucide-react';
 import { useMatchingStore } from '../store/matchingStore';
 import { BookingAvailabilityGrid } from '../components/BookingAvailabilityGrid';
 import type { GridSelection } from '../components/BookingAvailabilityGrid';
@@ -13,8 +12,14 @@ import { getTeacherAvailableSlotsRange } from '../api/teacherAvailabilityRange';
 import type { DatedSlot } from '../api/teacherAvailabilityRange';
 import { AttachmentDropzone } from '../components/AttachmentDropzone';
 import { FloatingLabelInput } from '../../../components/onboarding/v2/FloatingLabelInput';
-import { FlowNav } from '../../../components/FlowNav';
-import { towTokens as T } from '../../../design/tokens';
+import {
+  WizardShell,
+  WizardFooter,
+  BentoCard,
+  GlobalStateCard,
+  UrgentButton,
+  sbTokens as sb,
+} from '../../../design-system';
 import { dayLabel, dayWindow, jerusalemHHMM, jerusalemToday, priceTotal } from '../utils/bookingGrid';
 
 export function BookingRequestPage() {
@@ -22,7 +27,6 @@ export function BookingRequestPage() {
   const auth = useAuth();
   const { matchResults, selectedMatchId, intake } = useMatchingStore();
   const match = matchResults.find((r) => r.id === selectedMatchId);
-  const isNarrow = useMediaQuery('(max-width: 820px)') ?? false;
   const token = auth.session?.access_token ?? null;
 
   const dates = useMemo(() => dayWindow(jerusalemToday(), 10), []);
@@ -35,6 +39,7 @@ export function BookingRequestPage() {
   const [message, setMessage] = useState('');
   const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
   const [error, setError] = useState('');
+  const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const teacherId = match?.teacher.id ?? null;
@@ -56,19 +61,18 @@ export function BookingRequestPage() {
     });
   }, [token, teacherId, dates]);
 
+  // ── No-match guard ──────────────────────────────────────────────────────────
   if (!match) {
     return (
-      <div dir="rtl" lang="he" className="tow tow-bg-glow" style={{ minHeight: '100dvh', color: T.text, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <FlowNav to="/" label="חזרה לדף הבית" />
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ color: T.text2 }}>לא נמצאה התאמה. חזרו לתוצאות.</p>
-          <button
-            onClick={() => navigate('/onboarding/results')}
-            style={{ marginTop: 16, padding: '10px 20px', borderRadius: T.radiusSm, background: T.neon, color: '#04201f', border: 'none', cursor: 'pointer', fontWeight: 800 }}
-          >
-            חזרה לתוצאות
-          </button>
-        </div>
+      <div dir="rtl" lang="he" style={{ minHeight: '100dvh', background: sb.bgCanvas }}>
+        <GlobalStateCard
+          variant="error"
+          fullPage
+          icon={<AlertCircle size={32} />}
+          title="לא נמצאה התאמה"
+          description="חזרו לתוצאות כדי לבחור מורה."
+          cta={{ label: 'חזרה לתוצאות (Back)', onClick: () => navigate('/onboarding/results') }}
+        />
       </div>
     );
   }
@@ -99,6 +103,7 @@ export function BookingRequestPage() {
     }
 
     setError('');
+    setSubmitError('');
     setIsSubmitting(true);
 
     try {
@@ -118,7 +123,7 @@ export function BookingRequestPage() {
       );
 
       if ('error' in result) {
-        setError(result.error ?? 'שגיאה בשליחת הבקשה. נסו שנית.');
+        setSubmitError(result.error ?? 'שגיאה בשליחת הבקשה. נסו שנית.');
         return;
       }
 
@@ -139,214 +144,207 @@ export function BookingRequestPage() {
         },
       });
     } catch {
-      setError('שגיאת תקשורת. בדקו חיבור לאינטרנט ונסו שנית.');
+      setSubmitError('שגיאת תקשורת. בדקו חיבור לאינטרנט ונסו שנית.');
     } finally {
       setIsSubmitting(false);
     }
   }
 
+  // ── Submit in-flight ────────────────────────────────────────────────────────
+  if (isSubmitting) {
+    return (
+      <div dir="rtl" lang="he" style={{ minHeight: '100dvh', background: sb.bgCanvas }}>
+        <GlobalStateCard variant="loading" fullPage title="שולח בקשת שיעור…" description="רגע, שולחים את הבקשה למורה." />
+      </div>
+    );
+  }
+
+  // ── Submit failure → retry ──────────────────────────────────────────────────
+  if (submitError) {
+    return (
+      <div dir="rtl" lang="he" style={{ minHeight: '100dvh', background: sb.bgCanvas }}>
+        <GlobalStateCard
+          variant="error"
+          fullPage
+          icon={<AlertCircle size={32} />}
+          title={submitError}
+          cta={{ label: 'נסה שוב (Retry)', onClick: () => setSubmitError('') }}
+        />
+      </div>
+    );
+  }
+
+  const header = (
+    <div>
+      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: sb.active, fontFamily: sb.fontUi }}>
+        קביעת שיעור (Book a Lesson)
+      </p>
+      <h2 style={{ margin: '6px 0 0', fontSize: 20, fontWeight: 800, color: sb.textPrimary, fontFamily: sb.fontUi }}>
+        {match.teacher.fullName}
+      </h2>
+    </div>
+  );
+
+  const footer = (
+    <WizardFooter
+      onBack={() => navigate('/onboarding/results')}
+      backLabel="חזרה לתוצאות (Back)"
+      nextLabel=""
+      primary={
+        <UrgentButton onClick={() => void handleSubmit()} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <Send size={17} />
+          שלח בקשת שיעור (Send Request)
+        </UrgentButton>
+      }
+    />
+  );
+
   return (
-    <div dir="rtl" lang="he" className="tow tow-bg-glow" style={{ minHeight: '100dvh', color: T.text }}>
-      <FlowNav to="/" label="חזרה לדף הבית" />
-      <div style={{ maxWidth: 1000, margin: '0 auto', padding: '24px 18px 64px' }}>
-        <button
-          onClick={() => navigate('/onboarding/results')}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 16, background: 'none', border: 'none', color: T.text3, cursor: 'pointer', fontSize: 13.5 }}
-        >
-          <ChevronRight size={16} />
-          חזרה לתוצאות
-        </button>
-
-        <header style={{ marginBottom: 18 }}>
-          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: T.neon }}>
-            קביעת שיעור (Book a Lesson)
-          </p>
-          <h1 style={{ margin: '4px 0 0', fontSize: 'clamp(20px, 3.4vw, 26px)', fontWeight: 800, color: T.text }}>
-            {match.teacher.fullName}
-          </h1>
-        </header>
-
-        <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1.45fr 1fr', gap: 16, alignItems: 'start' }}>
-          {/* Left column: teacher profile + availability grid */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <Card>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div
-                  aria-hidden="true"
-                  style={{
-                    width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: 'color-mix(in oklab, #00f6ff 16%, transparent)', color: T.neon,
-                    fontWeight: 800, fontSize: 19, border: `1px solid ${T.line2}`,
-                  }}
-                >
-                  {initials(match.teacher.fullName)}
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 17, fontWeight: 800, color: T.text }}>{match.teacher.fullName}</div>
-                  <div style={{ fontSize: 13.5, color: T.text2 }}>
-                    {subjects ? `${subjects} · ` : ''}
-                    <span style={{ fontFamily: T.fontMono, color: T.gold }}>₪{rate}/שעה</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            <Card title="בחירת מועד" english="Select Time">
-              <BookingAvailabilityGrid
-                availabilitySlots={match.teacher.availabilitySlots}
-                dates={dates}
-                availableByDate={availableByDate}
-                loading={slotsLoading}
-                doubleMode={doubleMode}
-                selection={selection}
-                onSelect={(sel) => {
-                  setSelection(sel);
-                  setError('');
-                }}
-              />
-
-              {/* Double-lesson toggle */}
-              <button
-                type="button"
-                onClick={toggleDouble}
-                aria-pressed={doubleMode}
+    <WizardShell wide header={header} totalSteps={3} currentStep={2} stepKey="booking" footer={footer}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 4 }}>
+        {/* Left column: teacher profile + availability grid */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <BentoCard hover={false}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div
+                aria-hidden="true"
                 style={{
-                  marginTop: 14,
-                  display: 'inline-flex', alignItems: 'center', gap: 8,
-                  padding: '9px 14px', borderRadius: T.radiusSm,
-                  border: `1.5px solid ${doubleMode ? T.neon : T.ink}`,
-                  background: doubleMode ? 'color-mix(in oklab, #00f6ff 14%, transparent)' : 'transparent',
-                  color: doubleMode ? T.neon : T.text2,
-                  fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
-                  transition: 'border-color 250ms ease-out, color 250ms ease-out, background 250ms ease-out',
+                  width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: `color-mix(in oklab, ${sb.active} 16%, transparent)`, color: sb.active,
+                  fontWeight: 800, fontSize: 19, border: `1px solid ${sb.borderCyber}`,
                 }}
               >
-                <Layers size={16} />
-                שיעור כפול (Double Lesson)
-              </button>
-              {doubleMode && (
-                <p style={{ margin: '8px 0 0', fontSize: 12, color: T.text3 }}>
-                  בחרו משבצת פנויה ולצידה משבצת עוקבת פנויה — השיעור יוזמן ל-120 דקות.
-                </p>
-              )}
-            </Card>
-          </div>
-
-          {/* Right column: lesson details + pricing + info + CTA */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <Card title="פרטי השיעור" english="Lesson Details">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <FloatingLabelInput label="על מה יהיה השיעור?" value={topic} onChange={setTopic} />
-
-                {/* Asset Dropzone — uploads to private storage; linked on submit. */}
-                <div>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: T.text2, marginBottom: 6 }}>
-                    צירוף קבצים (Attachments)
-                  </div>
-                  <AttachmentDropzone onChange={setAttachmentIds} />
-                </div>
-
-                <div>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: T.text2, marginBottom: 6 }}>הודעה למורה (אופציונלי)</div>
-                  <textarea
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="ספרו קצת על מה שצריך…"
-                    rows={3}
-                    className="tow-focusable"
-                    style={{
-                      width: '100%', padding: 12, borderRadius: T.radiusSm, resize: 'vertical',
-                      background: 'color-mix(in oklab, #3f7e76 30%, transparent)',
-                      border: `1px solid ${T.ink}`, color: T.text, fontSize: 14, outline: 'none',
-                      fontFamily: 'inherit',
-                    }}
-                  />
+                {initials(match.teacher.fullName)}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 17, fontWeight: 800, color: sb.textPrimary }}>{match.teacher.fullName}</div>
+                <div style={{ fontSize: 13.5, color: sb.textSecondary }}>
+                  {subjects ? `${subjects} · ` : ''}
+                  <span style={{ fontFamily: sb.fontMono, color: sb.primaryCta }}>₪{rate}/שעה</span>
                 </div>
               </div>
-            </Card>
-
-            {/* Pricing summary */}
-            <Card title="תמחור" english="Price">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <Row label="מחיר לשעה" value={`₪${rate}`} />
-                <Row label={isDoubleSelection ? 'סה״כ (שיעור כפול)' : 'סה״כ'} value={total != null ? `₪${total}` : '—'} emphasize />
-                {!selection && <p style={{ margin: 0, fontSize: 12, color: T.text3 }}>בחרו מועד כדי לראות את המחיר הכולל.</p>}
-              </div>
-            </Card>
-
-            {/* Info bar — no payment at this stage. */}
-            <div
-              style={{
-                display: 'flex', alignItems: 'flex-start', gap: 8, padding: '12px 14px',
-                borderRadius: T.radiusSm, borderLeft: `3px solid ${T.success}`,
-                background: 'color-mix(in oklab, #3f7e76 30%, transparent)', color: T.text2, fontSize: 13,
-              }}
-            >
-              <Info size={15} style={{ flexShrink: 0, marginTop: 1, color: T.success }} />
-              <span>אין תשלום בשלב זה — רק בקשת שיעור. הסכמה על תשלום תגיע ישירות מהמורה.</span>
             </div>
+          </BentoCard>
 
-            {error && <div style={{ color: T.alert, fontSize: 13 }}>{error}</div>}
+          <BentoCard title="בחירת מועד" english="Select Time" hover={false}>
+            <BookingAvailabilityGrid
+              availabilitySlots={match.teacher.availabilitySlots}
+              dates={dates}
+              availableByDate={availableByDate}
+              loading={slotsLoading}
+              doubleMode={doubleMode}
+              selection={selection}
+              onSelect={(sel) => {
+                setSelection(sel);
+                setError('');
+              }}
+            />
 
+            {/* Double-lesson toggle */}
             <button
-              onClick={() => void handleSubmit()}
-              disabled={isSubmitting}
+              type="button"
+              onClick={toggleDouble}
+              aria-pressed={doubleMode}
               style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                width: '100%', padding: '14px 18px', borderRadius: T.radiusSm, border: 'none',
-                background: T.orange, color: '#1a0b03', fontSize: 16, fontWeight: 800,
-                cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1,
-                transition: 'filter 250ms ease-out',
+                marginTop: 14,
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '9px 14px', borderRadius: sb.radiusButton,
+                border: `1.5px solid ${doubleMode ? sb.active : sb.borderCyber}`,
+                background: doubleMode ? `color-mix(in oklab, ${sb.active} 14%, transparent)` : 'transparent',
+                color: doubleMode ? sb.active : sb.textSecondary,
+                fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
+                transition: 'border-color 250ms ease-out, color 250ms ease-out, background 250ms ease-out',
               }}
             >
-              <Send size={17} />
-              {isSubmitting ? 'שולח בקשה…' : 'שלח בקשת שיעור (Send Request)'}
+              <Layers size={16} />
+              שיעור כפול (Double Lesson)
             </button>
+            {doubleMode && (
+              <p style={{ margin: '8px 0 0', fontSize: 12, color: sb.textMuted }}>
+                בחרו משבצת פנויה ולצידה משבצת עוקבת פנויה — השיעור יוזמן ל-120 דקות.
+              </p>
+            )}
+          </BentoCard>
+        </div>
+
+        {/* Right column: lesson details + pricing + info + CTA */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <BentoCard title="פרטי השיעור" english="Lesson Details" hover={false}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* FloatingLabelInput depends on .tow-scoped vars (--tow-font / --tow-neon);
+                  wrap only this field so it keeps its exact look without migrating the
+                  shared component (also used by teacher-onboarding v2). Seam to remove
+                  when that wizard migrates to DS. */}
+              <div className="tow">
+                <FloatingLabelInput label="על מה יהיה השיעור?" value={topic} onChange={setTopic} />
+              </div>
+
+              {/* Asset Dropzone — uploads to private storage; linked on submit. */}
+              <div>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: sb.textSecondary, marginBottom: 6 }}>
+                  צירוף קבצים (Attachments)
+                </div>
+                <AttachmentDropzone onChange={setAttachmentIds} />
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: sb.textSecondary, marginBottom: 6 }}>הודעה למורה (אופציונלי)</div>
+                <textarea
+                  className="sb-input"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="ספרו קצת על מה שצריך…"
+                  rows={3}
+                  style={{ width: '100%', padding: 12, resize: 'vertical', fontSize: 14 }}
+                />
+              </div>
+            </div>
+          </BentoCard>
+
+          {/* Pricing summary */}
+          <BentoCard title="תמחור" english="Price" hover={false}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <Row label="מחיר לשעה" value={`₪${rate}`} />
+              <Row label={isDoubleSelection ? 'סה״כ (שיעור כפול)' : 'סה״כ'} value={total != null ? `₪${total}` : '—'} emphasize />
+              {!selection && <p style={{ margin: 0, fontSize: 12, color: sb.textMuted }}>בחרו מועד כדי לראות את המחיר הכולל.</p>}
+            </div>
+          </BentoCard>
+
+          {/* Info bar — no payment at this stage. */}
+          <div
+            style={{
+              display: 'flex', alignItems: 'flex-start', gap: 8, padding: '12px 14px',
+              borderRadius: sb.radiusButton, borderInlineStart: `3px solid ${sb.success}`,
+              background: sb.glassSoft, color: sb.textSecondary, fontSize: 13,
+            }}
+          >
+            <Info size={15} style={{ flexShrink: 0, marginTop: 1, color: sb.success }} />
+            <span>אין תשלום בשלב זה — רק בקשת שיעור. הסכמה על תשלום תגיע ישירות מהמורה.</span>
           </div>
+
+          {error && <div style={{ color: sb.error, fontSize: 13 }}>{error}</div>}
         </div>
       </div>
-    </div>
+    </WizardShell>
   );
 }
 
 function Row({ label, value, emphasize }: { label: string; value: string; emphasize?: boolean }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-      <span style={{ fontSize: 13.5, color: T.text2 }}>{label}</span>
+      <span style={{ fontSize: 13.5, color: sb.textSecondary }}>{label}</span>
       <span
         style={{
-          fontFamily: T.fontMono,
+          fontFamily: sb.fontMono,
           fontWeight: 800,
           fontSize: emphasize ? 20 : 14,
-          color: emphasize ? T.neon : T.text,
+          color: emphasize ? sb.active : sb.textPrimary,
         }}
       >
         {value}
       </span>
     </div>
-  );
-}
-
-function Card({ title, english, children, style }: { title?: string; english?: string; children: ReactNode; style?: CSSProperties }) {
-  return (
-    <section
-      style={{
-        padding: 18, borderRadius: T.radius, border: `1px solid ${T.ink}`,
-        background: 'color-mix(in oklab, #3f7e76 55%, transparent)',
-        backdropFilter: 'blur(12px) saturate(140%)', WebkitBackdropFilter: 'blur(12px) saturate(140%)',
-        boxShadow: '0 8px 28px -18px rgba(0,0,0,0.55)',
-        ...style,
-      }}
-    >
-      {title && (
-        <h2 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 800, color: T.text }}>
-          {title}
-          {english ? <span style={{ color: T.text3, fontWeight: 600 }}> ({english})</span> : null}
-        </h2>
-      )}
-      {children}
-    </section>
   );
 }
 

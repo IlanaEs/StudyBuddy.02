@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Bell, Menu, X } from 'lucide-react';
-import { useMediaQuery } from '@mantine/hooks';
+import { Bell, LayoutDashboard, CalendarClock, History, MessageCircle, Settings, LogOut } from 'lucide-react';
+import { FloatingTopNavbar, type NavTab } from '../../../design-system';
 import { towTokens as T } from '../../../design/tokens';
-import { StudentSidebar } from './StudentSidebar';
-import type { StudentView } from './StudentSidebar';
+import type { StudentView } from '../types';
 
 export function StudentDashboardLayout({
   studentName,
@@ -19,25 +17,24 @@ export function StudentDashboardLayout({
   onSignOut: () => void;
   children: ReactNode;
 }) {
-  // Default to mobile when the query is still resolving (SSR-safe-ish): treat
-  // undefined as desktop so the anchored rail is the baseline.
-  const isMobile = useMediaQuery('(max-width: 860px)') ?? false;
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
-  // On mobile, selecting an item should also close the drawer.
-  const selectView = (view: StudentView) => {
-    onSelectView(view);
-    setDrawerOpen(false);
-  };
-  const signOut = () => {
-    setDrawerOpen(false);
-    onSignOut();
-  };
+  // Clean, text-free floating bar: ALL nav items as icons (tooltips on hover). RTL →
+  // overview rightmost, sign-out leftmost. Bilingual-rule exception: icons only.
+  const tabs: NavTab[] = [
+    { id: 'overview', icon: <LayoutDashboard size={20} />, label: 'תצוגה כללית', active: activeView === 'overview', onClick: () => onSelectView('overview') },
+    { id: 'lessons', icon: <CalendarClock size={20} />, label: 'השיעורים שלי', active: activeView === 'lessons', onClick: () => onSelectView('lessons') },
+    { id: 'history', icon: <History size={20} />, label: 'היסטוריה וסיכומים', active: activeView === 'history', onClick: () => onSelectView('history') },
+    { id: 'chat', icon: <MessageCircle size={20} />, label: 'הצ׳אטים שלי (בקרוב)', disabled: true },
+    { id: 'settings', icon: <Settings size={20} />, label: 'פרופיל / הגדרות', active: activeView === 'settings', onClick: () => onSelectView('settings') },
+    { id: 'signout', icon: <LogOut size={20} />, label: 'התנתקות', onClick: onSignOut },
+  ];
 
   return (
     <div dir="rtl" lang="he" className="tow tow-bg-glow" style={{ minHeight: '100dvh', color: T.text }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '20px 18px 56px' }}>
-        {/* Header */}
+      <FloatingTopNavbar tabs={tabs} />
+      {/* Bottom padding clears the fixed bottom-right SessionControls widget so no card
+          (e.g. the "Full History" button) is occluded by it. */}
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: 'calc(1.5rem + 64px) 18px 96px' }}>
+        {/* Greeting header (identity, not nav) — sits below the floating bar. */}
         <header
           style={{
             display: 'flex',
@@ -47,35 +44,23 @@ export function StudentDashboardLayout({
             marginBottom: 20,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-            {isMobile && (
-              <button
-                type="button"
-                onClick={() => setDrawerOpen(true)}
-                aria-label="פתח תפריט"
-                style={iconButtonStyle(false)}
-              >
-                <Menu size={20} />
-              </button>
-            )}
-            <div style={{ minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: T.neon }}>
-                דשבורד תלמיד (Student Dashboard)
-              </p>
-              <h1
-                style={{
-                  margin: '4px 0 0',
-                  fontSize: 'clamp(18px, 3.2vw, 24px)',
-                  fontWeight: 800,
-                  color: T.text,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                שלום, {studentName}
-              </h1>
-            </div>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: T.neon }}>
+              דשבורד תלמיד (Student Dashboard)
+            </p>
+            <h1
+              style={{
+                margin: '4px 0 0',
+                fontSize: 'clamp(18px, 3.2vw, 24px)',
+                fontWeight: 800,
+                color: T.text,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              שלום, {studentName}
+            </h1>
           </div>
 
           {/* Notification bell — present but inert (Notifications not built yet). */}
@@ -84,55 +69,7 @@ export function StudentDashboardLayout({
           </button>
         </header>
 
-        {/* Sidebar + main */}
-        {isMobile ? (
-          <>
-            <main style={{ minWidth: 0 }}>{children}</main>
-            {drawerOpen && (
-              <>
-                {/* Backdrop */}
-                <div
-                  onClick={() => setDrawerOpen(false)}
-                  style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(4,22,21,0.6)', backdropFilter: 'blur(2px)' }}
-                />
-                {/* Drawer — anchored to the right (RTL start). */}
-                <div
-                  role="dialog"
-                  aria-label="תפריט ניווט"
-                  style={{
-                    position: 'fixed',
-                    insetBlock: 0,
-                    insetInlineStart: 0,
-                    zIndex: 91,
-                    width: 'min(280px, 82vw)',
-                    padding: 14,
-                    background: T.bg,
-                    borderInlineStart: `1px solid ${T.card}`,
-                    boxShadow: '0 0 60px -20px rgba(0,0,0,0.8)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-                    <button type="button" onClick={() => setDrawerOpen(false)} aria-label="סגור תפריט" style={iconButtonStyle(false)}>
-                      <X size={20} />
-                    </button>
-                  </div>
-                  <div style={{ flex: 1, minHeight: 0 }}>
-                    <StudentSidebar active={activeView} onSelect={selectView} onSignOut={signOut} />
-                  </div>
-                </div>
-              </>
-            )}
-          </>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(210px, 240px) 1fr', gap: 20, alignItems: 'stretch' }}>
-            <div style={{ position: 'sticky', top: 20, alignSelf: 'start' }}>
-              <StudentSidebar active={activeView} onSelect={selectView} onSignOut={signOut} />
-            </div>
-            <main style={{ minWidth: 0 }}>{children}</main>
-          </div>
-        )}
+        <main style={{ minWidth: 0 }}>{children}</main>
       </div>
     </div>
   );

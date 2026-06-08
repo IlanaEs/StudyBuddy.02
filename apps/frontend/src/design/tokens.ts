@@ -17,8 +17,14 @@ export const sbTokens = {
   glassBase: 'var(--sb-glass-base)',
   glassSoft: 'var(--sb-glass-soft)',
   borderCyber: 'var(--sb-border-cyber)',
-  borderMuted: 'var(--sb-border-muted)',
+  /** @deprecated Alias of {@link borderCyber} — the competing #016c7c border was
+   * dropped from the canonical layer. Use `borderCyber`; this maps onto it. */
+  borderMuted: 'var(--sb-border-cyber)',
   hoverGlow: 'var(--sb-hover-glow)',
+  // Glassmorphism inputs + background grid (DS v1 wizard visual language).
+  inputBorder: 'var(--sb-input-border)',
+  inputFocusGlow: 'var(--sb-input-focus-glow)',
+  gridOverlay: 'var(--sb-grid-overlay)',
   // Typography colors
   textPrimary: 'var(--sb-text-primary)',
   textPrimaryAlt: 'var(--sb-text-primary-alt)',
@@ -43,6 +49,11 @@ export const sbTokens = {
   // Fonts
   fontUi: 'var(--sb-font-ui)',
   fontMono: 'var(--sb-font-mono)',
+  // Typography scale (responsive; use with fontUi / fontMono). See styles.css.
+  fsHeading: 'var(--sb-fs-heading)',
+  fsSubheading: 'var(--sb-fs-subheading)',
+  fsBody: 'var(--sb-fs-body)',
+  fsCaption: 'var(--sb-fs-caption)',
 } as const;
 
 export type SbTokens = typeof sbTokens;
@@ -54,17 +65,19 @@ export type SbTokens = typeof sbTokens;
  * the map in docs/design-system.md, then this export is removed.
  */
 export const towTokens = {
-  bg: '#175655',
+  // Identity-equal values reference the canonical --sb-* tokens (single source);
+  // the rest stay raw until the .tow scope is migrated off.
+  bg: 'var(--sb-bg-depth)', // ≡ #175655
   card: '#3f7e76',
   card2: '#38716a',
   ink: '#016c7c',
   text: '#eaf7f5',
   text2: '#c4dbd7',
   text3: '#93b4af',
-  neon: '#00f6ff',
+  neon: 'var(--sb-active)', // ≡ #00f6ff
   gold: '#ffd166',
-  orange: '#fc6d17',
-  alert: '#e22b57',
+  orange: 'var(--sb-warning)', // ≡ #fc6d17
+  alert: 'var(--sb-error)', // ≡ #e22b57
   success: '#bbe341',
   line: 'rgba(234, 247, 245, 0.18)',
   line2: 'rgba(234, 247, 245, 0.30)',

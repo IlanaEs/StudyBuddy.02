@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMediaQuery } from '@mantine/hooks';
-import { GraduationCap, CalendarHeart, Flame, KeyRound, AlertCircle } from 'lucide-react';
+import { GraduationCap, CalendarHeart, Flame, KeyRound, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthProvider';
 import { useMatchingStore } from '../../matching/store/matchingStore';
 import { DualRangeSlider } from '../../matching/components/DualRangeSlider';
 import { AvailabilityGrid } from '../../matching/components/AvailabilityGrid';
 import { WizardShell, WizardFooter, BentoCard, GlobalStateCard, sbTokens as sb } from '../../../design-system';
+import { useStudentCalendarSync } from '../../matching/hooks/useStudentCalendarSync';
+import { CalendarSyncCard } from '../../matching/components/CalendarSyncCard';
 import { createStudentIntake, runMatching } from '../../../api/students';
 import type { SoftCriteria } from '../../../api/students';
-import { getLatestIntake, getMyStudentProfile, requestSubjectAddition } from '../api/findTutor';
+import { getLatestIntake, getMyStudentProfile } from '../api/findTutor';
 import { SubjectAutocomplete } from '../components/SubjectAutocomplete';
+import { saveFindTutorDraft, loadFindTutorDraft, clearFindTutorDraft } from '../findTutorDraft';
 
 const INDEX_TO_DAY = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const DAY_TO_INDEX: Record<string, number> = { ראשון: 0, שני: 1, שלישי: 2, רביעי: 3, חמישי: 4, שישי: 5, שבת: 6 };
@@ -20,9 +22,10 @@ const BUCKET_TO_RANGE: Record<string, { start: string; end: string }> = {
   afternoon: { start: '12:00', end: '17:00' },
   evening: { start: '17:00', end: '22:00' },
 };
-function rangeToBucket(start: string): string {
-  const h = parseInt(start.split(':')[0] ?? '0', 10);
-  return h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+// Special preferences are OPTIONAL — an empty step writes soft_criteria = null
+// (a clean, valid state), not an empty object.
+function hasSoftCriteria(s: SoftCriteria): boolean {
+  return !!(s.teacher_gender || s.fast_pace || s.adhd_experience || s.inclusive_approach);
 }
 
 const GOALS = [
@@ -32,16 +35,43 @@ const GOALS = [
 ];
 
 // Step-3 one-tap availability presets (operate on the day/time-bucket model).
+// Days MUST match AvailabilityGrid's columns: ראשון–שישי (Sun–Fri, א'–ו'); there
+// is NO שבת column, so the weekend day available in this grid is ו' (Friday) only.
+const GRID_DAYS = INDEX_TO_DAY.slice(0, 6); // ראשון–שישי
+const ALL_TIME_BUCKETS = Object.keys(BUCKET_TO_RANGE); // morning, afternoon, evening
+// "After 16:00" = every band whose range extends past 16:00 (derived from the band
+// ranges, not hardcoded): afternoon (…–17:00) + evening (…–22:00); morning excluded.
+const AFTER_16_BUCKETS = Object.entries(BUCKET_TO_RANGE)
+  .filter(([, r]) => parseInt(r.end.split(':')[0] ?? '0', 10) > 16)
+  .map(([bucket]) => bucket);
+
 const PRESETS = [
-  { id: 'after16', label: 'כל יום אחרי 16:00', days: [...INDEX_TO_DAY], times: ['afternoon', 'evening'] },
-  { id: 'evenings', label: 'ערבים בלבד', days: [...INDEX_TO_DAY], times: ['evening'] },
-  { id: 'weekend', label: 'סופ״ש בלבד', days: ['שישי', 'שבת'], times: ['morning', 'afternoon', 'evening'] },
+  { id: 'after16', label: 'כל יום אחרי 16:00', days: GRID_DAYS, times: AFTER_16_BUCKETS },
+  { id: 'evenings', label: 'ערבים בלבד', days: GRID_DAYS, times: ['evening'] },
+  // ו' (Friday) is the only weekend day in this Sun–Fri grid (no שבת column).
+  { id: 'weekend', label: 'סופ״ש בלבד', days: ['שישי'], times: ALL_TIME_BUCKETS },
 ];
+
+// Level categories (the matching-relevant value; mirrors students.grade_level and
+// teacher_subjects.level). The quick wizard lets a student temporarily override the
+// level for THIS search only — never persisted back to the profile.
+const LEVELS: { value: string; he: string; en: string }[] = [
+  { value: 'elementary', he: 'יסודי', en: 'Elementary' },
+  { value: 'middle', he: 'חטיבה', en: 'Middle' },
+  { value: 'high', he: 'תיכון', en: 'High School' },
+  { value: 'academic', he: 'אקדמי', en: 'Academic' },
+];
+function levelLabel(value: string | null): string {
+  if (!value) return 'לא הוגדר (Not set)';
+  const m = LEVELS.find((l) => l.value === value);
+  return m ? `${m.he} (${m.en})` : value;
+}
 
 const STEP_HEADERS: Record<number, { title: string; english: string; subtitle?: string }> = {
   1: { title: 'הגדרת שיעור', english: 'Lesson Setup', subtitle: 'מה המטרה ובאיזה מקצוע?' },
-  2: { title: 'תקציב והעדפות', english: 'Budget & Preferences' },
+  2: { title: 'תקציב', english: 'Budget', subtitle: 'מה טווח המחיר לשעה שמתאים לך?' },
   3: { title: 'חלונות זמינות', english: 'Select Availability' },
+  4: { title: 'העדפות מיוחדות', english: 'Preferences', subtitle: 'העדפות נוספות לחיפוש הזה (לא חובה).' },
 };
 
 export function FindTutorWizardPage() {
@@ -49,7 +79,6 @@ export function FindTutorWizardPage() {
   const auth = useAuth();
   const token = auth.session?.access_token ?? null;
   const store = useMatchingStore();
-  const isNarrow = useMediaQuery('(max-width: 720px)') ?? false;
 
   const [loading, setLoading] = useState(true);
   // Non-null ONLY when the profile bootstrap fails (404 = no profile, or a real
@@ -60,10 +89,14 @@ export function FindTutorWizardPage() {
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [manualDone, setManualDone] = useState(false);
 
   // Pulled from the profile (not re-asked)
   const [studentId, setStudentId] = useState<string | null>(null);
+  // Level context: defaults from the stable students.grade_level; can be temporarily
+  // overridden for this search via the subject-step control (never persisted).
   const [level, setLevel] = useState<string | null>(null);
+  const [levelEditing, setLevelEditing] = useState(false);
 
   // Collected / optionally pre-filled
   const [goal, setGoal] = useState<string | null>(null);
@@ -74,6 +107,21 @@ export function FindTutorWizardPage() {
   const [soft, setSoft] = useState<SoftCriteria>({});
   const [days, setDays] = useState<string[]>([]);
   const [times, setTimes] = useState<string[]>([]);
+  // Quick-filter presets: which one is active, and a key that remounts the grid so it
+  // re-reads the new selection (the grid is otherwise uncontrolled after mount).
+  const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [gridKey, setGridKey] = useState(0);
+
+  // Shared Google-Calendar sync. The quick wizard's basic login token lacks the
+  // calendar scope, so Connect goes through INCREMENTAL authorization (redirect to
+  // /find-tutor requesting calendar.readonly); the in-progress search is persisted
+  // across the round-trip (see onConnect). On sync, busy cells block the grid.
+  const cal = useStudentCalendarSync({
+    redirect: true,
+    returnPath: '/find-tutor',
+    trustSessionToken: false,
+    onSynced: () => { setDays([]); setTimes([]); },
+  });
 
   // Bootstrap: gate on the student PROFILE (not the intakes endpoint). Then
   // optionally prefill from the latest intake as non-blocking defaults.
@@ -102,19 +150,44 @@ export function FindTutorWizardPage() {
       setStudentId(prof.data.student_id);
       store.setFlow('quick');
 
+      // Returning from the Google Calendar OAuth round-trip — restore the search
+      // exactly as it was (the calendar-sync result is applied by the hook), and
+      // land back on the availability step. Skip the fresh prefill.
+      const draft = loadFindTutorDraft();
+      if (draft) {
+        clearFindTutorDraft();
+        setSubject(draft.subject);
+        setSubjectIsCustom(draft.subjectIsCustom);
+        setGoal(draft.goal);
+        setLevel(draft.level);
+        setBudgetMin(draft.budgetMin);
+        setBudgetMax(draft.budgetMax);
+        setDays(draft.days);
+        setTimes(draft.times);
+        setSoft(draft.soft);
+        setPrefilled(true);
+        setStep(draft.step || 3);
+        setLoading(false);
+        return;
+      }
+
+      // Default the level context from the STABLE profile grade_level.
+      setLevel(prof.data.grade_level);
+
       // Optional prefill — never gates, never forces old state.
       const latest = await getLatestIntake(token);
       if (cancelled) return;
       if (!('error' in latest) && latest.data.intake) {
         const i = latest.data.intake;
         setPrefilled(true);
-        setLevel(i.level);
+        // Fall back to the last search's level only when no stable grade_level is saved.
+        if (prof.data.grade_level == null) setLevel(i.level);
         setGoal(i.goal ?? null);
         if (i.budget_min != null) setBudgetMin(i.budget_min);
         if (i.budget_max != null) setBudgetMax(i.budget_max);
         setSoft(i.soft_criteria ?? {});
-        setDays((i.preferred_days ?? []).map((d) => INDEX_TO_DAY[d]).filter((d): d is string => !!d));
-        setTimes([...new Set((i.preferred_time_ranges ?? []).map((r) => rangeToBucket(r.start)))]);
+        // Availability is NOT prefilled — the grid opens empty (aligned with onboarding);
+        // the student picks fresh windows (or one-tap presets / calendar sync) per search.
       }
       setLoading(false);
     })();
@@ -128,20 +201,62 @@ export function FindTutorWizardPage() {
     setSoft((s) => ({ ...s, teacher_gender: s.teacher_gender === g ? null : g }));
   }
 
+  // Toggle a quick-filter preset: clicking it applies its day×band selection;
+  // clicking the active one again clears it. Bumping gridKey remounts the grid so
+  // it re-reads the selection (busy cells are excluded by the grid on rebuild).
   function applyPreset(p: (typeof PRESETS)[number]) {
-    setDays([...p.days]);
-    setTimes([...p.times]);
+    if (activePreset === p.id) {
+      setDays([]);
+      setTimes([]);
+      setActivePreset(null);
+    } else {
+      setDays([...p.days]);
+      setTimes([...p.times]);
+      setActivePreset(p.id);
+    }
+    setGridKey((k) => k + 1);
+  }
+
+  // Off-taxonomy course → store a manual-match lead on the intake (free-text +
+  // flag), no automatic matching. We'll match the student manually.
+  async function submitManualMatch() {
+    if (!token || !studentId) return;
+    setError('');
+    setSubmitting(true);
+    try {
+      const res = await createStudentIntake(
+        {
+          student_id: studentId,
+          custom_subject_text: subject.trim(),
+          needs_manual_match: true,
+          level: level ?? undefined,
+          goal,
+          location_preference: 'online',
+          budget_min: budgetMin,
+          budget_max: budgetMax,
+          preferred_days: days.map((d) => DAY_TO_INDEX[d]).filter((n): n is number => typeof n === 'number'),
+          preferred_time_ranges: times.map((t) => BUCKET_TO_RANGE[t]).filter((r): r is { start: string; end: string } => !!r),
+          soft_criteria: hasSoftCriteria(soft) ? soft : null,
+        },
+        token,
+      );
+      if ('error' in res) {
+        setError(res.error ?? 'שגיאה בשליחת הבקשה. נסו שוב.');
+        return;
+      }
+      setManualDone(true);
+    } catch {
+      setError('שגיאת תקשורת. בדקו חיבור ונסו שוב.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function runMatch() {
     if (!token || !studentId) return;
     if (subjectIsCustom) {
-      // Off-taxonomy → capture + block (never submit an off-taxonomy subject; no matching).
-      if (subject.trim()) await requestSubjectAddition(token, subject.trim());
-      setError('המקצוע נשלח לבדיקה ויתווסף בקרוב. בחרו מקצוע מהרשימה כדי להמשיך.');
-      setStep(1);
-      setSubject('');
-      setSubjectIsCustom(false);
+      // Off-taxonomy course → manual-match lead, not an automatic search.
+      await submitManualMatch();
       return;
     }
     setError('');
@@ -158,7 +273,7 @@ export function FindTutorWizardPage() {
           budget_max: budgetMax,
           preferred_days: days.map((d) => DAY_TO_INDEX[d]).filter((n): n is number => typeof n === 'number'),
           preferred_time_ranges: times.map((t) => BUCKET_TO_RANGE[t]).filter((r): r is { start: string; end: string } => !!r),
-          soft_criteria: soft,
+          soft_criteria: hasSoftCriteria(soft) ? soft : null,
         },
         token,
       );
@@ -210,6 +325,20 @@ export function FindTutorWizardPage() {
       </Canvas>
     );
   }
+  if (manualDone) {
+    return (
+      <Canvas>
+        <GlobalStateCard
+          variant="success"
+          fullPage
+          icon={<CheckCircle2 size={32} />}
+          title="קיבלנו את הבקשה (Request Received)"
+          description="הקורס שביקשת אינו בקטלוג — נבצע עבורך התאמה ידנית ונחזור אליך בהקדם."
+          cta={{ label: 'חזרה לדשבורד (Dashboard)', onClick: () => navigate('/student/dashboard') }}
+        />
+      </Canvas>
+    );
+  }
   if (loading) {
     return (
       <Canvas>
@@ -254,14 +383,16 @@ export function FindTutorWizardPage() {
       <WizardFooter onNext={() => setStep(2)} nextLabel="המשך (Next)" nextDisabled={!canNext1} />
     ) : step === 2 ? (
       <WizardFooter onBack={() => setStep(1)} backLabel="חזרה (Back)" onNext={() => setStep(3)} nextLabel="המשך ללוח זמנים (Next)" />
+    ) : step === 3 ? (
+      <WizardFooter onBack={() => setStep(2)} backLabel="חזרה (Back)" onNext={() => setStep(4)} nextLabel="המשך להעדפות (Next)" nextDisabled={!canNext3} />
     ) : (
-      <WizardFooter onBack={() => setStep(2)} backLabel="חזרה (Back)" onNext={() => void runMatch()} nextLabel="מצא לי התאמות (Run AI Match)" nextDisabled={!canNext3} />
+      <WizardFooter onBack={() => setStep(3)} backLabel="חזרה (Back)" onNext={() => void runMatch()} nextLabel="מצא לי התאמות (Run AI Match)" />
     );
 
   return (
-    <WizardShell header={header} totalSteps={3} currentStep={step} stepKey={step} footer={footer}>
+    <WizardShell header={header} totalSteps={4} currentStep={step} stepKey={step} footer={footer}>
       {step === 1 && (
-        <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '2fr 1fr', gap: 16, alignItems: 'start', marginTop: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 4 }}>
           {/* Right 2/3: goal + subject */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -269,7 +400,20 @@ export function FindTutorWizardPage() {
                 <GoalCard key={g.value} icon={g.icon} label={g.label} selected={goal === g.value} onClick={() => setGoal(g.value)} />
               ))}
             </div>
-            <SubjectAutocomplete value={subject} isCustom={subjectIsCustom} onChange={(s, custom) => { setSubject(s); setSubjectIsCustom(custom); setError(''); }} />
+            {/* Hero intake card — the current question (subject) is the visual anchor. */}
+            <BentoCard hover={false} style={{ padding: 18 }}>
+              <p style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800, color: sb.textPrimary, fontFamily: sb.fontUi }}>
+                באיזה מקצוע תרצו להתמקד? (Subject)
+              </p>
+              <SubjectAutocomplete value={subject} isCustom={subjectIsCustom} level={level} onChange={(s, custom) => { setSubject(s); setSubjectIsCustom(custom); setError(''); }} />
+            </BentoCard>
+
+            <LevelContextControl
+              level={level}
+              editing={levelEditing}
+              onToggle={() => setLevelEditing((v) => !v)}
+              onPick={(v) => { setLevel(v); setLevelEditing(false); }}
+            />
           </div>
 
           {/* Left 1/3: Direct Tutor Search — DISABLED (Phase 2). */}
@@ -293,6 +437,46 @@ export function FindTutorWizardPage() {
       {step === 2 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 4 }}>
           <DualRangeSlider min={0} max={500} step={10} valueMin={budgetMin} valueMax={budgetMax} onChangeMin={setBudgetMin} onChangeMax={setBudgetMax} formatValue={(v) => (v === 500 ? '₪500+' : `₪${v}`)} />
+        </div>
+      )}
+
+      {step === 3 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 4 }}>
+          <CalendarSyncCard
+            availMode={cal.availMode}
+            calSyncing={cal.calSyncing}
+            calSyncError={cal.calSyncError}
+            onConnect={() => {
+              // Persist the in-progress search so it survives the Google redirect.
+              saveFindTutorDraft({ subject, subjectIsCustom, goal, level, budgetMin, budgetMax, days, times, soft, step });
+              void cal.startSync();
+            }}
+            onManual={cal.setManual}
+            onEdit={cal.setManual}
+          />
+          {(cal.availMode === 'manual' || cal.availMode === 'synced') && (
+            <>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {PRESETS.map((p) => (
+                  <Chip key={p.id} label={p.label} selected={activePreset === p.id} onClick={() => applyPreset(p)} />
+                ))}
+              </div>
+              <AvailabilityGrid
+                key={gridKey}
+                selectedDays={days}
+                selectedTimes={times}
+                onChangeDays={(d) => { setDays(d); setActivePreset(null); }}
+                onChangeTimes={(t) => { setTimes(t); setActivePreset(null); }}
+                busyKeys={cal.busyCellKeys.size > 0 ? cal.busyCellKeys : undefined}
+              />
+            </>
+          )}
+          {error && <div style={{ color: sb.error, fontSize: 13 }}>{error}</div>}
+        </div>
+      )}
+
+      {step === 4 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 4 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             <Chip label="מורה אישה" selected={soft.teacher_gender === 'female'} onClick={() => toggleGender('female')} />
             <Chip label="מורה גבר" selected={soft.teacher_gender === 'male'} onClick={() => toggleGender('male')} />
@@ -300,17 +484,6 @@ export function FindTutorWizardPage() {
             <Chip label="ניסיון עם ADHD" selected={!!soft.adhd_experience} onClick={() => setSoft((s) => ({ ...s, adhd_experience: !s.adhd_experience }))} />
             <Chip label="גישה תומכת ומחזקת ביטחון" selected={!!soft.inclusive_approach} onClick={() => setSoft((s) => ({ ...s, inclusive_approach: !s.inclusive_approach }))} />
           </div>
-        </div>
-      )}
-
-      {step === 3 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 4 }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {PRESETS.map((p) => (
-              <Chip key={p.id} label={p.label} onClick={() => applyPreset(p)} />
-            ))}
-          </div>
-          <AvailabilityGrid selectedDays={days} selectedTimes={times} onChangeDays={setDays} onChangeTimes={setTimes} />
           {error && <div style={{ color: sb.error, fontSize: 13 }}>{error}</div>}
         </div>
       )}
@@ -342,6 +515,60 @@ function GoalCard({ icon, label, selected, onClick }: { icon: ReactNode; label: 
         <span style={{ color: selected ? sb.active : sb.textSecondary, display: 'flex' }}>{icon}</span>
         <span style={{ fontWeight: 700, color: sb.textPrimary, fontFamily: sb.fontUi }}>{label}</span>
       </div>
+    </BentoCard>
+  );
+}
+
+// Subject-step control: shows the current level/academic context (defaulted from the
+// saved profile) and lets the student temporarily change it for THIS search only.
+function LevelContextControl({
+  level,
+  editing,
+  onToggle,
+  onPick,
+}: {
+  level: string | null;
+  editing: boolean;
+  onToggle: () => void;
+  onPick: (value: string) => void;
+}) {
+  const isAcademic = level === 'academic';
+  const contextLabel = isAcademic ? 'הקשר אקדמי (Academic Context)' : 'רמה (Level)';
+  const changeLabel = isAcademic ? 'החלפת הקשר אקדמי (Change academic context)' : 'החלפת רמה (Change level)';
+  return (
+    <BentoCard hover={false} style={{ padding: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: sb.textSecondary, fontSize: 13.5, fontWeight: 700 }}>
+          <GraduationCap size={16} />
+          {contextLabel}: <span style={{ color: sb.textPrimary }}>{levelLabel(level)}</span>
+        </span>
+        <button
+          type="button"
+          onClick={onToggle}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: sb.active,
+            fontFamily: sb.fontUi,
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: 'pointer',
+            padding: 0,
+          }}
+        >
+          {editing ? 'סגירה (Close)' : changeLabel}
+        </button>
+      </div>
+      {editing && (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {LEVELS.map((l) => (
+              <Chip key={l.value} label={`${l.he} (${l.en})`} selected={level === l.value} onClick={() => onPick(l.value)} />
+            ))}
+          </div>
+          <p style={{ margin: '10px 0 0', fontSize: 12, color: sb.textMuted }}>השינוי זמני וחל על חיפוש זה בלבד.</p>
+        </div>
+      )}
     </BentoCard>
   );
 }

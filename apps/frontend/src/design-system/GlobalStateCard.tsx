@@ -68,6 +68,8 @@ export function GlobalStateCard({ variant, icon, title, description, cta, fullPa
 
   if (!fullPage) return body;
   return (
-    <div style={{ minHeight: '60dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{body}</div>
+    <div style={{ minHeight: '60dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
+      <div style={{ width: '100%', maxWidth: 480 }}>{body}</div>
+    </div>
   );
 }
