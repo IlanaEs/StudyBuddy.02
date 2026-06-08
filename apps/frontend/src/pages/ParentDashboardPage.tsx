@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, CreditCard, Sun, BookOpen, ChevronLeft, CalendarDays, Video, Users, CheckCircle2 } from 'lucide-react';
+import { Calendar, CreditCard, Sun, BookOpen, ChevronLeft, CalendarDays, Video, Users, CheckCircle2, Hourglass, Search } from 'lucide-react';
 
 import { useAuth } from '../auth/AuthProvider';
 import { BentoCard, GlobalStateCard, sbTokens as sb } from '../design-system';
 import { useParentDashboard } from '../features/parent/hooks/useParentDashboard';
+import { useChildSchedule } from '../features/parent/hooks/useChildSchedule';
 import type { ParentDashboardPayload, HomeworkTaskStatus } from '../features/parent/api/types';
 import { AddLessonToCalendarButton } from '../components/AddLessonToCalendarButton';
+import { MonthlyCalendarAnchor } from '../features/parent/components/MonthlyCalendarAnchor';
+import { DayAgenda } from '../features/parent/components/DayAgenda';
 
 // ── Canonical accents (consume --sb tokens; zero raw hex) ───────────────────────
 // No canonical purple exists; the family schedule uses the active accent.
@@ -76,6 +79,15 @@ type PreviousLessonItem = {
   status: 'closed' | 'pending_approval';
 };
 
+type PendingRequestItem = {
+  id: string;
+  teacherName: string;
+  day: string;
+  date: string;
+  time: string;
+  status: 'pending' | 'rejected' | 'expired';
+};
+
 type WeeklyGroup = {
   dayLabel: string;
   dayIndex: number;
@@ -136,6 +148,13 @@ function transformPayload(payload: ParentDashboardPayload) {
     status: l.confirmation_status === 'approved' ? 'closed' : 'pending_approval',
   }));
 
+  const pendingRequests: PendingRequestItem[] = payload.pending_booking_requests.map((r) => ({
+    id: r.id,
+    teacherName: r.teacher_name,
+    ...formatLessonTime(r.requested_start_at),
+    status: r.status,
+  }));
+
   const weeklyGroups: WeeklyGroup[] = [];
   const dayMap = new Map<number, WeeklyGroup>();
   for (const lesson of payload.weekly_family_schedule) {
@@ -158,7 +177,7 @@ function transformPayload(payload: ParentDashboardPayload) {
   }
   weeklyGroups.sort((a, b) => a.dayIndex - b.dayIndex);
 
-  return { upcomingLesson, pendingApproval, latestLessonUpdate, previousLessons, weeklyGroups };
+  return { upcomingLesson, pendingApproval, latestLessonUpdate, previousLessons, weeklyGroups, pendingRequests };
 }
 
 // ── Shared sub-components (consume --sb tokens) ─────────────────────────────────
@@ -323,6 +342,72 @@ function PendingApprovalCard({ data, onApprove, className }: { data: PendingAppr
       ) : (
         <TileEmpty icon={<CheckCircle2 size={26} />} title="הכל סגור!" description="אין שיעורים שממתינים לאישור תשלום." />
       )}
+    </BentoCard>
+  );
+}
+
+// ── Card: Pending Teacher Approval (booking requests, NOT billing) ─────────────
+// Distinct from "Action Required" (post-lesson billing). These are the parent's
+// submitted booking requests awaiting the teacher's approve/reject — no lesson
+// exists yet. Declined (rejected/expired) rows are transient (cleared server-side
+// after 24h) and offer a re-search CTA.
+
+function pendingRequestMeta(status: PendingRequestItem['status']): { label: string; color: string; declined: boolean } {
+  switch (status) {
+    case 'rejected':
+      return { label: 'הבקשה נדחתה', color: sb.error, declined: true };
+    case 'expired':
+      return { label: 'פג תוקף הבקשה', color: sb.textMuted, declined: true };
+    default:
+      return { label: 'ממתין לאישור המורה', color: ALERT, declined: false };
+  }
+}
+
+function PendingRequestsCard({ items, childId, className }: { items: PendingRequestItem[]; childId: string; className?: string }) {
+  const navigate = useNavigate();
+  const reSearch = () => navigate('/parent/find-tutor', { state: { activeChildId: childId } });
+
+  return (
+    <BentoCard className={className} hover={false} style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column' }}>
+      <CardHeader icon={<Hourglass size={16} />} title="ממתין לאישור מורה (Pending Approval)" accentColor={ALERT} />
+      <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+        {items.map((item) => {
+          const meta = pendingRequestMeta(item.status);
+          return (
+            <div
+              key={item.id}
+              style={{
+                display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px', borderRadius: sb.radiusSmall,
+                background: sb.glassSoft, border: `1px solid color-mix(in oklab, ${meta.color} 28%, ${sb.borderCyber})`,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: sb.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {item.teacherName}
+                </span>
+                <StatusBadge label={meta.label} color={meta.color} />
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 500, color: sb.textMuted }}>
+                ביום {item.day}, <span className="data-mono">{item.date}</span> בשעה{' '}
+                <span className="data-mono" style={{ fontWeight: 700, color: sb.textSecondary }}>{item.time}</span>
+              </span>
+              {meta.declined && (
+                <button
+                  type="button"
+                  onClick={reSearch}
+                  style={{
+                    alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 2,
+                    background: 'none', border: 'none', padding: 0, color: ACCENT, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+                  }}
+                >
+                  <Search size={13} />
+                  חפש/י מורה אחר
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </BentoCard>
   );
 }
@@ -555,6 +640,32 @@ function ChildSelector({ children, selectedId, onSelect }: { children: { id: str
   );
 }
 
+// ── Monthly Calendar row (calendar 2/3 + Day Agenda 1/3, same selected child) ──
+
+function MonthlyCalendarSection({ childId, childName }: { childId: string; childName: string }) {
+  const [month, setMonth] = useState(() => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), 1);
+  });
+  const [selectedDay, setSelectedDay] = useState(() => new Date());
+
+  // Keyed off the SAME selected child as the dashboard; refetches on child/month change.
+  const { schedule, events, loading } = useChildSchedule(childId, month);
+
+  return (
+    <MonthlyCalendarAnchor
+      month={month}
+      onMonthChange={setMonth}
+      selectedDay={selectedDay}
+      onSelectDay={setSelectedDay}
+      events={events}
+      loading={loading}
+    >
+      <DayAgenda childName={childName} schedule={schedule} selectedDay={selectedDay} loading={loading} />
+    </MonthlyCalendarAnchor>
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export function ParentDashboardPage() {
@@ -589,7 +700,7 @@ export function ParentDashboardPage() {
   const currentStudentId = selectedStudentId ?? children[0]!.id;
   const selectedChild = children.find((c) => c.id === currentStudentId) ?? children[0]!;
 
-  const { upcomingLesson, pendingApproval, latestLessonUpdate, previousLessons, weeklyGroups } = transformPayload(data);
+  const { upcomingLesson, pendingApproval, latestLessonUpdate, previousLessons, weeklyGroups, pendingRequests } = transformPayload(data);
 
   return (
     <div dir="rtl" className="parent-dashboard" style={{ minHeight: '100dvh', background: sb.bgCanvas, color: sb.textPrimary, display: 'flex', flexDirection: 'column' }}>
@@ -614,15 +725,21 @@ export function ParentDashboardPage() {
 
         <ChildSelector children={children} selectedId={currentStudentId} onSelect={selectStudent} />
 
+        {/* Monthly calendar + day agenda — additive row, same selected child. */}
+        <MonthlyCalendarSection childId={currentStudentId} childName={selectedChild.name} />
+
         {/* Bento grid — cross-fades on child switch (no grid shift; slots are stable). */}
         <div style={{ opacity: childSwitching ? 0 : 1, transition: 'opacity 0.2s ease' }}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-4 lg:grid-cols-6 lg:gap-5">
             <UpcomingLessonCard childName={selectedChild.name} data={upcomingLesson} className="order-1 lg:col-span-4 lg:order-1" />
             <PendingApprovalCard data={pendingApproval} onApprove={() => { if (pendingApproval) void approveConfirmation(pendingApproval.id); }} className="order-2 lg:col-span-2 lg:order-2" />
-            <LatestLessonCard childName={selectedChild.name} data={latestLessonUpdate} className="order-3 md:col-span-2 lg:col-span-4 lg:row-span-2 lg:order-3" />
-            <WeeklyScheduleCard groups={weeklyGroups} className="order-4 lg:col-span-2 lg:order-4" />
-            <FindTeacherCard child={selectedChild} className="order-5 lg:col-span-2 lg:order-5" />
-            <PreviousLessonsCard childName={selectedChild.name} lessons={previousLessons} className="order-6 md:col-span-2 lg:col-span-6 lg:order-6" />
+            {pendingRequests.length > 0 && (
+              <PendingRequestsCard items={pendingRequests} childId={selectedChild.id} className="order-3 md:col-span-2 lg:col-span-6 lg:order-3" />
+            )}
+            <LatestLessonCard childName={selectedChild.name} data={latestLessonUpdate} className="order-4 md:col-span-2 lg:col-span-4 lg:row-span-2 lg:order-4" />
+            <WeeklyScheduleCard groups={weeklyGroups} className="order-5 lg:col-span-2 lg:order-5" />
+            <FindTeacherCard child={selectedChild} className="order-6 lg:col-span-2 lg:order-6" />
+            <PreviousLessonsCard childName={selectedChild.name} lessons={previousLessons} className="order-7 md:col-span-2 lg:col-span-6 lg:order-7" />
           </div>
         </div>
       </main>

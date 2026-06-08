@@ -6,6 +6,7 @@ import { validateRequest } from '../validation/requestValidation.js';
 import {
   approveLessonConfirmationController,
   createChildController,
+  getChildScheduleController,
   getChildrenController,
   getDashboardController,
   updateHomeworkTaskController,
@@ -13,6 +14,7 @@ import {
 import {
   approveConfirmationSchema,
   createChildSchema,
+  getChildScheduleSchema,
   getDashboardSchema,
   updateHomeworkTaskSchema,
 } from './parentDashboard.validation.js';
@@ -41,6 +43,16 @@ parentDashboardRouter.get('/children', asyncHandler(getChildrenController));
 // Lightweight "add another child" (name + grade only). 409 on a duplicate
 // (identical name + grade under the same parent).
 parentDashboardRouter.post('/children', validateRequest(createChildSchema), asyncHandler(createChildController));
+
+// GET /api/parents/me/children/:childId/schedule?from=&to=
+// Read-only month-range schedule (lessons + pending bookings) for one child —
+// the data source for the dashboard monthly calendar + day agenda. 403 if the
+// child does not belong to the authenticated parent.
+parentDashboardRouter.get(
+  '/children/:childId/schedule',
+  validateRequest(getChildScheduleSchema),
+  asyncHandler(getChildScheduleController),
+);
 
 // POST /api/parents/me/lesson-confirmations/:id/approve
 // Approves a pending lesson confirmation, closing the billing cycle.

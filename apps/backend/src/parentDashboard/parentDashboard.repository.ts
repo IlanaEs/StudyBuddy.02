@@ -459,6 +459,131 @@ export async function getWeeklyFamilySchedule(
   }));
 }
 
+// ── Child month schedule (calendar + day agenda) ──────────────────────────────
+
+export type ChildLessonRow = {
+  id: string;
+  subjectId: string | null;
+  teacherProfileId: string;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+};
+
+export type ChildBookingRow = {
+  id: string;
+  teacherProfileId: string;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+};
+
+/**
+ * Lessons for a single student whose scheduled_start_at falls in [fromIso, toIso].
+ * Reads lesson status only (never lesson_confirmations); index lessons_student_schedule_idx
+ * covers (student_id, scheduled_start_at, status).
+ */
+export async function getLessonsByStudentAndDateRange(
+  studentId: string,
+  fromIso: string,
+  toIso: string,
+): Promise<ChildLessonRow[]> {
+  const { data, error } = await adminClient()
+    .from('lessons')
+    .select('id,subject_id,teacher_id,scheduled_start_at,scheduled_end_at,status')
+    .eq('student_id', studentId)
+    .gte('scheduled_start_at', fromIso)
+    .lte('scheduled_start_at', toIso)
+    .in('status', ['scheduled', 'completed', 'cancelled', 'no_show'])
+    .order('scheduled_start_at', { ascending: true });
+
+  if (error) throw new AppError('Failed to load schedule lessons', 500);
+  if (!data) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data as any[]).map((row) => ({
+    id: row.id as string,
+    subjectId: row.subject_id as string | null,
+    teacherProfileId: row.teacher_id as string,
+    startsAt: row.scheduled_start_at as string,
+    endsAt: row.scheduled_end_at as string,
+    status: row.status as string,
+  }));
+}
+
+/**
+ * Pending booking requests for a single student whose requested_start_at falls in
+ * [fromIso, toIso]. These are the "awaiting teacher approval" calendar markers — a
+ * lesson does not exist yet (booking lifecycle is locked).
+ */
+export async function getBookingRequestsByStudentAndDateRange(
+  studentId: string,
+  fromIso: string,
+  toIso: string,
+): Promise<ChildBookingRow[]> {
+  const { data, error } = await adminClient()
+    .from('booking_requests')
+    .select('id,teacher_id,requested_start_at,requested_end_at,status')
+    .eq('student_id', studentId)
+    .gte('requested_start_at', fromIso)
+    .lte('requested_start_at', toIso)
+    .eq('status', 'pending')
+    .order('requested_start_at', { ascending: true });
+
+  if (error) throw new AppError('Failed to load schedule booking requests', 500);
+  if (!data) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data as any[]).map((row) => ({
+    id: row.id as string,
+    teacherProfileId: row.teacher_id as string,
+    startsAt: row.requested_start_at as string,
+    endsAt: row.requested_end_at as string,
+    status: row.status as string,
+  }));
+}
+
+// ── Pending booking requests (awaiting teacher approval) ──────────────────────
+
+export type ParentTileBookingRow = {
+  id: string;
+  teacherProfileId: string;
+  requestedStartAt: string;
+  requestedEndAt: string;
+  status: string;
+  updatedAt: string;
+};
+
+/**
+ * Booking requests for a child that are awaiting teacher action — `pending`
+ * plus terminal `rejected`/`expired` (the service keeps the latter only inside
+ * the transient decline window). Reads booking_requests only; no lesson exists
+ * yet for a pending request (booking lifecycle is locked).
+ */
+export async function getParentTileBookingRequests(
+  studentId: string,
+): Promise<ParentTileBookingRow[]> {
+  const { data, error } = await adminClient()
+    .from('booking_requests')
+    .select('id,teacher_id,requested_start_at,requested_end_at,status,updated_at')
+    .eq('student_id', studentId)
+    .in('status', ['pending', 'rejected', 'expired'])
+    .order('requested_start_at', { ascending: true });
+
+  if (error) throw new AppError('Failed to load booking requests', 500);
+  if (!data) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data as any[]).map((row) => ({
+    id: row.id as string,
+    teacherProfileId: row.teacher_id as string,
+    requestedStartAt: row.requested_start_at as string,
+    requestedEndAt: row.requested_end_at as string,
+    status: row.status as string,
+    updatedAt: row.updated_at as string,
+  }));
+}
+
 // ── Approval flow ─────────────────────────────────────────────────────────────
 
 export async function getLessonConfirmationById(
