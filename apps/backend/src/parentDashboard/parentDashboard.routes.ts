@@ -5,11 +5,14 @@ import { requireAuth, requireRole } from '../middleware/authMiddleware.js';
 import { validateRequest } from '../validation/requestValidation.js';
 import {
   approveLessonConfirmationController,
+  createChildController,
+  getChildrenController,
   getDashboardController,
   updateHomeworkTaskController,
 } from './parentDashboard.controller.js';
 import {
   approveConfirmationSchema,
+  createChildSchema,
   getDashboardSchema,
   updateHomeworkTaskSchema,
 } from './parentDashboard.validation.js';
@@ -28,6 +31,16 @@ parentDashboardRouter.get(
   validateRequest(getDashboardSchema),
   asyncHandler(getDashboardController),
 );
+
+// GET /api/parents/me/children
+// Lightweight list of the parent's own children (id + first_name + grade_level)
+// for the Find-Tutor child-selection screen.
+parentDashboardRouter.get('/children', asyncHandler(getChildrenController));
+
+// POST /api/parents/me/children  { child_name, grade_level? }
+// Lightweight "add another child" (name + grade only). 409 on a duplicate
+// (identical name + grade under the same parent).
+parentDashboardRouter.post('/children', validateRequest(createChildSchema), asyncHandler(createChildController));
 
 // POST /api/parents/me/lesson-confirmations/:id/approve
 // Approves a pending lesson confirmation, closing the billing cycle.

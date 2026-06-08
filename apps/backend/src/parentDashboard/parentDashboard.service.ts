@@ -3,7 +3,8 @@
 import { AppError } from '../errors/AppError.js';
 import type { LocalUser } from '../auth/authTypes.js';
 import type { HomeworkTaskRow, HomeworkTaskStatus, ParentDashboardPayload } from './parentDashboard.types.js';
-import type { UpdateHomeworkTaskBody } from './parentDashboard.validation.js';
+import type { CreateChildBody, UpdateHomeworkTaskBody } from './parentDashboard.validation.js';
+import { insertChildProfile } from '../students/students.repository.js';
 import {
   approveLessonConfirmation,
   batchGetSubjectNamesByIds,
@@ -183,6 +184,38 @@ export async function getParentDashboardService(
       status: l.status,
     })),
   };
+}
+
+// ── Children ──────────────────────────────────────────────────────────────────
+
+// Lightweight children list (id + first name + grade) for the parent's own
+// children — used by the Find-Tutor child-selection screen. Parent-scoped by
+// parent_user_id; never exposes other parents' children.
+export async function getParentChildrenService(
+  currentUser: LocalUser,
+): Promise<Array<{ id: string; first_name: string; grade_level: string | null }>> {
+  const children = await getChildrenByParentUserId(currentUser.id);
+  return children.map((c) => ({ id: c.id, first_name: c.fullName, grade_level: c.gradeLevel }));
+}
+
+// Lightweight "add another child" (name + grade only). Dedup guard: blocks an
+// identical name (trimmed, case-insensitive) + grade under the same parent.
+// Onboarding's ensureStudentProfile is intentionally NOT used here.
+export async function createParentChildService(
+  currentUser: LocalUser,
+  body: CreateChildBody,
+): Promise<{ id: string; first_name: string; grade_level: string | null }> {
+  const name = body.child_name.trim();
+  const grade = body.grade_level?.trim() ? body.grade_level.trim() : null;
+
+  const existing = await getChildrenByParentUserId(currentUser.id);
+  const duplicate = existing.some(
+    (c) => c.fullName.trim().toLowerCase() === name.toLowerCase() && (c.gradeLevel ?? null) === grade,
+  );
+  if (duplicate) throw new AppError('כבר קיים/ת ילד/ה בשם וכיתה זהים.', 409);
+
+  const id = await insertChildProfile(currentUser.id, name, grade);
+  return { id, first_name: name, grade_level: grade };
 }
 
 // ── Approval ──────────────────────────────────────────────────────────────────

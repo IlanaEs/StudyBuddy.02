@@ -32,3 +32,17 @@ export const updateHomeworkTaskSchema = z.object({
 });
 
 export type UpdateHomeworkTaskBody = z.infer<typeof updateHomeworkBodySchema>;
+
+// ── POST /api/parents/me/children ─────────────────────────────────────────────
+// Lightweight "add another child" — name + grade only (no learning goals).
+
+const createChildBodySchema = z.object({
+  child_name: z.string().trim().min(1).max(150),
+  grade_level: z.string().trim().max(50).nullable().optional(),
+});
+
+export const createChildSchema = z.object({
+  body: createChildBodySchema,
+});
+
+export type CreateChildBody = z.infer<typeof createChildBodySchema>;

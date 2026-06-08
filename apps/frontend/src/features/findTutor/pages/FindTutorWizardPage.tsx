@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { GraduationCap, CalendarHeart, Flame, KeyRound, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthProvider';
 import { useMatchingStore } from '../../matching/store/matchingStore';
@@ -12,6 +12,7 @@ import { CalendarSyncCard } from '../../matching/components/CalendarSyncCard';
 import { createStudentIntake, runMatching } from '../../../api/students';
 import type { SoftCriteria } from '../../../api/students';
 import { getLatestIntake, getMyStudentProfile } from '../api/findTutor';
+import { getParentChildren } from '../../parent/api/getParentChildren';
 import { SubjectAutocomplete } from '../components/SubjectAutocomplete';
 import { saveFindTutorDraft, loadFindTutorDraft, clearFindTutorDraft } from '../findTutorDraft';
 
@@ -76,6 +77,10 @@ const STEP_HEADERS: Record<number, { title: string; english: string; subtitle?: 
 
 export function FindTutorWizardPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // Parent entry: when present, scope the search to this existing child (no
+  // student-profile gate). Comes from the parent child-selection screen.
+  const childId = searchParams.get('childId');
   const auth = useAuth();
   const token = auth.session?.access_token ?? null;
   const store = useMatchingStore();
@@ -118,7 +123,8 @@ export function FindTutorWizardPage() {
   // across the round-trip (see onConnect). On sync, busy cells block the grid.
   const cal = useStudentCalendarSync({
     redirect: true,
-    returnPath: '/find-tutor',
+    // Preserve the parent child scope across the calendar OAuth round-trip.
+    returnPath: childId ? `/find-tutor?childId=${encodeURIComponent(childId)}` : '/find-tutor',
     trustSessionToken: false,
     onSynced: () => { setDays([]); setTimes([]); },
   });
@@ -134,25 +140,54 @@ export function FindTutorWizardPage() {
         setLoading(false);
         return;
       }
-      const prof = await getMyStudentProfile(token);
-      if (cancelled) return;
-      if ('error' in prof) {
-        // 404 = no student profile; anything else = a real load error. Either way
-        // a small clean error state — never the onboarding wizard, never hidden.
-        setLoadError(
-          prof.status === 404
-            ? 'לא נמצא פרופיל תלמיד פעיל לחשבון הזה.'
-            : 'לא הצלחנו לטעון את הפרופיל כרגע. נסו שוב בעוד רגע.',
-        );
-        setLoading(false);
-        return;
+
+      // Resolve the student/child to search for. Parent path: a pre-selected
+      // existing child (ownership-checked, parent-scoped) — no student-profile gate.
+      let resolvedStudentId: string;
+      let defaultLevel: string | null;
+
+      if (childId) {
+        const res = await getParentChildren(token);
+        if (cancelled) return;
+        if ('error' in res) {
+          setLoadError('לא הצלחנו לטעון את פרטי הילד/ה. נסו שוב בעוד רגע.');
+          setLoading(false);
+          return;
+        }
+        const child = res.data.children.find((c) => c.id === childId);
+        if (!child) {
+          setLoadError('הילד/ה לא נמצא/ה בחשבון זה.');
+          setLoading(false);
+          return;
+        }
+        resolvedStudentId = child.id;
+        defaultLevel = child.grade_level;
+        // Tie the in-store intake to the existing child (no new child is created).
+        store.updateIntake({ accountType: 'parent_for_child', studentId: child.id, childName: child.first_name });
+      } else {
+        const prof = await getMyStudentProfile(token);
+        if (cancelled) return;
+        if ('error' in prof) {
+          // 404 = no student profile; anything else = a real load error. Either way
+          // a small clean error state — never the onboarding wizard, never hidden.
+          setLoadError(
+            prof.status === 404
+              ? 'לא נמצא פרופיל תלמיד פעיל לחשבון הזה.'
+              : 'לא הצלחנו לטעון את הפרופיל כרגע. נסו שוב בעוד רגע.',
+          );
+          setLoading(false);
+          return;
+        }
+        resolvedStudentId = prof.data.student_id;
+        defaultLevel = prof.data.grade_level;
       }
-      setStudentId(prof.data.student_id);
+
+      setStudentId(resolvedStudentId);
       store.setFlow('quick');
 
       // Returning from the Google Calendar OAuth round-trip — restore the search
-      // exactly as it was (the calendar-sync result is applied by the hook), and
-      // land back on the availability step. Skip the fresh prefill.
+      // exactly as it was (works for both student + parent; childId is preserved
+      // in returnPath). Skip the fresh prefill.
       const draft = loadFindTutorDraft();
       if (draft) {
         clearFindTutorDraft();
@@ -171,23 +206,25 @@ export function FindTutorWizardPage() {
         return;
       }
 
-      // Default the level context from the STABLE profile grade_level.
-      setLevel(prof.data.grade_level);
+      // Default the level context from the stable grade_level (the child's, for parents).
+      setLevel(defaultLevel);
 
-      // Optional prefill — never gates, never forces old state.
-      const latest = await getLatestIntake(token);
-      if (cancelled) return;
-      if (!('error' in latest) && latest.data.intake) {
-        const i = latest.data.intake;
-        setPrefilled(true);
-        // Fall back to the last search's level only when no stable grade_level is saved.
-        if (prof.data.grade_level == null) setLevel(i.level);
-        setGoal(i.goal ?? null);
-        if (i.budget_min != null) setBudgetMin(i.budget_min);
-        if (i.budget_max != null) setBudgetMax(i.budget_max);
-        setSoft(i.soft_criteria ?? {});
-        // Availability is NOT prefilled — the grid opens empty (aligned with onboarding);
-        // the student picks fresh windows (or one-tap presets / calendar sync) per search.
+      // Optional prefill from the latest intake — STUDENT path only (that endpoint
+      // is student-scoped). Parents start each per-child search fresh.
+      if (!childId) {
+        const latest = await getLatestIntake(token);
+        if (cancelled) return;
+        if (!('error' in latest) && latest.data.intake) {
+          const i = latest.data.intake;
+          setPrefilled(true);
+          // Fall back to the last search's level only when no stable grade_level is saved.
+          if (defaultLevel == null) setLevel(i.level);
+          setGoal(i.goal ?? null);
+          if (i.budget_min != null) setBudgetMin(i.budget_min);
+          if (i.budget_max != null) setBudgetMax(i.budget_max);
+          setSoft(i.soft_criteria ?? {});
+          // Availability is NOT prefilled — the grid opens empty (aligned with onboarding).
+        }
       }
       setLoading(false);
     })();
@@ -195,7 +232,7 @@ export function FindTutorWizardPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, childId]);
 
   function toggleGender(g: 'female' | 'male') {
     setSoft((s) => ({ ...s, teacher_gender: s.teacher_gender === g ? null : g }));
