@@ -1,17 +1,16 @@
-import { BentoGrid } from '../components/BentoGrid';
 import { CalendarPanel } from '../components/calendar/CalendarPanel';
 import { InboxPanel } from '../components/calendar/InboxPanel';
 
 /**
- * Calendar & Inbox — the week calendar and the booking inbox, both bound to the
- * shared T0 store. Accepting/declining in the Inbox writes to the same lessons/
- * requests the Calendar (and the Overview tiles) read, keeping them in sync.
+ * Calendar & Inbox — calendar-first layout. The System Calendar is the full-width
+ * hero (7 day-columns need the room); the booking Inbox sits beneath it. Both bind
+ * to the same shared store, so accepting a request updates the calendar instantly.
  */
 export function CalendarInboxTab() {
   return (
-    <BentoGrid>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <CalendarPanel />
       <InboxPanel />
-    </BentoGrid>
+    </div>
   );
 }

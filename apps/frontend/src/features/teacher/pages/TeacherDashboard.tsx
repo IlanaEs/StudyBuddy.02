@@ -6,6 +6,7 @@ import { FloatingTopNavbar, sbTokens as sb, type NavTab } from '../../../design-
 import { useAuth } from '../../../auth/AuthProvider';
 import { useTeacherDashboardStore } from '../store/teacherDashboardStore';
 import { useTeacherDashboardSeed } from '../hooks/useTeacherDashboardSeed';
+import { useTeacherCalendarSync } from '../hooks/useTeacherCalendarSync';
 import { DashboardShell } from '../components/DashboardShell';
 import { PendingVerificationBanner } from '../components/PendingVerificationBanner';
 import { DashboardHeader } from '../components/DashboardHeader';
@@ -36,6 +37,8 @@ export function TeacherDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { status, error, config } = useTeacherDashboardSeed();
+  // Best-effort Google overlay reconciled on entry; never blocks the dashboard.
+  useTeacherCalendarSync();
   const activeTab = useTeacherDashboardStore((s) => s.activeTab);
   const setActiveTab = useTeacherDashboardStore((s) => s.setActiveTab);
 

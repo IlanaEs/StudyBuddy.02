@@ -3,6 +3,7 @@ import { useAuth } from '../../../auth/AuthProvider';
 import { fetchOnboardingDraft, type OnboardingStateRemote } from '../../../api/teacherOnboarding';
 import { getTeacherLessons } from '../../../api/lessons';
 import { getTeacherPendingBookings } from '../../../api/bookingRequests';
+import { getMyAvailability } from '../../../api/teacherAvailability';
 import { useTeacherDashboardStore } from '../store/teacherDashboardStore';
 import { isDashboardSeedEnabled, buildDevSeed } from '../dev/devSeed';
 import type {
@@ -11,6 +12,7 @@ import type {
   DashboardLesson,
   DashboardRequest,
   RequestStatus,
+  AvailabilitySlot,
 } from '../types/teacherDashboard.types';
 
 // Maps the persisted onboarding state into the dashboard's seeded config
@@ -70,6 +72,7 @@ export function useTeacherDashboardSeed() {
       setConfig,
       setLessons,
       setRequests,
+      setAvailability,
       setLedgerEntries,
       setStudents,
       setMaterials,
@@ -97,10 +100,11 @@ export function useTeacherDashboardSeed() {
 
     void (async () => {
       try {
-        const [draftRes, lessonsRes, requestsRes] = await Promise.all([
+        const [draftRes, lessonsRes, requestsRes, availabilityRes] = await Promise.all([
           fetchOnboardingDraft(token),
           getTeacherLessons(token),
           getTeacherPendingBookings(token),
+          getMyAvailability(token),
         ]);
 
         if ('error' in draftRes) {
@@ -144,6 +148,19 @@ export function useTeacherDashboardSeed() {
             createdAt: r.createdAt,
           }));
           setRequests(requests);
+        }
+
+        if (!('error' in availabilityRes)) {
+          const slots: AvailabilitySlot[] = availabilityRes.data.availability_slots
+            .filter((s) => s.isActive)
+            .map((s) => ({
+              id: s.id,
+              dayOfWeek: s.dayOfWeek,
+              startTime: s.startTime,
+              endTime: s.endTime,
+              isActive: s.isActive,
+            }));
+          setAvailability(slots);
         }
 
         setStatus('ready');

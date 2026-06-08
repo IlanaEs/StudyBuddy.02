@@ -1,6 +1,8 @@
 // Teacher Dashboard — shared entity + state types.
 // Entity statuses align to the locked Supabase enums (lesson_status, booking_status).
 
+import type { BusySlot } from '../../../api/teacherCalendar';
+
 export type LessonStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
 export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled';
 export type StudentStatus = 'active' | 'inactive' | 'archived';
@@ -30,6 +32,34 @@ export interface DashboardRequest {
   status: RequestStatus;
   studentMessage: string | null;
   createdAt: string;
+}
+
+// Teacher's published weekly availability window (system data — drives the
+// "where already available" hint on the System Calendar). Timezone-naive HH:MM,
+// dayOfWeek 0=Sunday … 6=Saturday.
+export interface AvailabilitySlot {
+  id: string;
+  dayOfWeek: number;
+  startTime: string; // 'HH:MM'
+  endTime: string; // 'HH:MM'
+  isActive: boolean;
+}
+
+// ── Google Calendar (best-effort overlay) ───────────────────────────────────
+// System data is the source of truth; Google is an optional sync layer. No token
+// is stored — `syncState` reflects the per-entry attempt:
+//   idle             → not connected (show Connect CTA)
+//   syncing          → a live sync is in flight
+//   synced           → busy slots are current (live or cached)
+//   reconnect_needed → connected but token missing/expired (show Reconnect CTA)
+//   error            → transient Google/API failure
+export type CalendarSyncState = 'idle' | 'syncing' | 'synced' | 'reconnect_needed' | 'error';
+
+export interface CalendarSlice {
+  status: 'connected' | 'not_connected';
+  lastSyncedAt: string | null;
+  busySlots: BusySlot[];
+  syncState: CalendarSyncState;
 }
 
 export interface DashboardStudent {
