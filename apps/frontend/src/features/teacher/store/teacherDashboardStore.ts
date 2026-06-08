@@ -11,7 +11,11 @@ import type {
   SubscriptionInfo,
   DashboardTab,
   DashboardStatus,
+  AvailabilitySlot,
+  CalendarSlice,
+  CalendarSyncState,
 } from '../types/teacherDashboard.types';
+import type { BusySlot } from '../../../api/teacherCalendar';
 import { AUTO_CLOSE_HOURS } from '../utils/ledger';
 
 const nowISO = () => new Date().toISOString();
@@ -46,6 +50,8 @@ interface TeacherDashboardStore {
   config: TeacherConfig | null;
   lessons: DashboardLesson[];
   requests: DashboardRequest[];
+  availabilitySlots: AvailabilitySlot[];
+  calendar: CalendarSlice;
   students: DashboardStudent[];
   ledgerEntries: LedgerEntry[];
   materials: Material[];
@@ -64,6 +70,11 @@ interface TeacherDashboardStore {
   updateConfig: (patch: Partial<TeacherConfig>) => void;
   setLessons: (lessons: DashboardLesson[]) => void;
   setRequests: (requests: DashboardRequest[]) => void;
+  setAvailability: (slots: AvailabilitySlot[]) => void;
+  // ── Google Calendar (best-effort overlay) ──────────────────────────────────
+  setCalendarStatus: (status: 'connected' | 'not_connected', lastSyncedAt: string | null) => void;
+  setBusySlots: (busySlots: BusySlot[]) => void;
+  setCalendarSyncState: (syncState: CalendarSyncState) => void;
   setStudents: (students: DashboardStudent[]) => void;
   setLedgerEntries: (entries: LedgerEntry[]) => void;
   setMaterials: (materials: Material[]) => void;
@@ -139,6 +150,8 @@ export const useTeacherDashboardStore = create<TeacherDashboardStore>((set, get)
   config: null,
   lessons: [],
   requests: [],
+  availabilitySlots: [],
+  calendar: { status: 'not_connected', lastSyncedAt: null, busySlots: [], syncState: 'idle' },
   students: [],
   ledgerEntries: [],
   materials: [],
@@ -159,6 +172,11 @@ export const useTeacherDashboardStore = create<TeacherDashboardStore>((set, get)
     set((s) => (s.config ? { config: { ...s.config, ...patch } } : {})),
   setLessons: (lessons) => set({ lessons }),
   setRequests: (requests) => set({ requests }),
+  setAvailability: (availabilitySlots) => set({ availabilitySlots }),
+  setCalendarStatus: (status, lastSyncedAt) =>
+    set((s) => ({ calendar: { ...s.calendar, status, lastSyncedAt } })),
+  setBusySlots: (busySlots) => set((s) => ({ calendar: { ...s.calendar, busySlots } })),
+  setCalendarSyncState: (syncState) => set((s) => ({ calendar: { ...s.calendar, syncState } })),
   setStudents: (students) => set({ students }),
   setLedgerEntries: (ledgerEntries) => set({ ledgerEntries }),
   setMaterials: (materials) => set({ materials }),
@@ -261,6 +279,8 @@ export const useTeacherDashboardStore = create<TeacherDashboardStore>((set, get)
       config: null,
       lessons: [],
       requests: [],
+      availabilitySlots: [],
+      calendar: { status: 'not_connected', lastSyncedAt: null, busySlots: [], syncState: 'idle' },
       students: [],
       ledgerEntries: [],
       materials: [],

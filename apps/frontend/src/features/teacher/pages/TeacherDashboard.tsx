@@ -4,6 +4,7 @@ import { towTokens as T } from '../../../design/tokens';
 import { useAuth } from '../../../auth/AuthProvider';
 import { useTeacherDashboardStore } from '../store/teacherDashboardStore';
 import { useTeacherDashboardSeed } from '../hooks/useTeacherDashboardSeed';
+import { useTeacherCalendarSync } from '../hooks/useTeacherCalendarSync';
 import { DashboardShell } from '../components/DashboardShell';
 import { PendingVerificationBanner } from '../components/PendingVerificationBanner';
 import { DashboardHeader } from '../components/DashboardHeader';
@@ -26,6 +27,8 @@ const TAB_VIEWS: Record<DashboardTab, ComponentType> = {
 export function TeacherDashboard() {
   const { user } = useAuth();
   const { status, error, config } = useTeacherDashboardSeed();
+  // Best-effort Google overlay reconciled on entry; never blocks the dashboard.
+  useTeacherCalendarSync();
   const activeTab = useTeacherDashboardStore((s) => s.activeTab);
 
   const fullName = config?.fullName || user?.full_name || '';
