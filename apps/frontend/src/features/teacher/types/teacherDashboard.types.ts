@@ -99,6 +99,7 @@ export interface LedgerEntry {
 export interface TeacherConfig {
   fullName: string;
   isVerified: boolean;
+  teacherProfileId: string | null; // teacher_profiles.id — source for the display Teacher ID
   subjects: string[];
   weeklyTimeBlocks: string[];
   maxActiveStudents: number | null;
