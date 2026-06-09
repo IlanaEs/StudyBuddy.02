@@ -24,7 +24,7 @@ npm-workspaces monorepo:
 apps/
   backend/    Node + Express + TypeScript (ESM) REST API, Supabase Auth + Postgres
   frontend/   React 19 + Vite + TypeScript SPA (Mantine + Tailwind, Hebrew/RTL)
-supabase/migrations/   SQL schema (001–015), gated by db:validate
+supabase/migrations/   SQL schema (001–023), gated by db:validate
 scripts/               seed + QA/E2E verification scripts
 agents/                product/architecture source-of-truth docs (governance)
 docs/                  env setup, QA users, runbooks
@@ -81,10 +81,11 @@ cp apps/frontend/.env.example apps/frontend/.env
 **`apps/frontend/.env`**: `VITE_API_BASE_URL` (`http://localhost:4000`), `VITE_SUPABASE_URL`,
 `VITE_SUPABASE_ANON_KEY`. Details in [`docs/local-env-setup.md`](docs/local-env-setup.md).
 
-**Database**: ensure all migrations `001–015` are applied to your Supabase project (SQL Editor or
-`supabase db push`). ⚠️ `014_parent_dashboard.sql` is required for the parent dashboard + lesson
-completion — if those 500, apply it and run `notify pgrst, 'reload schema';`. Verify the migration
-*files* are well-formed with `npm run db:validate`.
+**Database**: apply **all** migrations `001–023` to your Supabase project (SQL Editor or
+`supabase db push`) — the app expects the full set. ⚠️ `014_parent_dashboard.sql` is required for the
+parent dashboard + lesson completion (if those 500, apply it and run `notify pgrst, 'reload schema';`),
+and `023_teacher_approval_status.sql` gates teacher matchability. Verify the migration *files* are
+well-formed with `npm run db:validate`.
 
 ## Run
 
@@ -150,7 +151,7 @@ academic-repository request approvals.
 ## Testing & QA
 
 ```bash
-npm test                                 # 164 unit/integration tests (backend)
+npm test                                 # 282 tests (271 backend + 11 frontend)
 node scripts/qa-auth-flow-e2e.mjs        # real auth E2E vs live DB — expect 82/82 (needs DEV_AUTH_BYPASS=true)
 node scripts/verify-matching-e2e.mjs     # matching E2E (needs db:seed:demo)
 node scripts/verify-lifecycle-e2e.mjs    # FULL lifecycle: onboard→availability→intake→match→book→approve→lesson→complete→parent dashboard
@@ -168,11 +169,13 @@ QA logins (`docs/QA_USERS.md`): `qa.{student,parent,teacher}.{a,b,c}@studybuddy.
 
 ## Database
 
-Supabase Postgres. Migrations `supabase/migrations/001–015` create: enums, core users/students/
+Supabase Postgres. Migrations `supabase/migrations/001–023` create: enums, core users/students/
 teachers, matching/booking/lessons, CRM/chat/notifications, RLS, the Supabase-Auth link, security
 hardening, teacher onboarding + scheduling, availability exceptions, onboarding drafts, academic
-repositories (013), **parent dashboard — `lesson_confirmations` + `homework_tasks` (014)**, and
-demo `is_demo` flags (015). `npm run db:validate` enforces filenames, tables, enum values, RLS
+repositories (013), **parent dashboard — `lesson_confirmations` + `homework_tasks` (014)**,
+demo `is_demo` flags (015), and 016–023 (Google-only auth, online-only location, lesson calendar
+event + files, find-tutor quick wizard, unique student profiles, intake manual-subject, and the
+teacher approval gate). `npm run db:validate` enforces filenames, tables, enum values, RLS
 enablement, and that no RLS policy is unrestricted or granted to `anon`.
 
 ## Conventions
@@ -188,7 +191,7 @@ enablement, and that no RLS policy is unrestricted or granted to `anon`.
 ## Known gaps
 
 See [`FEATURE_STATUS.md`](FEATURE_STATUS.md) for the full verification matrix. Open items:
-- **Apply migration 014** to your DB (parent dashboard + lesson completion depend on it).
+- **Apply all migrations `001–023`** to your DB (e.g. parent dashboard + lesson completion need 014; teacher matchability needs the approval gate in 023).
 - `/api/teachers` is mounted twice in `app.ts` (onboarding routes shadowed; JWT verified twice per
   request) — recommend consolidating.
 - Onboarding legal declarations are optional, and lesson-complete has no idempotency guard — review
