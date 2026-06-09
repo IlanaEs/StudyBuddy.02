@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { CalendarClock, Check, Inbox, Users, Video, Wallet, X } from 'lucide-react';
+import { CalendarClock, Check, Inbox, Users, Wallet, X } from 'lucide-react';
 
 import { sbTokens as sb } from '../../../design/tokens';
 import { CrmTable, type CrmColumn } from '../../../design-system';
@@ -8,6 +8,7 @@ import { useTeacherDashboardStore } from '../store/teacherDashboardStore';
 import { useBookingRequestActions } from '../hooks/useBookingRequestActions';
 import { canAcceptStudents } from '../utils/teacherStatus';
 import { deriveStudentsFromLessons } from '../utils/deriveTables';
+import { NextLessonActionCard } from '../components/NextLessonActionCard';
 import type { DashboardLesson, DashboardRequest } from '../types/teacherDashboard.types';
 
 const LESSON_STATUS_HE: Record<DashboardLesson['status'], string> = {
@@ -87,16 +88,16 @@ export function OverviewTab() {
         <Kpi icon={<Wallet size={15} />} he="הכנסה החודש" en="Monthly Earnings" value={`₪${monthEarnings.toLocaleString('en-US')}`} />
       </div>
 
+      {/* Primary action zone: Next Lesson + Pending Requests */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14, alignItems: 'start' }}>
+        <NextLessonActionCard lesson={nextLesson} />
+        <PendingRequestsCard pending={pending} canAccept={canAccept} busyId={busyId} error={error} onRespond={respond} />
+      </div>
+
       {/* Calendar centerpiece + day agenda side panel */}
       <MonthlyCalendarAnchor month={month} onMonthChange={setMonth} selectedDay={selectedDay} onSelectDay={setSelectedDay} events={events}>
         <DayAgenda day={selectedDay} lessons={dayLessons} />
       </MonthlyCalendarAnchor>
-
-      {/* Operational cards: Next Lesson + Pending Requests */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
-        <NextLessonCard lesson={nextLesson} />
-        <PendingRequestsCard pending={pending} canAccept={canAccept} busyId={busyId} error={error} onRespond={respond} />
-      </div>
 
       {/* Upcoming workload */}
       <section>
@@ -151,34 +152,6 @@ function DayAgenda({ day, lessons }: { day: Date; lessons: DashboardLesson[] }) 
   );
 }
 
-function NextLessonCard({ lesson }: { lesson: DashboardLesson | null }) {
-  return (
-    <div style={cardStyle}>
-      <SectionHeader he="השיעור הבא" en="Next Lesson" />
-      {lesson ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span style={{ fontSize: 16, fontWeight: 700, color: sb.textPrimary }}>{lesson.studentName}</span>
-          <span style={{ fontSize: 13, color: sb.textSecondary }}>{lesson.subjectName ?? 'לא צוין'}</span>
-          <span style={{ fontFamily: sb.fontMono, fontSize: 13, color: sb.active }}>
-            {new Date(lesson.startsAt).toLocaleString('he-IL', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-          </span>
-          {lesson.meetingLink ? (
-            <a href={lesson.meetingLink} target="_blank" rel="noreferrer" style={{ ...joinBtn, textDecoration: 'none' }}>
-              <Video size={15} /> הצטרפות לשיעור (Join)
-            </a>
-          ) : (
-            <span style={{ ...joinBtn, color: sb.textMuted, borderColor: sb.borderCyber, cursor: 'default' }}>
-              <Video size={15} /> אין קישור עדיין
-            </span>
-          )}
-        </div>
-      ) : (
-        <p style={{ margin: 0, fontSize: 13, color: sb.textMuted }}>אין שיעורים מתוכננים.</p>
-      )}
-    </div>
-  );
-}
-
 function PendingRequestsCard({
   pending,
   canAccept,
@@ -228,23 +201,6 @@ function IconBtn({ tone, disabled, onClick, aria, children }: { tone: 'approve' 
 }
 
 const cardStyle = { background: sb.glassBase, border: `1px solid ${sb.borderCyber}`, borderRadius: sb.radiusCard, padding: 16 } as const;
-
-const joinBtn = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-  marginTop: 6,
-  padding: '8px 14px',
-  borderRadius: sb.radiusSmall,
-  border: `1px solid ${sb.active}`,
-  background: 'transparent',
-  color: sb.active,
-  fontSize: 13,
-  fontWeight: 700,
-  fontFamily: sb.fontUi,
-  cursor: 'pointer',
-  alignSelf: 'flex-start',
-} as const;
 
 function SectionHeader({ he, en }: { he: string; en: string }) {
   return (
