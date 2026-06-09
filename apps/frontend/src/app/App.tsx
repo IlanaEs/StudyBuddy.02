@@ -24,6 +24,14 @@ import { TeacherDashboardPage } from '../pages/TeacherDashboardPage';
 import { TeacherBookingInboxPage } from '../pages/TeacherBookingInboxPage';
 import { TeacherLessonManagePage } from '../pages/TeacherLessonManagePage';
 import { DesignSystemPreview } from '../design-system/preview/DesignSystemPreview';
+import { AuditLogPage } from '../features/admin/pages/AuditLogPage';
+import { AdminUsersPage } from '../features/admin/pages/AdminUsersPage';
+import { AdminApprovalsPage } from '../features/admin/pages/AdminApprovalsPage';
+import { AdminSupportPage } from '../features/admin/pages/AdminSupportPage';
+import { AdminMatchingPage } from '../features/admin/pages/AdminMatchingPage';
+import { AdminLessonsPage } from '../features/admin/pages/AdminLessonsPage';
+import { AdminReportsPage } from '../features/admin/pages/AdminReportsPage';
+import { AdminSystemHealthPage } from '../features/admin/pages/AdminSystemHealthPage';
 
 export function App() {
   return (
@@ -105,11 +113,76 @@ export function App() {
             </ProtectedRoute>
           }
         />
+        {/* Admin Control Tower — sidebar console (intentional no-sidebar exception). */}
         <Route
           path="/admin/dashboard"
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <AdminDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminUsersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/approvals"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminApprovalsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/support"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminSupportPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/matching"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminMatchingPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/lessons"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminLessonsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/reports"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminReportsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/system-health"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminSystemHealthPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/audit-log"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AuditLogPage />
             </ProtectedRoute>
           }
         />

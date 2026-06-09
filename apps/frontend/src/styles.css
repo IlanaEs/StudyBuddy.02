@@ -185,6 +185,8 @@
   border-radius: 999px;
   box-shadow: 0 12px 32px -14px rgba(0, 0, 0, 0.5);
 }
+/* Sign-Out (admin utility): red-on-hover per the destructive-action token. */
+.sb-navbar-signout:hover { color: var(--sb-error); }
 /* Mobile: thin side margins (92%) + ≥44×44 thumb targets; all icons stay on the bar. */
 @media (max-width: 768px) {
   .sb-navbar { width: 92%; }
