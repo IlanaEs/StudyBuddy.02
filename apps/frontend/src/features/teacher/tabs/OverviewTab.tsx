@@ -3,7 +3,7 @@ import { CalendarClock, Check, Inbox, Users, Wallet, X } from 'lucide-react';
 
 import { sbTokens as sb } from '../../../design/tokens';
 import { CrmTable, type CrmColumn } from '../../../design-system';
-import { MonthlyCalendarAnchor, dayKey, type CalendarEvent } from '../../parent/components/MonthlyCalendarAnchor';
+import { MonthlyCalendarAnchor, type CalendarEvent } from '../../parent/components/MonthlyCalendarAnchor';
 import { useTeacherDashboardStore } from '../store/teacherDashboardStore';
 import { useBookingRequestActions } from '../hooks/useBookingRequestActions';
 import { canAcceptStudents } from '../utils/teacherStatus';
@@ -19,9 +19,10 @@ const LESSON_STATUS_HE: Record<DashboardLesson['status'], string> = {
 };
 
 /**
- * Overview — an operational workspace: compact KPIs, the monthly calendar as the
- * centerpiece (with a selected-day agenda), the Next Lesson + actionable Pending
- * Requests, and an Upcoming Lessons table. Derived from the shared store.
+ * Overview — an operational workspace. Row 1: compact KPIs. Row 2: the monthly
+ * calendar (right, RTL) beside the Next Lesson action card (left). Row 3:
+ * full-width Pending Requests (approve/decline). Below: the Upcoming Lessons
+ * table. All derived from the shared store; no API/logic here.
  */
 export function OverviewTab() {
   const lessons = useTeacherDashboardStore((s) => s.lessons);
@@ -65,11 +66,6 @@ export function OverviewTab() {
     ...pending.map((r) => ({ date: r.requestedStartAt, status: 'pending' as const })),
   ], [lessons, pending]);
 
-  const dayLessons = useMemo(() => {
-    const key = dayKey(selectedDay);
-    return lessons.filter((l) => dayKey(new Date(l.startsAt)) === key).sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
-  }, [lessons, selectedDay]);
-
   const upcomingColumns: CrmColumn<DashboardLesson>[] = [
     { key: 'date', label: 'תאריך (Date)', render: (l) => <Mono>{fmtDate(l.startsAt)}</Mono> },
     { key: 'time', label: 'שעה (Time)', render: (l) => <Mono>{fmtTime(l.startsAt)}</Mono> },
@@ -88,16 +84,13 @@ export function OverviewTab() {
         <Kpi icon={<Wallet size={15} />} he="הכנסה החודש" en="Monthly Earnings" value={`₪${monthEarnings.toLocaleString('en-US')}`} />
       </div>
 
-      {/* Primary action zone: Next Lesson + Pending Requests */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14, alignItems: 'start' }}>
-        <NextLessonActionCard lesson={nextLesson} />
-        <PendingRequestsCard pending={pending} canAccept={canAccept} busyId={busyId} error={error} onRespond={respond} />
-      </div>
-
-      {/* Calendar centerpiece + day agenda side panel */}
+      {/* Row 2 — main work area: calendar (right, RTL) + Next Lesson (left) on one row */}
       <MonthlyCalendarAnchor month={month} onMonthChange={setMonth} selectedDay={selectedDay} onSelectDay={setSelectedDay} events={events}>
-        <DayAgenda day={selectedDay} lessons={dayLessons} />
+        <NextLessonActionCard lesson={nextLesson} />
       </MonthlyCalendarAnchor>
+
+      {/* Row 3 — Pending Requests (full width) */}
+      <PendingRequestsCard pending={pending} canAccept={canAccept} busyId={busyId} error={error} onRespond={respond} />
 
       {/* Upcoming workload */}
       <section>
@@ -126,28 +119,6 @@ function Kpi({ icon, he, en, value, accent }: { icon: ReactNode; he: string; en:
         <span style={{ fontSize: 11.5, fontWeight: 600, color: sb.textSecondary }}>{he} <span style={{ color: sb.textMuted, fontSize: 10.5 }}>({en})</span></span>
       </div>
       <span style={{ fontFamily: sb.fontMono, fontSize: 24, fontWeight: 800, color: accent ?? sb.textPrimary }}>{value}</span>
-    </div>
-  );
-}
-
-function DayAgenda({ day, lessons }: { day: Date; lessons: DashboardLesson[] }) {
-  const label = new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: '2-digit', month: '2-digit' }).format(day);
-  return (
-    <div style={{ background: sb.glassBase, border: `1px solid ${sb.borderCyber}`, borderRadius: sb.radiusCard, padding: 16, minHeight: 180 }}>
-      <h3 style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: sb.textPrimary }}>{label}</h3>
-      {lessons.length === 0 ? (
-        <p style={{ margin: 0, fontSize: 12.5, color: sb.textMuted }}>אין שיעורים ביום זה.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {lessons.map((l) => (
-            <div key={l.id} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '8px 10px', borderRadius: sb.radiusSmall, background: sb.glassSoft, border: `1px solid ${sb.borderCyber}` }}>
-              <span style={{ fontFamily: sb.fontMono, fontSize: 12.5, color: sb.active }}>{fmtTime(l.startsAt)}–{fmtTime(l.endsAt)}</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: sb.textPrimary }}>{l.studentName}</span>
-              <span style={{ fontSize: 11.5, color: sb.textSecondary }}>{l.subjectName ?? 'לא צוין'} · {LESSON_STATUS_HE[l.status]}</span>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
