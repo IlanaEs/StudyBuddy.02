@@ -20,13 +20,16 @@ export async function apiRequest<T>(
   accessToken?: string,
 ): Promise<ApiResponse<T>> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
+    // Spread init FIRST so the merged headers below win — otherwise a caller that
+    // passes its own `init.headers` (e.g. respondToBookingRequest's X-Provider-Token)
+    // would clobber the auto-attached Authorization/Content-Type and trigger a 401.
+    ...init,
     headers: {
       'Content-Type': 'application/json',
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...getAuthorizedQaHeader(),
       ...init?.headers,
     },
-    ...init,
   });
 
   // Parse defensively — an error response may not be JSON.
