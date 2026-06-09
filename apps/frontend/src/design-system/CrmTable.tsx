@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-import { sbTokens as sb } from '../../../design/tokens';
+import { sbTokens as sb } from '../design/tokens';
 
 export type CrmColumn<T> = {
   key: string;
@@ -21,7 +21,7 @@ type Props<T> = {
 };
 
 /**
- * Generic token-pure read-only table for the admin Users CRM sub-tabs.
+ * Generic token-pure read-only table (admin CRM + teacher operational tables).
  * Columns supply their own cell renderers (so stub cells render "N/A" etc.).
  */
 export function CrmTable<T>({ columns, rows, rowKey, page, totalPages, total, onPrev, onNext }: Props<T>) {

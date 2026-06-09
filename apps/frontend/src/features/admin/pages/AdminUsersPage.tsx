@@ -15,7 +15,7 @@ import {
   type TeacherCrmRow,
 } from '../../../api/admin';
 import { AdminDashboardLayout } from '../components/AdminDashboardLayout';
-import { CrmTable, NaCell, NumCell, type CrmColumn } from '../components/CrmTable';
+import { CrmTable, NaCell, NumCell, type CrmColumn } from '../../../design-system/CrmTable';
 
 type SubTab = 'teachers' | 'students' | 'parents';
 

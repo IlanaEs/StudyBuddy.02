@@ -11,7 +11,7 @@ import {
   type CrmPage,
   type TeacherApprovalRow,
 } from '../../../api/admin';
-import { CrmTable, type CrmColumn } from './CrmTable';
+import { CrmTable, type CrmColumn } from '../../../design-system/CrmTable';
 import { RejectModal } from './RejectModal';
 
 type Status = 'loading' | 'error' | 'ready';
