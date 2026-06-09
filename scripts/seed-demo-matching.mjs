@@ -285,7 +285,53 @@ const students = [
     // Off-catalog subject → needs_manual_match; always zero matches + manual lead.
     intake: { customSubjectText: 'גיטרה קלאסית', level: 'middle', expect: 'zero — off-catalog manual-match lead' },
   },
+  // ── Phase 3: soft-gate scenarios (covered subject, but a runtime filter bites) ──
+  {
+    email: 'demo.student.budget@studybuddy.local',
+    fullName: 'תלמיד דמו תקציב נמוך',
+    gradeLevel: 'כיתה י״א',
+    // מתמטיקה is covered (rates 95/120/140) but budgetMax=70 fails strict budget.
+    // Budget is relaxed in the budget_expansion phase, so this yields matches via
+    // FALLBACK (fallback_phase_used='budget_expansion'), NOT zero.
+    intake: {
+      subjectName: 'מתמטיקה', level: 'high', budgetMax: 70,
+      expect: 'matches via budget_expansion fallback (all teachers over budget)',
+    },
+  },
+  {
+    email: 'demo.student.availzero@studybuddy.local',
+    fullName: 'תלמיד דמו ללא חפיפת זמינות',
+    gradeLevel: 'כיתה י״ב',
+    // כימיה has exactly one teacher (science), who teaches Sun/Mon eve + Fri morning.
+    // Requesting Saturday (day 6) only → zero availability overlap. The 30-min
+    // overlap floor is NEVER relaxed (incl. partial_results) → TRUE in-catalog zero.
+    intake: {
+      subjectName: 'כימיה', level: 'high', preferredDays: [6],
+      expect: 'zero — covered subject but no availability overlap (Saturday)',
+    },
+  },
 ];
+
+// ── Phase 3: parent → child matching path ──────────────────────────────────────
+// A parent user with two children (students.parent_user_id). Intakes are created
+// BY THE PARENT (created_by_user_id = parent), exercising the parent matching flow
+// for both a multi and a single outcome.
+const parent = {
+  email: 'demo.parent@studybuddy.local',
+  fullName: 'הורה דמו',
+  children: [
+    {
+      fullName: 'ילד דמו א׳',
+      gradeLevel: 'כיתה ח׳',
+      intake: { subjectName: 'מתמטיקה', level: 'middle', expect: 'multi (3) — parent flow' },
+    },
+    {
+      fullName: 'ילד דמו ב׳',
+      gradeLevel: 'כיתה י״א',
+      intake: { subjectName: 'כימיה', level: 'high', expect: 'single (1) — parent flow' },
+    },
+  ],
+};
 
 async function ensureAuthTeacher(supabase, teacher) {
   const existing = await findAuthUserByEmail(supabase, teacher.email);
@@ -316,33 +362,64 @@ async function ensureAuthTeacher(supabase, teacher) {
   return data.user;
 }
 
-async function ensureAuthStudent(supabase, student) {
-  const existing = await findAuthUserByEmail(supabase, student.email);
-  const metadata = {
-    full_name: student.fullName,
-    dev_seed: true,
-    dev_seed_type: DEMO_SEED_TYPE,
-  };
+// Generic auth provisioning for non-teacher demo accounts (student / parent).
+async function ensureAuthAccount(supabase, account, role) {
+  const existing = await findAuthUserByEmail(supabase, account.email);
+  const metadata = { full_name: account.fullName, dev_seed: true, dev_seed_type: DEMO_SEED_TYPE };
+  const appMetadata = { role, is_demo: true, seed_type: DEMO_SEED_TYPE };
 
   if (existing) {
     const { data, error } = await supabase.auth.admin.updateUserById(existing.id, {
-      app_metadata: { role: 'student', is_demo: true, seed_type: DEMO_SEED_TYPE },
+      app_metadata: appMetadata,
       user_metadata: metadata,
       email_confirm: true,
     });
-    if (error) throw new Error(`auth update ${student.email} failed: ${error.message}`);
+    if (error) throw new Error(`auth update ${account.email} failed: ${error.message}`);
     return data.user;
   }
 
   const { data, error } = await supabase.auth.admin.createUser({
-    email: student.email,
+    email: account.email,
     password: 'StudyBuddyDevSeed123!',
     email_confirm: true,
-    app_metadata: { role: 'student', is_demo: true, seed_type: DEMO_SEED_TYPE },
+    app_metadata: appMetadata,
     user_metadata: metadata,
   });
-  if (error) throw new Error(`auth create ${student.email} failed: ${error.message}`);
+  if (error) throw new Error(`auth create ${account.email} failed: ${error.message}`);
   return data.user;
+}
+
+// Builds a student_intakes row from a scenario `intake` def. Catalog subjects
+// resolve via subjectIds; off-catalog use needs_manual_match + custom_subject_text.
+// Optional soft-gate fields (budget / preferred days+times) default to null.
+function buildIntakeRow(intake, studentId, createdByUserId, subjectIds, label) {
+  const {
+    subjectName,
+    customSubjectText,
+    level = null,
+    budgetMin = null,
+    budgetMax = null,
+    preferredDays = null,
+    preferredTimeRanges = null,
+  } = intake;
+  const isManual = !!customSubjectText;
+  if (!isManual && !subjectIds.get(subjectName)) {
+    throw new Error(`intake ${label}: subject '${subjectName}' missing from taxonomy`);
+  }
+  return {
+    student_id: studentId,
+    created_by_user_id: createdByUserId,
+    subject_id: isManual ? null : subjectIds.get(subjectName),
+    custom_subject_text: isManual ? customSubjectText : null,
+    needs_manual_match: isManual,
+    level,
+    location_preference: 'online',
+    budget_min: budgetMin,
+    budget_max: budgetMax,
+    preferred_days: preferredDays,
+    preferred_time_ranges: preferredTimeRanges,
+    status: 'open',
+  };
 }
 
 // Seeds independent demo students + one open intake each. Idempotent: users
@@ -353,7 +430,7 @@ async function seedStudentsAndIntakes({ supabase, subjectIds, usersHasIsDemo }) 
   let intakeCount = 0;
 
   for (const student of students) {
-    const authUser = await ensureAuthStudent(supabase, student);
+    const authUser = await ensureAuthAccount(supabase, student, 'student');
     const [user] = await must(
       `user upsert ${student.email}`,
       supabase
@@ -399,29 +476,81 @@ async function seedStudentsAndIntakes({ supabase, subjectIds, usersHasIsDemo }) 
       supabase.from('student_intakes').delete().eq('student_id', studentId),
     );
 
-    const { subjectName, customSubjectText, level } = student.intake;
-    const isManual = !!customSubjectText;
-    if (!isManual && !subjectIds.get(subjectName)) {
-      throw new Error(`intake ${student.email}: subject '${subjectName}' missing from taxonomy`);
-    }
-
     await must(
       `intake insert ${student.email}`,
-      supabase.from('student_intakes').insert({
-        student_id: studentId,
-        created_by_user_id: user.id,
-        subject_id: isManual ? null : subjectIds.get(subjectName),
-        custom_subject_text: isManual ? customSubjectText : null,
-        needs_manual_match: isManual,
-        level,
-        location_preference: 'online',
-        status: 'open',
-      }),
+      supabase
+        .from('student_intakes')
+        .insert(buildIntakeRow(student.intake, studentId, user.id, subjectIds, student.email)),
     );
     intakeCount += 1;
   }
 
   return { students: students.length, intakes: intakeCount };
+}
+
+// Seeds the demo parent + children (students.parent_user_id) + one intake per
+// child, created BY THE PARENT. Idempotent: parent user upsert by email, child
+// reused by (parent_user_id, full_name), child intakes cleared then re-inserted.
+async function seedParentAndChildren({ supabase, subjectIds, usersHasIsDemo }) {
+  const authUser = await ensureAuthAccount(supabase, parent, 'parent');
+  const [user] = await must(
+    `user upsert ${parent.email}`,
+    supabase
+      .from('users')
+      .upsert(
+        {
+          supabase_auth_user_id: authUser.id,
+          email: parent.email,
+          role: 'parent',
+          full_name: parent.fullName,
+          status: 'active',
+          ...(usersHasIsDemo ? { is_demo: true } : {}),
+        },
+        { onConflict: 'email' },
+      )
+      .select('id,email')
+      .limit(1),
+  );
+
+  let childCount = 0;
+  let intakeCount = 0;
+
+  for (const child of parent.children) {
+    const { data: existingChild } = await supabase
+      .from('students')
+      .select('id')
+      .eq('parent_user_id', user.id)
+      .eq('full_name', child.fullName)
+      .maybeSingle();
+
+    let childId = existingChild?.id;
+    if (!childId) {
+      const [created] = await must(
+        `child insert ${child.fullName}`,
+        supabase
+          .from('students')
+          .insert({ parent_user_id: user.id, full_name: child.fullName, grade_level: child.gradeLevel })
+          .select('id')
+          .limit(1),
+      );
+      childId = created.id;
+    }
+    childCount += 1;
+
+    await must(
+      `clear child intakes ${child.fullName}`,
+      supabase.from('student_intakes').delete().eq('student_id', childId),
+    );
+    await must(
+      `child intake insert ${child.fullName}`,
+      supabase
+        .from('student_intakes')
+        .insert(buildIntakeRow(child.intake, childId, user.id, subjectIds, child.fullName)),
+    );
+    intakeCount += 1;
+  }
+
+  return { parents: 1, children: childCount, parentIntakes: intakeCount };
 }
 
 export async function seedDemoMatching({ supabase }) {
@@ -526,6 +655,7 @@ export async function seedDemoMatching({ supabase }) {
   }
 
   const studentResult = await seedStudentsAndIntakes({ supabase, subjectIds, usersHasIsDemo });
+  const parentResult = await seedParentAndChildren({ supabase, subjectIds, usersHasIsDemo });
 
   const [{ count: subjectCount }, { count: teacherSubjectCount }, { count: availabilityCount }] =
     await Promise.all([
@@ -548,6 +678,9 @@ export async function seedDemoMatching({ supabase }) {
     availabilitySlots: availabilityCount,
     students: studentResult.students,
     intakes: studentResult.intakes,
+    parents: parentResult.parents,
+    children: parentResult.children,
+    parentIntakes: parentResult.parentIntakes,
     usersIsDemoColumn: usersHasIsDemo,
     teacherProfilesIsDemoColumn: profilesHasIsDemo,
     teacherProfilesApprovalStatusColumn: profilesHasApprovalStatus,
