@@ -17,3 +17,12 @@ export const adminAcademicRepositoryRequestsQuerySchema = z.object({
 });
 
 export type AdminAcademicRepositoryRequestsQuery = z.infer<typeof adminAcademicRepositoryRequestsQuerySchema>['query'];
+
+export const approveAcademicRepositoryRequestSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+});
+
+export const rejectAcademicRepositoryRequestSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({ reason: z.string().trim().max(500).optional() }),
+});

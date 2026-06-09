@@ -1,3 +1,4 @@
+import { recordAdminAction } from '../admin/admin.service.js';
 import type { LocalUser } from '../auth/authTypes.js';
 import {
   approveAcademicRepositoryRequest,
@@ -36,9 +37,27 @@ export async function getAdminAcademicRepositoryRequests(query: AdminAcademicRep
 }
 
 export async function approveAdminAcademicRepositoryRequest(requestId: string, currentUser: LocalUser) {
-  return approveAcademicRepositoryRequest({ requestId, adminUserId: currentUser.id });
+  const result = await approveAcademicRepositoryRequest({ requestId, adminUserId: currentUser.id });
+  await recordAdminAction(currentUser, {
+    action_type: 'content.approve',
+    target_entity_type: 'academic_repository_request',
+    target_entity_id: requestId,
+    notes: null,
+  });
+  return result;
 }
 
-export async function rejectAdminAcademicRepositoryRequest(requestId: string, currentUser: LocalUser) {
-  return rejectAcademicRepositoryRequest({ requestId, adminUserId: currentUser.id });
+export async function rejectAdminAcademicRepositoryRequest(
+  requestId: string,
+  currentUser: LocalUser,
+  reason?: string,
+) {
+  const result = await rejectAcademicRepositoryRequest({ requestId, adminUserId: currentUser.id });
+  await recordAdminAction(currentUser, {
+    action_type: 'content.reject',
+    target_entity_type: 'academic_repository_request',
+    target_entity_id: requestId,
+    notes: reason ?? null,
+  });
+  return result;
 }

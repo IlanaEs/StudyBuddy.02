@@ -11,7 +11,12 @@ import {
   getAdminAcademicRepositoryRequestsController,
   rejectAdminAcademicRepositoryRequestController,
 } from './academicRepositories.controller.js';
-import { academicRepositoryRequestSchema, adminAcademicRepositoryRequestsQuerySchema } from './academicRepositories.validation.js';
+import {
+  academicRepositoryRequestSchema,
+  adminAcademicRepositoryRequestsQuerySchema,
+  approveAcademicRepositoryRequestSchema,
+  rejectAcademicRepositoryRequestSchema,
+} from './academicRepositories.validation.js';
 
 export const academicRepositoriesRouter = Router();
 
@@ -36,6 +41,7 @@ academicRepositoriesRouter.post(
   '/admin/academic-repository-requests/:id/approve',
   requireAuth,
   requireAnyRole(['admin']),
+  validateRequest(approveAcademicRepositoryRequestSchema),
   asyncHandler(approveAdminAcademicRepositoryRequestController),
 );
 
@@ -43,5 +49,6 @@ academicRepositoriesRouter.post(
   '/admin/academic-repository-requests/:id/reject',
   requireAuth,
   requireAnyRole(['admin']),
+  validateRequest(rejectAcademicRepositoryRequestSchema),
   asyncHandler(rejectAdminAcademicRepositoryRequestController),
 );
