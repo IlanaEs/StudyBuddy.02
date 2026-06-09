@@ -18,13 +18,15 @@ type Props<T> = {
   total: number;
   onPrev: () => void;
   onNext: () => void;
+  /** Shown as a centered row when there are no rows (keeps headers visible). */
+  emptyText?: string;
 };
 
 /**
  * Generic token-pure read-only table (admin CRM + teacher operational tables).
  * Columns supply their own cell renderers (so stub cells render "N/A" etc.).
  */
-export function CrmTable<T>({ columns, rows, rowKey, page, totalPages, total, onPrev, onNext }: Props<T>) {
+export function CrmTable<T>({ columns, rows, rowKey, page, totalPages, total, onPrev, onNext, emptyText }: Props<T>) {
   return (
     <div style={{ background: sb.glassBase, border: `1px solid ${sb.borderCyber}`, borderRadius: sb.radiusCard, overflow: 'hidden' }}>
       <div style={{ overflowX: 'auto' }}>
@@ -50,18 +52,26 @@ export function CrmTable<T>({ columns, rows, rowKey, page, totalPages, total, on
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={rowKey(row)}>
-                {columns.map((c) => (
-                  <td
-                    key={c.key}
-                    style={{ padding: '10px 14px', borderBottom: `1px solid ${sb.borderCyber}`, verticalAlign: 'top' }}
-                  >
-                    {c.render(row)}
-                  </td>
-                ))}
+            {rows.length === 0 && emptyText ? (
+              <tr>
+                <td colSpan={columns.length} style={{ padding: '32px 14px', textAlign: 'center', color: sb.textMuted, fontSize: 13 }}>
+                  {emptyText}
+                </td>
               </tr>
-            ))}
+            ) : (
+              rows.map((row) => (
+                <tr key={rowKey(row)}>
+                  {columns.map((c) => (
+                    <td
+                      key={c.key}
+                      style={{ padding: '10px 14px', borderBottom: `1px solid ${sb.borderCyber}`, verticalAlign: 'top' }}
+                    >
+                      {c.render(row)}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

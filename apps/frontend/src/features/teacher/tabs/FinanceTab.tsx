@@ -1,8 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
-import { Wallet } from 'lucide-react';
 
 import { sbTokens as sb } from '../../../design/tokens';
-import { CrmTable, GlobalStateCard, type CrmColumn } from '../../../design-system';
+import { CrmTable, type CrmColumn } from '../../../design-system';
 import { useTeacherDashboardStore } from '../store/teacherDashboardStore';
 import { deriveLedgerFromLessons, type LedgerRow } from '../utils/deriveTables';
 import type { DashboardLesson } from '../types/teacherDashboard.types';
@@ -55,11 +54,17 @@ export function FinanceTab() {
         <h2 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 800, color: sb.textPrimary, fontFamily: sb.fontUi }}>
           ספר חשבונות <span style={{ color: sb.textMuted, fontWeight: 600, fontSize: 12 }}>(Ledger)</span>
         </h2>
-        {rows.length === 0 ? (
-          <GlobalStateCard variant="empty" icon={<Wallet size={32} />} title="אין רשומות עדיין (No ledger entries yet)" description="רשומות יופיעו לאחר שיתקיימו שיעורים." fullPage />
-        ) : (
-          <CrmTable columns={columns} rows={rows} rowKey={(r) => r.lessonId} page={1} totalPages={1} total={rows.length} onPrev={() => {}} onNext={() => {}} />
-        )}
+        <CrmTable
+          columns={columns}
+          rows={rows}
+          rowKey={(r) => r.lessonId}
+          page={1}
+          totalPages={1}
+          total={rows.length}
+          onPrev={() => {}}
+          onNext={() => {}}
+          emptyText="אין רשומות עדיין — יופיעו לאחר שיתקיימו שיעורים. (No ledger entries yet)"
+        />
       </section>
     </div>
   );

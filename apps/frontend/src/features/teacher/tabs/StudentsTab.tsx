@@ -1,14 +1,19 @@
 import { useMemo, type ReactNode } from 'react';
-import { Users } from 'lucide-react';
 
 import { sbTokens as sb } from '../../../design/tokens';
-import { CrmTable, GlobalStateCard, type CrmColumn } from '../../../design-system';
+import { CrmTable, type CrmColumn } from '../../../design-system';
 import { useTeacherDashboardStore } from '../store/teacherDashboardStore';
 import { deriveStudentsFromLessons, type DerivedStudentRow } from '../utils/deriveTables';
 
 /**
  * Students CRM — the teacher's student-management table, derived from the
  * already-fetched lessons (grouped per student). Read-only; no students API.
+ *
+ * Status rule (documented): a student is "Active" if they have an upcoming
+ * scheduled lesson OR a completed lesson within the last 30 days; otherwise
+ * "Inactive". An explicit "Frozen"/"Archived" status — and the student's
+ * level/grade — are NOT exposed to the teacher dashboard (no students endpoint),
+ * so the status column derives Active/Inactive only and level/grade shows "—".
  */
 export function StudentsTab() {
   const lessons = useTeacherDashboardStore((s) => s.lessons);
@@ -16,33 +21,42 @@ export function StudentsTab() {
 
   const columns: CrmColumn<DerivedStudentRow>[] = [
     { key: 'name', label: 'שם תלמיד (Student Name)', render: (r) => <span style={{ color: sb.textPrimary, fontWeight: 600 }}>{r.name}</span> },
-    { key: 'subjects', label: 'מקצוע (Subject)', render: (r) => <span style={{ color: r.subjects.length ? sb.textPrimary : sb.textMuted }}>{r.subjects.length ? r.subjects.join(', ') : '—'}</span> },
-    { key: 'since', label: 'פעיל מאז (Active Since)', render: (r) => <Mono>{r.activeSince ? fmtDate(r.activeSince) : '—'}</Mono> },
-    { key: 'completed', label: 'שיעורים שהושלמו (Completed)', render: (r) => <span style={{ fontFamily: sb.fontMono, color: sb.textPrimary }}>{r.lessonsCompleted}</span> },
-    { key: 'upcoming', label: 'שיעורים קרובים (Upcoming)', render: (r) => <span style={{ fontFamily: sb.fontMono, color: sb.textPrimary }}>{r.upcomingLessons}</span> },
+    // Level/grade is not present in lesson data → documented N/A.
+    { key: 'grade', label: 'רמה / כיתה (Level / Grade)', render: () => <span style={{ color: sb.textMuted }}>—</span> },
     { key: 'last', label: 'שיעור אחרון (Last Lesson)', render: (r) => <Mono>{r.lastLesson ? fmtDate(r.lastLesson) : '—'}</Mono> },
+    { key: 'future', label: 'שיעור עתידי (Future Lesson)', render: (r) => <YesNo value={r.upcomingLessons > 0} /> },
     { key: 'status', label: 'סטטוס (Status)', render: (r) => <StatusBadge active={r.status === 'active'} /> },
   ];
-
-  if (rows.length === 0) {
-    return (
-      <GlobalStateCard
-        variant="empty"
-        icon={<Users size={32} />}
-        title="אין עדיין תלמידים (No students yet)"
-        description="תלמידים יופיעו כאן לאחר שיתקיימו שיעורים."
-        fullPage
-      />
-    );
-  }
 
   return (
     <section>
       <h2 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 800, color: sb.textPrimary, fontFamily: sb.fontUi }}>
         ניהול תלמידים <span style={{ color: sb.textMuted, fontWeight: 600, fontSize: 12 }}>(Students CRM)</span>
       </h2>
-      <CrmTable columns={columns} rows={rows} rowKey={(r) => r.key} page={1} totalPages={1} total={rows.length} onPrev={() => {}} onNext={() => {}} />
+      <CrmTable
+        columns={columns}
+        rows={rows}
+        rowKey={(r) => r.key}
+        page={1}
+        totalPages={1}
+        total={rows.length}
+        onPrev={() => {}}
+        onNext={() => {}}
+        emptyText="אין עדיין תלמידים — יופיעו לאחר שיתקיימו שיעורים. (No students yet)"
+      />
+      <p style={{ margin: '10px 0 0', fontSize: 11, color: sb.textMuted, lineHeight: 1.6 }}>
+        סטטוס נגזר מהשיעורים: <b>פעיל</b> = שיעור עתידי או שיעור שהושלם ב-30 הימים האחרונים; אחרת <b>לא פעיל</b>.
+        סטטוס "מוקפא"/"בארכיון" ורמה/כיתה דורשים נתון ייעודי שאינו זמין בדשבורד המורה.
+      </p>
     </section>
+  );
+}
+
+function YesNo({ value }: { value: boolean }) {
+  return (
+    <span style={{ color: value ? sb.success : sb.textMuted, fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>
+      {value ? 'כן (Yes)' : 'לא (No)'}
+    </span>
   );
 }
 
