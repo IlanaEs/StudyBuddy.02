@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LogOut, Settings } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 
 import { FloatingTopNavbar, type NavTab } from '../../../design-system';
 import { sbTokens as sb } from '../../../design/tokens';
@@ -10,7 +10,7 @@ import { ADMIN_NAV_TABS } from '../adminNav';
 /**
  * Admin chrome — the shared FloatingTopNavbar, same as every other role (the
  * earlier sidebar exception is reversed). Right (RTL) = identity avatar, center
- * = 4 core tabs, left = utility (Settings, Sign Out). Active tab is route-driven.
+ * = core tabs, left = utility (Sign Out). Active tab is route-driven.
  */
 export function AdminDashboardLayout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
@@ -40,30 +40,17 @@ export function AdminDashboardLayout({ children }: { children: ReactNode }) {
         onLogoClick={() => navigate('/admin/dashboard')}
         tabs={tabs}
         actions={
-          <>
-            {/* Settings — present but inert (no admin settings screen yet). */}
-            <button
-              type="button"
-              disabled
-              aria-disabled="true"
-              aria-label="הגדרות (Settings)"
-              title="הגדרות (Settings)"
-              className="sb-focusable sb-navbar-icon"
-              style={{ ...utilityIconStyle, color: sb.textMuted, cursor: 'not-allowed', opacity: 0.5 }}
-            >
-              <Settings size={20} />
-            </button>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              aria-label="התנתקות (Sign Out)"
-              title="התנתקות (Sign Out)"
-              className="sb-focusable sb-navbar-icon sb-navbar-signout"
-              style={{ ...utilityIconStyle, color: sb.textSecondary }}
-            >
-              <LogOut size={20} />
-            </button>
-          </>
+          // Utility cluster: Sign Out only (no admin Settings screen for MVP).
+          <button
+            type="button"
+            onClick={handleSignOut}
+            aria-label="התנתקות (Sign Out)"
+            title="התנתקות (Sign Out)"
+            className="sb-focusable sb-navbar-icon sb-navbar-signout"
+            style={{ ...utilityIconStyle, color: sb.textSecondary }}
+          >
+            <LogOut size={20} />
+          </button>
         }
       />
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: 'calc(1.5rem + 64px) 18px 64px' }}>
