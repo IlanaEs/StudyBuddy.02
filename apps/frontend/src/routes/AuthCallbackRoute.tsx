@@ -3,29 +3,32 @@ import { Link, Navigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthProvider';
 import { getSupabaseBrowserClient } from '../auth/supabaseClient';
+import { SessionLoadingScreen, SessionRetryScreen } from '../auth/SessionStatusScreens';
 import { getDashboardPathByRole } from '../utils/getDashboardPathByRole';
 
 export function AuthCallbackRoute() {
   const auth = useAuth();
 
-  // If OAuth resolved but the user has no account in public.users, sign them
-  // out of Supabase so the stale OAuth session doesn't loop on refresh.
+  // If OAuth resolved but the user has no account in public.users (a FATAL error),
+  // sign them out of Supabase so the stale OAuth session doesn't loop on refresh.
+  // A TRANSIENT error (network/timeout) must NOT sign out — the session is valid
+  // and the user should be able to retry without re-authenticating.
   useEffect(() => {
-    if (auth.status === 'unauthenticated' && auth.error) {
+    if (auth.status === 'unauthenticated' && auth.error && auth.errorKind === 'fatal') {
       void getSupabaseBrowserClient().auth.signOut();
     }
-  }, [auth.status, auth.error]);
+  }, [auth.status, auth.error, auth.errorKind]);
 
   if (auth.status === 'loading') {
-    return (
-      <div className="w-full max-w-md text-center">
-        <p className="text-white/64">מאמת...</p>
-      </div>
-    );
+    return <SessionLoadingScreen />;
   }
 
   if (auth.status === 'authenticated') {
     return <Navigate replace to={getDashboardPathByRole(auth.effectiveRole)} />;
+  }
+
+  if (auth.errorKind === 'transient' && auth.error) {
+    return <SessionRetryScreen message={auth.error} onRetry={auth.retry} />;
   }
 
   return (

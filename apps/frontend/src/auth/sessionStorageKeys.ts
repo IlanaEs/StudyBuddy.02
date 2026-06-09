@@ -35,16 +35,32 @@ export function clearAppSessionStorage() {
   }
 }
 
-export function resetBrowserAuthStorage() {
-  try {
-    localStorage.clear();
-  } catch {
-    // Storage may be unavailable in private or restricted browser contexts.
-  }
+/** Supabase persists its session under the default storageKey `sb-<ref>-auth-token`
+ *  (older clients used `supabase.auth.token`). Match those so a reset can drop the
+ *  Supabase session too — without touching unrelated keys. */
+function isSupabaseAuthKey(key: string): boolean {
+  return (key.startsWith('sb-') && key.includes('auth-token')) || key.startsWith('supabase.auth.');
+}
 
+function removeMatchingKeys(storage: Storage, predicate: (key: string) => boolean) {
   try {
-    sessionStorage.clear();
+    const matches: string[] = [];
+    for (let i = 0; i < storage.length; i += 1) {
+      const key = storage.key(i);
+      if (key && predicate(key)) matches.push(key);
+    }
+    // Collect first, then remove — removing while iterating shifts indices.
+    for (const key of matches) storage.removeItem(key);
   } catch {
     // Storage may be unavailable in private or restricted browser contexts.
   }
+}
+
+/** Targeted auth reset: clears OUR app keys plus Supabase's own session keys,
+ *  WITHOUT wiping unrelated localStorage (analytics, flags, other apps on the same
+ *  origin). Replaces the previous nuclear localStorage.clear()/sessionStorage.clear(). */
+export function resetBrowserAuthStorage() {
+  clearAppSessionStorage();
+  removeMatchingKeys(localStorage, isSupabaseAuthKey);
+  removeMatchingKeys(sessionStorage, isSupabaseAuthKey);
 }

@@ -1,6 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 import type { ReactNode } from 'react';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { apiRequest } from '../api/client';
 import type { LocalUser, MeProfile, UserRole } from './authTypes';
@@ -18,12 +18,20 @@ import { isDemoStagingMode, getDemoSessionTokens } from '../demo/demoMode';
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
+/** Distinguishes a recoverable problem (network/timeout/5xx — show a retry) from a
+ *  terminal one (auth not configured, account not recognised — back to login). */
+type AuthErrorKind = 'transient' | 'fatal' | null;
+
 type AuthContextValue = {
   status: AuthStatus;
   user: LocalUser | null;
   profile: MeProfile;
   session: Session | null;
   error: string | null;
+  /** Classifies `error` so callers can choose retry (transient) vs sign-out (fatal). */
+  errorKind: AuthErrorKind;
+  /** Re-runs the session bootstrap (used by the retry UI after a transient error). */
+  retry: () => Promise<void>;
   logout: () => Promise<void>;
   /** Re-fetches /api/auth/me and updates user + profile in-place.
    *  Call this after any operation that changes the user's profile status
@@ -48,7 +56,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<MeProfile>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<AuthErrorKind>(null);
   const [qaRole, setQaRoleState] = useState<QaRole | null>(null);
+
+  // Monotonic guard for resolveSession: every invocation claims the next number;
+  // an async continuation only applies its result if it's still the latest. Stops
+  // a stale in-flight /api/auth/me (e.g. one racing a logout or a newer token)
+  // from clobbering the correct state ("last call wins", regardless of which
+  // network response returns first).
+  const resolveSeqRef = useRef(0);
 
   useEffect(() => {
     authorizeQaHeader(qaRole);
@@ -91,10 +107,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setUser(null);
     setProfile(null);
+    // A 401 is a normal logged-out state — clear any stale transient error so
+    // ProtectedRoute redirects to login rather than showing a retry screen.
+    setError(null);
+    setErrorKind(null);
     setStatus('unauthenticated');
   }, []);
 
   const resolveSession = useCallback(async (nextSession: Session | null) => {
+    const seq = ++resolveSeqRef.current;
     if (!nextSession?.access_token) {
       clearQaRoleOverride();
       setQaRoleState(null);
@@ -102,6 +123,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(null);
       setUser(null);
       setProfile(null);
+      setError(null);
+      setErrorKind(null);
       setStatus('unauthenticated');
       return;
     }
@@ -121,6 +144,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const response = await apiRequest<{ user: LocalUser; profile: MeProfile }>('/api/auth/me', undefined, effectiveSession.access_token);
 
+    // A newer resolveSession started while this /me was in flight — its result is
+    // the current truth, so discard this stale one rather than overwrite it.
+    if (seq !== resolveSeqRef.current) return;
+
     if ('error' in response) {
       if (response.status === 401) {
         // Invalid/stale token (e.g. the user no longer exists): a normal
@@ -129,20 +156,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await clearInvalidSession();
         return;
       }
-      // 403 / other: a VALID Supabase session that is not provisioned in our app
-      // yet (no role/local user — the normal state mid Google signup). KEEP the
-      // session so the onboarding flow can use its token to call
-      // complete-oauth-signup and assign the role; stay 'unauthenticated' (not
-      // yet allowed into the app) WITHOUT purging. Don't surface the 403 as an
-      // error — it's an expected step, not a failure. Once provisioning
-      // succeeds, refreshProfile() re-runs /me and flips to 'authenticated'.
+      if (response.status === 403) {
+        // 403: a VALID Supabase session that is not provisioned in our app yet
+        // (no role/local user — the normal state mid Google signup). KEEP the
+        // session so the onboarding flow can use its token to call
+        // complete-oauth-signup and assign the role; stay 'unauthenticated' (not
+        // yet allowed into the app) WITHOUT purging. Don't surface the 403 as an
+        // error — it's an expected step, not a failure. Once provisioning
+        // succeeds, refreshProfile() re-runs /me and flips to 'authenticated'.
+        clearQaRoleOverride();
+        setQaRoleState(null);
+        setSession(effectiveSession);
+        setUser(null);
+        setProfile(null);
+        setStatus('unauthenticated');
+        setError(null);
+        setErrorKind(null);
+        return;
+      }
+      // No HTTP status (network/timeout) or a 5xx/other failure: a TRANSIENT
+      // problem, not a verdict on the user. Do NOT tear down the session or treat
+      // it as un-provisioned (that silently dropped users to the landing page on a
+      // backend blip). Keep the session token so retry() can reuse it, and surface
+      // a recoverable error the UI can offer to retry.
       clearQaRoleOverride();
       setQaRoleState(null);
       setSession(effectiveSession);
       setUser(null);
       setProfile(null);
       setStatus('unauthenticated');
-      setError(null);
+      setError(response.error || 'אירעה שגיאה באימות החשבון. נסו שוב.');
+      setErrorKind('transient');
       return;
     }
 
@@ -166,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(response.data.profile ?? null);
     setStatus('authenticated');
     setError(null);
+    setErrorKind(null);
     if (isEligibleForAdminQa(resolvedUser.email, resolvedUser.role)) {
       setQaRoleState(getQaRoleOverride());
     } else {
@@ -242,6 +287,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           clearQaRoleOverride();
           setQaRoleState(null);
           setError(unknownError instanceof Error ? unknownError.message : 'Authentication is not configured');
+          setErrorKind('fatal');
           setSession(null);
           setUser(null);
           setStatus('unauthenticated');
@@ -268,6 +314,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [session, resolveSession]);
 
+  // Re-runs the bootstrap after a transient failure. Pulls the live Supabase
+  // session fresh (rather than relying on the `session` state, which a transient
+  // error keeps but a hard failure clears) so the retry works in both cases.
+  const retry = useCallback(async () => {
+    setStatus('loading');
+    setError(null);
+    setErrorKind(null);
+    try {
+      const { data } = await getSupabaseBrowserClient().auth.getSession();
+      await resolveSession(data.session);
+    } catch (unknownError) {
+      setError(unknownError instanceof Error ? unknownError.message : 'Authentication is not configured');
+      setErrorKind('fatal');
+      setStatus('unauthenticated');
+    }
+  }, [resolveSession]);
+
   const logout = useCallback(async () => {
     const currentToken = session?.access_token;
 
@@ -284,18 +347,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setQaRoleState(null);
     setStatus('unauthenticated');
     setError(null);
+    setErrorKind(null);
   }, [session]);
 
   const value = useMemo(
     () => {
       const eligibleQaRole = isEligibleForAdminQa(user?.email, user?.role) ? qaRole : null;
       return {
-        status, user, profile, session, error, logout, refreshProfile,
+        status, user, profile, session, error, errorKind, retry, logout, refreshProfile,
         qaRole, setQaRole,
         effectiveRole: (eligibleQaRole ?? user?.role) ?? null,
       };
     },
-    [error, logout, profile, refreshProfile, session, status, user, qaRole, setQaRole],
+    [error, errorKind, retry, logout, profile, refreshProfile, session, status, user, qaRole, setQaRole],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
