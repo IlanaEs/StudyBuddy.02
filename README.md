@@ -160,7 +160,7 @@ node scripts/verify-lifecycle-e2e.mjs    # FULL lifecycle: onboard→availabilit
 **Seed data** (idempotent, demo-guarded — they refuse production):
 ```bash
 STUDYBUDDY_ENV=development npm run db:seed:taxonomy   # canonical subjects
-STUDYBUDDY_ENV=development npm run db:seed:demo       # 3 verified demo teachers + availability
+STUDYBUDDY_ENV=development npm run db:seed:demo       # 10 demo teachers + availability + demo students/intakes (full QA coverage)
 STUDYBUDDY_ENV=development npm run qa:seed-users      # 10 logins (password QaPass123!) — see docs/QA_USERS.md
 STUDYBUDDY_ENV=development node scripts/seed-parent-dashboard.mjs --allow-remote-dev-seed  # parent demo (needs migration 014)
 ```
