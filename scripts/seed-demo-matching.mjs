@@ -107,6 +107,7 @@ export async function seedDemoMatching({ supabase }) {
   const subjectIds = taxonomy.subjectIds;
   const usersHasIsDemo = await hasColumn(supabase, 'users', 'is_demo');
   const profilesHasIsDemo = await hasColumn(supabase, 'teacher_profiles', 'is_demo');
+  const profilesHasApprovalStatus = await hasColumn(supabase, 'teacher_profiles', 'approval_status');
   const seededTeacherIds = [];
 
   for (const teacher of teachers) {
@@ -137,6 +138,14 @@ export async function seedDemoMatching({ supabase }) {
       rating_avg: teacher.ratingAvg,
       rating_count: teacher.ratingCount,
       is_verified: true,
+      // Migration 023 split the approval gate out of is_verified. Keep the
+      // post-onboarding invariant a verified teacher must satisfy: verified ⇔
+      // approved. Without this the seed leaves approval_status at its 'pending'
+      // default — an is_verified=true / pending mismatch that 023's backfill
+      // (set approval_status='approved' where is_verified=true) forbids, and
+      // which would wrongly surface demo teachers in the admin approval queue.
+      // Guarded so the seed still runs against a DB without 023 applied.
+      ...(profilesHasApprovalStatus ? { approval_status: 'approved' } : {}),
       is_active: true,
       last_active_at: new Date().toISOString(),
       onboarding_completed: true,
@@ -215,6 +224,7 @@ export async function seedDemoMatching({ supabase }) {
     availabilitySlots: availabilityCount,
     usersIsDemoColumn: usersHasIsDemo,
     teacherProfilesIsDemoColumn: profilesHasIsDemo,
+    teacherProfilesApprovalStatusColumn: profilesHasApprovalStatus,
   };
 }
 
