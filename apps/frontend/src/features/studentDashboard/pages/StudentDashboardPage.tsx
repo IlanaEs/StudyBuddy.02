@@ -4,6 +4,7 @@ import { CalendarClock, History, Settings } from 'lucide-react';
 
 import { useAuth } from '../../../auth/AuthProvider';
 import { towTokens as T } from '../../../design/tokens';
+import { GlobalStateCard } from '../../../design-system';
 import { BentoGrid } from '../../teacher/components/BentoGrid';
 import { useStudentDashboard } from '../hooks/useStudentDashboard';
 import { StudentDashboardLayout } from '../components/StudentDashboardLayout';
@@ -45,10 +46,17 @@ export function StudentDashboardPage() {
       onSignOut={() => void handleSignOut()}
     >
       {loading ? (
-        <p style={{ color: T.text3, fontSize: 14 }}>טוען את לוח הבקרה…</p>
+        <GlobalStateCard variant="loading" title="טוען את לוח הבקרה…" fullPage />
       ) : error || !data ? (
-        // Whole-payload failure (network/total). No raw backend error in the UI.
-        <p style={{ color: T.alert, fontSize: 14 }}>לא הצלחנו לטעון את הקטע הזה כרגע</p>
+        // Whole-payload failure (network/total). No raw backend error in the UI;
+        // offer a retry instead of a dead-end message.
+        <GlobalStateCard
+          variant="error"
+          title="שגיאה בטעינת לוח הבקרה"
+          description="לא הצלחנו לטעון את לוח הבקרה כרגע. בדקו את החיבור ונסו שוב."
+          cta={{ label: 'נסה שוב (Retry)', onClick: () => void refetch() }}
+          fullPage
+        />
       ) : view === 'settings' ? (
         <SettingsStub gradeLevel={data.student?.grade_level ?? null} studentName={studentName} />
       ) : view === 'overview' ? (

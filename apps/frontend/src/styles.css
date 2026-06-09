@@ -133,6 +133,24 @@
   letter-spacing: 0.01em;
 }
 
+/* Parent → Find Tutor entry — single-glass-card Netflix-style picker.
+   Desktop ≈ 33vw (floored); near full-width on mobile. Hover/keyframes only. */
+.sb-find-tutor-card { width: clamp(440px, 33vw, 560px); }
+@media (max-width: 768px) {
+  .sb-find-tutor-card { width: 92vw; min-width: 0; }
+}
+.sb-profile-avatar { transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
+.sb-profile:hover .sb-profile-avatar { transform: scale(1.06); }
+.sb-find-tutor-cta { position: relative; overflow: hidden; }
+.sb-find-tutor-cta:not(:disabled):hover { filter: brightness(1.07); transform: translateY(-1px); }
+.sb-find-tutor-cta::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(110deg, transparent 32%, rgba(255, 255, 255, 0.35) 50%, transparent 68%);
+  transform: translateX(-130%);
+}
+.sb-find-tutor-cta:not(:disabled):hover::after { animation: sb-cta-shimmer 900ms ease; }
+@keyframes sb-cta-shimmer { to { transform: translateX(130%); } }
+
 /* ── Design System v1 — shared component styles (consume --sb-* only) ────────
    Hover/keyframe behaviour that inline styles can't express. Used by the
    components in src/design-system/. */
@@ -167,6 +185,8 @@
   border-radius: 999px;
   box-shadow: 0 12px 32px -14px rgba(0, 0, 0, 0.5);
 }
+/* Sign-Out (admin utility): red-on-hover per the destructive-action token. */
+.sb-navbar-signout:hover { color: var(--sb-error); }
 /* Mobile: thin side margins (92%) + ≥44×44 thumb targets; all icons stay on the bar. */
 @media (max-width: 768px) {
   .sb-navbar { width: 92%; }

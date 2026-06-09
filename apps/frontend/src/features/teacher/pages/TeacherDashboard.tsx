@@ -1,13 +1,10 @@
 import type { ComponentType } from 'react';
-import { Loader2 } from 'lucide-react';
-import { towTokens as T } from '../../../design/tokens';
-import { useAuth } from '../../../auth/AuthProvider';
+
+import { GlobalStateCard } from '../../../design-system';
 import { useTeacherDashboardStore } from '../store/teacherDashboardStore';
 import { useTeacherDashboardSeed } from '../hooks/useTeacherDashboardSeed';
-import { DashboardShell } from '../components/DashboardShell';
+import { TeacherDashboardLayout } from '../components/TeacherDashboardLayout';
 import { PendingVerificationBanner } from '../components/PendingVerificationBanner';
-import { DashboardHeader } from '../components/DashboardHeader';
-import { DashboardTabs } from '../components/DashboardTabs';
 import { OverviewTab } from '../tabs/OverviewTab';
 import { CalendarInboxTab } from '../tabs/CalendarInboxTab';
 import { FinanceTab } from '../tabs/FinanceTab';
@@ -24,33 +21,21 @@ const TAB_VIEWS: Record<DashboardTab, ComponentType> = {
 };
 
 export function TeacherDashboard() {
-  const { user } = useAuth();
   const { status, error, config } = useTeacherDashboardSeed();
   const activeTab = useTeacherDashboardStore((s) => s.activeTab);
-
-  const fullName = config?.fullName || user?.full_name || '';
   const ActiveView = TAB_VIEWS[activeTab];
 
   return (
-    <DashboardShell>
+    <TeacherDashboardLayout>
       {config?.isVerified === false && <PendingVerificationBanner />}
-      <DashboardHeader fullName={fullName} />
 
       {status === 'loading' || status === 'idle' ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '64px 0', color: T.text3 }}>
-          <Loader2 size={20} className="animate-spin" style={{ color: T.neon }} />
-          <span>טוען את הדשבורד…</span>
-        </div>
+        <GlobalStateCard variant="loading" title="טוען את הדשבורד…" fullPage />
       ) : status === 'error' ? (
-        <div style={{ padding: '40px 0', textAlign: 'center', color: T.alert, fontWeight: 600 }}>
-          {error ?? 'אירעה שגיאה בטעינת הדשבורד.'}
-        </div>
+        <GlobalStateCard variant="error" title="שגיאה בטעינת הדשבורד" description={error ?? 'אירעה שגיאה. נסו שוב.'} fullPage />
       ) : (
-        <>
-          <DashboardTabs />
-          <ActiveView />
-        </>
+        <ActiveView />
       )}
-    </DashboardShell>
+    </TeacherDashboardLayout>
   );
 }

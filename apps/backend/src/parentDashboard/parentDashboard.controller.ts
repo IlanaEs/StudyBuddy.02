@@ -2,10 +2,18 @@ import type { Request, Response } from 'express';
 
 import {
   approveLessonConfirmationService,
+  createParentChildService,
+  getChildScheduleService,
+  getParentChildrenService,
   getParentDashboardService,
   updateHomeworkTaskStatusService,
 } from './parentDashboard.service.js';
-import type { GetDashboardQuery, UpdateHomeworkTaskBody } from './parentDashboard.validation.js';
+import type {
+  CreateChildBody,
+  GetChildScheduleQuery,
+  GetDashboardQuery,
+  UpdateHomeworkTaskBody,
+} from './parentDashboard.validation.js';
 
 export async function getDashboardController(request: Request, response: Response) {
   const query = request.query as unknown as GetDashboardQuery;
@@ -14,6 +22,29 @@ export async function getDashboardController(request: Request, response: Respons
   const dashboard = await getParentDashboardService(currentUser, query.studentId);
 
   response.status(200).json({ data: dashboard });
+}
+
+export async function getChildrenController(request: Request, response: Response) {
+  const currentUser = request.auth!.user;
+  const children = await getParentChildrenService(currentUser);
+  response.status(200).json({ data: { children } });
+}
+
+export async function createChildController(request: Request, response: Response) {
+  const currentUser = request.auth!.user;
+  const body = request.body as CreateChildBody;
+  const child = await createParentChildService(currentUser, body);
+  response.status(201).json({ data: { child } });
+}
+
+export async function getChildScheduleController(request: Request, response: Response) {
+  const currentUser = request.auth!.user;
+  const childId = request.params['childId'] as string;
+  const query = request.query as unknown as GetChildScheduleQuery;
+
+  const schedule = await getChildScheduleService(currentUser, childId, query.from, query.to);
+
+  response.status(200).json({ data: schedule });
 }
 
 export async function approveLessonConfirmationController(request: Request, response: Response) {

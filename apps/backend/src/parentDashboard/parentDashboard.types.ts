@@ -85,6 +85,19 @@ export type ParentDashboardPayload = {
     confirmation_status: ConfirmationStatus | null;
   }>;
 
+  /** Booking requests for the selected child that are awaiting teacher action.
+   *  Distinct from `pending_confirmation` (post-lesson billing): these are the
+   *  parent's submitted requests BEFORE a lesson exists. Includes `pending`
+   *  (still waiting) plus recently-declined (`rejected`/`expired` within the
+   *  transient window) so the parent sees the outcome once, then it clears. */
+  pending_booking_requests: Array<{
+    id: string;
+    teacher_name: string;
+    requested_start_at: string;
+    requested_end_at: string;
+    status: 'pending' | 'rejected' | 'expired';
+  }>;
+
   quick_actions: {
     can_find_teacher: boolean;
   };

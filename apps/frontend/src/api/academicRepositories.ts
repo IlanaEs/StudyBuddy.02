@@ -71,10 +71,11 @@ export async function approveAcademicRepositoryRequest(
 export async function rejectAcademicRepositoryRequest(
   requestId: string,
   accessToken: string,
+  reason?: string,
 ): Promise<ApiResponse<{ request: AcademicRepositoryRequest }>> {
   return apiRequest(
     `/api/admin/academic-repository-requests/${requestId}/reject`,
-    { method: 'POST' },
+    { method: 'POST', body: JSON.stringify(reason ? { reason } : {}) },
     accessToken,
   );
 }

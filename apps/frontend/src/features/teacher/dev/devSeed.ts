@@ -92,6 +92,7 @@ export function buildDevSeed(): DevSeed {
   const config: TeacherConfig = {
     fullName: 'מורה לדוגמה',
     isVerified: true, // so Inbox Accept/Decline are enabled for QA
+    teacherProfileId: '00000000-0000-0000-0000-0000000a1b2c',
     subjects: ['מתמטיקה', 'פיזיקה', 'אנגלית'],
     weeklyTimeBlocks: ['ראשון-morning', 'שני-evening', 'רביעי-afternoon'],
     maxActiveStudents: 10,

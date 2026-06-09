@@ -844,6 +844,9 @@ export function TeacherOnboardingPage() {
   // is in-flight. After the fetch resolves (success or null draft) this becomes false.
   const [draftLoading, setDraftLoading] = useState(true);
   const [draftError, setDraftError] = useState<string | null>(null);
+  // Bumped by the draft-error "retry" button to force the fetch effect to re-run
+  // even when the session token hasn't changed (otherwise retry hangs the spinner).
+  const [draftRetryNonce, setDraftRetryNonce] = useState(0);
   const [stepErrors, setStepErrors] = useState<Record<number, StepValidationErrors>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Snapshot of data+token captured when entering step 7 (loading screen)
@@ -1066,7 +1069,7 @@ export function TeacherOnboardingPage() {
           // This is the only case that resets the flag; a null draft is a
           // legitimate "no record yet" response and must NOT loop forever.
           hasFetchedDraftRef.current = false;
-          setDraftError('לא ניתן לטעון את הטיוטה. אנא רענן את הדף.');
+          setDraftError('לא ניתן לטעון את הטיוטה כרגע. בדקו את החיבור ונסו שוב.');
           setDraftLoading(false);
           return;
         }
@@ -1097,12 +1100,12 @@ export function TeacherOnboardingPage() {
         setDraftLoading(false);
       })
       .catch(() => {
-        // Network-level failure — allow retry when token rotates
+        // Network-level failure — the retry button (draftRetryNonce) can re-run this.
         hasFetchedDraftRef.current = false;
-        setDraftError('לא ניתן לטעון את הטיוטה. אנא רענן את הדף.');
+        setDraftError('לא ניתן לטעון את הטיוטה כרגע. בדקו את החיבור ונסו שוב.');
         setDraftLoading(false);
       });
-  }, [session?.access_token]);
+  }, [session?.access_token, draftRetryNonce]);
 
   // Silent background save — fires on each step advance, never blocks the user.
   // Uses a version counter so only the most recent response updates the status.
@@ -1550,6 +1553,8 @@ export function TeacherOnboardingPage() {
               hasFetchedDraftRef.current = false;
               setDraftError(null);
               setDraftLoading(true);
+              // Force the fetch effect to re-run even if the token is unchanged.
+              setDraftRetryNonce((n) => n + 1);
             }}
             style={{
               padding: '10px 20px',

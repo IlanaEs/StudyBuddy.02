@@ -3,19 +3,23 @@
 import { AppError } from '../errors/AppError.js';
 import type { LocalUser } from '../auth/authTypes.js';
 import type { HomeworkTaskRow, HomeworkTaskStatus, ParentDashboardPayload } from './parentDashboard.types.js';
-import type { UpdateHomeworkTaskBody } from './parentDashboard.validation.js';
+import type { CreateChildBody, UpdateHomeworkTaskBody } from './parentDashboard.validation.js';
+import { insertChildProfile } from '../students/students.repository.js';
 import {
   approveLessonConfirmation,
   batchGetSubjectNamesByIds,
   batchGetTeacherNamesByProfileIds,
   batchGetUserNamesByIds,
+  getBookingRequestsByStudentAndDateRange,
   getChildrenByParentUserId,
   getConfirmationStatusesByLessonIds,
   getHomeworkTaskById,
   getHomeworkTasksByLessonNoteId,
   getLessonConfirmationById,
+  getLessonsByStudentAndDateRange,
   getLessonSubjectId,
   getLatestLessonNote,
+  getParentTileBookingRequests,
   getPendingConfirmation,
   getNextLesson,
   getRecentLessons,
@@ -23,6 +27,10 @@ import {
   getWeeklyFamilySchedule,
   updateHomeworkTaskStatus,
 } from './parentDashboard.repository.js';
+
+// Recently-declined booking requests stay visible for this long (then clear), so
+// the parent sees a teacher's reject/expire once without it lingering forever.
+const DECLINE_VISIBILITY_MS = 24 * 60 * 60 * 1000;
 
 // ── Dashboard aggregation ─────────────────────────────────────────────────────
 
@@ -55,14 +63,22 @@ export async function getParentDashboardService(
   // ── Parallel data fetch ────────────────────────────────────────────────────
   const childIds = children.map((c) => c.id);
 
-  const [nextLessonRaw, pendingConfirmationRaw, latestNoteRaw, recentLessonsRaw, weeklyLessonsRaw] =
+  const [nextLessonRaw, pendingConfirmationRaw, latestNoteRaw, recentLessonsRaw, weeklyLessonsRaw, bookingRequestsRaw] =
     await Promise.all([
       getNextLesson(selectedStudentId),
       getPendingConfirmationWithLesson(selectedStudentId),
       getLatestLessonNote(selectedStudentId),
       getRecentLessons(selectedStudentId, 6),
       getWeeklyFamilySchedule(childIds),
+      getParentTileBookingRequests(selectedStudentId),
     ]);
+
+  // Keep all `pending`; keep `rejected`/`expired` only inside the transient
+  // decline window so the parent sees the outcome once, then it clears.
+  const declineCutoff = Date.now() - DECLINE_VISIBILITY_MS;
+  const visibleBookingRequests = bookingRequestsRaw.filter(
+    (b) => b.status === 'pending' || new Date(b.updatedAt).getTime() >= declineCutoff,
+  );
 
   // ── Homework tasks for the latest note ────────────────────────────────────
   const homeworkTasks = latestNoteRaw
@@ -75,6 +91,7 @@ export async function getParentDashboardService(
     ...(nextLessonRaw ? [nextLessonRaw.teacherProfileId] : []),
     ...recentLessonsRaw.map((l) => l.teacherProfileId),
     ...weeklyLessonsRaw.map((l) => l.teacherProfileId),
+    ...visibleBookingRequests.map((b) => b.teacherProfileId),
   ];
   // Collect teacher user IDs (from lesson_confirmations, which use user IDs directly)
   const confirmationTeacherUserIds = pendingConfirmationRaw
@@ -168,6 +185,14 @@ export async function getParentDashboardService(
       };
     }),
 
+    pending_booking_requests: visibleBookingRequests.map((b) => ({
+      id: b.id,
+      teacher_name: teacherProfileNames.get(b.teacherProfileId) ?? 'מורה לא ידוע',
+      requested_start_at: b.requestedStartAt,
+      requested_end_at: b.requestedEndAt,
+      status: b.status as 'pending' | 'rejected' | 'expired',
+    })),
+
     quick_actions: {
       can_find_teacher: true,
     },
@@ -181,6 +206,112 @@ export async function getParentDashboardService(
       starts_at: l.startsAt,
       ends_at: l.endsAt,
       status: l.status,
+    })),
+  };
+}
+
+// ── Children ──────────────────────────────────────────────────────────────────
+
+// Lightweight children list (id + first name + grade) for the parent's own
+// children — used by the Find-Tutor child-selection screen. Parent-scoped by
+// parent_user_id; never exposes other parents' children.
+export async function getParentChildrenService(
+  currentUser: LocalUser,
+): Promise<Array<{ id: string; first_name: string; grade_level: string | null }>> {
+  const children = await getChildrenByParentUserId(currentUser.id);
+  return children.map((c) => ({ id: c.id, first_name: c.fullName, grade_level: c.gradeLevel }));
+}
+
+// Lightweight "add another child" (name + grade only). Dedup guard: blocks an
+// identical name (trimmed, case-insensitive) + grade under the same parent.
+// Onboarding's ensureStudentProfile is intentionally NOT used here.
+export async function createParentChildService(
+  currentUser: LocalUser,
+  body: CreateChildBody,
+): Promise<{ id: string; first_name: string; grade_level: string | null }> {
+  const name = body.child_name.trim();
+  const grade = body.grade_level?.trim() ? body.grade_level.trim() : null;
+
+  const existing = await getChildrenByParentUserId(currentUser.id);
+  const duplicate = existing.some(
+    (c) => c.fullName.trim().toLowerCase() === name.toLowerCase() && (c.gradeLevel ?? null) === grade,
+  );
+  if (duplicate) throw new AppError('כבר קיים/ת ילד/ה בשם וכיתה זהים.', 409);
+
+  const id = await insertChildProfile(currentUser.id, name, grade);
+  return { id, first_name: name, grade_level: grade };
+}
+
+// ── Child month schedule (calendar + day agenda) ──────────────────────────────
+
+export type ChildScheduleLesson = {
+  id: string;
+  subject_name: string | null;
+  teacher_name: string;
+  starts_at: string;
+  ends_at: string;
+  status: string;
+};
+
+export type ChildScheduleBooking = {
+  id: string;
+  teacher_name: string;
+  starts_at: string;
+  ends_at: string;
+  status: string;
+};
+
+export type ChildSchedulePayload = {
+  lessons: ChildScheduleLesson[];
+  booking_requests: ChildScheduleBooking[];
+};
+
+/**
+ * Read-only schedule for a single child over [fromIso, toIso] — the data source
+ * for the parent dashboard's monthly calendar + day agenda. Ownership is enforced
+ * (reuses getStudentByIdAndParent → 403). Reads lesson + booking-request status
+ * only; never lesson_confirmations/homework_tasks.
+ */
+export async function getChildScheduleService(
+  currentUser: LocalUser,
+  studentId: string,
+  fromIso: string,
+  toIso: string,
+): Promise<ChildSchedulePayload> {
+  const owned = await getStudentByIdAndParent(studentId, currentUser.id);
+  if (!owned) throw new AppError('Forbidden', 403);
+
+  const [lessons, bookings] = await Promise.all([
+    getLessonsByStudentAndDateRange(studentId, fromIso, toIso),
+    getBookingRequestsByStudentAndDateRange(studentId, fromIso, toIso),
+  ]);
+
+  const teacherProfileIds = [
+    ...lessons.map((l) => l.teacherProfileId),
+    ...bookings.map((b) => b.teacherProfileId),
+  ];
+  const subjectIds = lessons.flatMap((l) => (l.subjectId ? [l.subjectId] : []));
+
+  const [teacherNames, subjectNames] = await Promise.all([
+    batchGetTeacherNamesByProfileIds([...new Set(teacherProfileIds)]),
+    batchGetSubjectNamesByIds(subjectIds),
+  ]);
+
+  return {
+    lessons: lessons.map((l) => ({
+      id: l.id,
+      subject_name: l.subjectId ? (subjectNames.get(l.subjectId) ?? null) : null,
+      teacher_name: teacherNames.get(l.teacherProfileId) ?? 'מורה לא ידוע',
+      starts_at: l.startsAt,
+      ends_at: l.endsAt,
+      status: l.status,
+    })),
+    booking_requests: bookings.map((b) => ({
+      id: b.id,
+      teacher_name: teacherNames.get(b.teacherProfileId) ?? 'מורה לא ידוע',
+      starts_at: b.startsAt,
+      ends_at: b.endsAt,
+      status: b.status,
     })),
   };
 }
@@ -242,6 +373,7 @@ function emptyDashboard(
     pending_confirmation: null,
     latest_lesson_update: null,
     recent_lessons: [],
+    pending_booking_requests: [],
     quick_actions: { can_find_teacher: true },
     weekly_family_schedule: [],
   };

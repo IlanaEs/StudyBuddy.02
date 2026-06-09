@@ -57,16 +57,24 @@ export async function syncStudentCalendarAvailability(
 }
 
 /**
- * Initiates a Google OAuth link-identity flow requesting the
- * calendar.readonly scope. This causes a full-page redirect.
+ * Initiates a scoped Google OAuth RE-AUTH requesting the calendar.readonly scope.
+ * Full-page redirect.
  *
- * Before calling this, set GCAL_SYNC_RETURN_KEY in localStorage so that
- * MatchingWizardPage knows to run the real sync on return.
+ * Uses `signInWithOAuth`, NOT `linkIdentity`: the Google account is already linked
+ * (the user signed in with it), so `linkIdentity` is rejected / never returns a
+ * fresh provider token carrying the new scope — the root cause of the 403 on
+ * `/from-calendar`. `signInWithOAuth` re-authenticates the SAME Google account
+ * (same Supabase user — no new account, session preserved) and returns a fresh
+ * `provider_token` with calendar.readonly. `prompt=consent` forces the scope
+ * dialog; `access_type=offline` persists consent.
+ *
+ * Before calling this, set GCAL_SYNC_RETURN_KEY in localStorage so the caller
+ * knows to run the real sync on return.
  */
 export async function initiateCalendarOAuth(returnPath = '/onboarding/matching'): Promise<void> {
   const supabase = getSupabaseBrowserClient();
   await ensureActiveSupabaseSession();
-  const { error } = await supabase.auth.linkIdentity({
+  const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       scopes: 'https://www.googleapis.com/auth/calendar.readonly',
@@ -108,10 +116,14 @@ export async function addLessonToGoogleCalendar(
 }
 
 /**
- * Initiates a Google OAuth flow requesting the calendar.events WRITE scope so we
- * can add a lesson to the student's calendar. Full-page redirect; on return the
- * provider token is captured by supabaseClient and the lesson id is read back
- * from GCAL_WRITE_RETURN_KEY.
+ * Initiates a scoped Google OAuth RE-AUTH requesting the calendar.events WRITE
+ * scope so we can add a lesson to the student's calendar. Full-page redirect; on
+ * return the provider token is captured by supabaseClient and the lesson id is
+ * read back from GCAL_WRITE_RETURN_KEY.
+ *
+ * Uses `signInWithOAuth` (not `linkIdentity`) for the same reason as
+ * {@link initiateCalendarOAuth}: the Google account is already linked, so only a
+ * scoped re-auth returns a fresh provider token carrying calendar.events.
  */
 export async function initiateCalendarWriteOAuth(lessonId: string, returnTo: string): Promise<void> {
   const supabase = getSupabaseBrowserClient();
@@ -119,7 +131,7 @@ export async function initiateCalendarWriteOAuth(lessonId: string, returnTo: str
   try {
     localStorage.setItem(GCAL_WRITE_RETURN_KEY, lessonId);
   } catch { /* ignore */ }
-  const { error } = await supabase.auth.linkIdentity({
+  const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       scopes: 'https://www.googleapis.com/auth/calendar.events',

@@ -51,6 +51,7 @@ export async function rejectAdminAcademicRepositoryRequestController(request: Re
     response.status(400).json({ error: 'Missing request id' });
     return;
   }
-  const repositoryRequest = await rejectAdminAcademicRepositoryRequest(requestId, currentUser);
+  const reason = (request.body as { reason?: string } | undefined)?.reason;
+  const repositoryRequest = await rejectAdminAcademicRepositoryRequest(requestId, currentUser, reason);
   response.status(200).json({ data: { request: repositoryRequest } });
 }

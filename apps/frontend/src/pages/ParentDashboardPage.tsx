@@ -1,28 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, CreditCard, Sun, BookOpen, ChevronLeft, CalendarDays, Video } from 'lucide-react';
+import { Calendar, CreditCard, Sun, BookOpen, ChevronLeft, CalendarDays, Video, Users, CheckCircle2, Hourglass, Search } from 'lucide-react';
 
 import { useAuth } from '../auth/AuthProvider';
+import { BentoCard, GlobalStateCard, sbTokens as sb } from '../design-system';
 import { useParentDashboard } from '../features/parent/hooks/useParentDashboard';
+import { useChildSchedule } from '../features/parent/hooks/useChildSchedule';
 import type { ParentDashboardPayload, HomeworkTaskStatus } from '../features/parent/api/types';
 import { AddLessonToCalendarButton } from '../components/AddLessonToCalendarButton';
+import { MonthlyCalendarAnchor } from '../features/parent/components/MonthlyCalendarAnchor';
+import { DayAgenda } from '../features/parent/components/DayAgenda';
 
-// ── Design tokens ─────────────────────────────────────────────────────────────
-
-const SB_NEON = '#00f6ff';
-const SB_ORANGE = '#fc6d17';
-const SB_SUCCESS = '#bbe341';
-const SB_PURPLE = '#b085f5';
-
-const CARD_BASE: React.CSSProperties = {
-  background: 'rgba(63, 126, 118, 0.55)',
-  border: '1px solid #016c7c',
-  borderRadius: 'var(--radius-lg)',
-  backdropFilter: 'blur(12px) saturate(140%)',
-  WebkitBackdropFilter: 'blur(12px) saturate(140%)',
-  overflow: 'hidden',
-  boxShadow: '0 1px 0 rgba(255,255,255,0.06) inset, 0 18px 40px -24px rgba(0,0,0,0.72)',
-};
+// ── Canonical accents (consume --sb tokens; zero raw hex) ───────────────────────
+// No canonical purple exists; the family schedule uses the active accent.
+const ACCENT = sb.active;
+const ALERT = sb.warning;
+const SUCCESS = sb.success;
+const FAMILY = sb.active;
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
@@ -56,8 +50,8 @@ type UpcomingLessonData = {
   day: string;
   date: string;
   time: string;
-  startsAt: string;   // ISO — used to compute unlock window
-  endsAt: string;     // ISO — used to compute end of unlock window
+  startsAt: string;
+  endsAt: string;
   meetingLink: string | null;
 } | null;
 
@@ -85,9 +79,18 @@ type PreviousLessonItem = {
   status: 'closed' | 'pending_approval';
 };
 
+type PendingRequestItem = {
+  id: string;
+  teacherName: string;
+  day: string;
+  date: string;
+  time: string;
+  status: 'pending' | 'rejected' | 'expired';
+};
+
 type WeeklyGroup = {
-  dayLabel: string;      // e.g. "ראשון 25.05"
-  dayIndex: number;      // 0=Sun…6=Sat for ordering
+  dayLabel: string;
+  dayIndex: number;
   lessons: Array<{
     studentName: string;
     subject: string;
@@ -145,22 +148,24 @@ function transformPayload(payload: ParentDashboardPayload) {
     status: l.confirmation_status === 'approved' ? 'closed' : 'pending_approval',
   }));
 
-  // Weekly schedule — group by day
+  const pendingRequests: PendingRequestItem[] = payload.pending_booking_requests.map((r) => ({
+    id: r.id,
+    teacherName: r.teacher_name,
+    ...formatLessonTime(r.requested_start_at),
+    status: r.status,
+  }));
+
   const weeklyGroups: WeeklyGroup[] = [];
   const dayMap = new Map<number, WeeklyGroup>();
-
   for (const lesson of payload.weekly_family_schedule) {
     const d = new Date(lesson.starts_at);
     const dow = d.getDay();
-    const dateStr = formatDate(lesson.starts_at);
-    const dayLabel = `יום ${HEBREW_DAYS[dow]} ${dateStr}`;
-
+    const dayLabel = `יום ${HEBREW_DAYS[dow]} ${formatDate(lesson.starts_at)}`;
     if (!dayMap.has(dow)) {
       const group: WeeklyGroup = { dayLabel, dayIndex: dow, lessons: [] };
       dayMap.set(dow, group);
       weeklyGroups.push(group);
     }
-
     dayMap.get(dow)!.lessons.push({
       studentName: lesson.student_name,
       subject: lesson.subject_name ?? 'שיעור',
@@ -170,101 +175,52 @@ function transformPayload(payload: ParentDashboardPayload) {
       status: lesson.status,
     });
   }
-
-  // Sort groups by day index
   weeklyGroups.sort((a, b) => a.dayIndex - b.dayIndex);
 
-  return { upcomingLesson, pendingApproval, latestLessonUpdate, previousLessons, weeklyGroups };
+  return { upcomingLesson, pendingApproval, latestLessonUpdate, previousLessons, weeklyGroups, pendingRequests };
 }
 
-// ── Shared sub-components ──────────────────────────────────────────────────────
+// ── Shared sub-components (consume --sb tokens) ─────────────────────────────────
 
-function CardHeader({
-  icon,
-  title,
-  accentColor = SB_NEON,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  accentColor?: string;
-}) {
+function CardHeader({ icon, title, accentColor = ACCENT }: { icon: React.ReactNode; title: string; accentColor?: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
       <span
         style={{
-          width: 32,
-          height: 32,
-          borderRadius: 'var(--radius-sm)',
+          width: 32, height: 32, borderRadius: sb.radiusSmall,
           background: `color-mix(in oklab, ${accentColor} 15%, transparent)`,
           border: `1px solid color-mix(in oklab, ${accentColor} 28%, transparent)`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: accentColor,
-          flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: accentColor, flexShrink: 0,
         }}
       >
         {icon}
       </span>
-      <span
-        style={{
-          fontSize: 13,
-          fontWeight: 700,
-          color: 'var(--text-2)',
-          fontFamily: 'var(--font-display)',
-          letterSpacing: '-0.01em',
-        }}
-      >
-        {title}
-      </span>
+      <span style={{ fontSize: 13, fontWeight: 700, color: sb.textSecondary, letterSpacing: '-0.01em' }}>{title}</span>
     </div>
   );
 }
 
 function Divider() {
-  return <div style={{ height: 1, background: 'rgba(220,245,240,0.1)', margin: '14px 0' }} />;
+  return <div style={{ height: 1, background: `color-mix(in oklab, ${sb.textMuted} 25%, transparent)`, margin: '14px 0' }} />;
 }
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <div
-      style={{
-        fontSize: 11,
-        fontWeight: 600,
-        color: 'var(--text-3)',
-        marginBottom: 8,
-        textTransform: 'uppercase',
-        letterSpacing: '0.06em',
-        fontFamily: 'var(--font-mono)',
-      }}
-    >
+    <div style={{ fontSize: 11, fontWeight: 600, color: sb.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: sb.fontMono }}>
       {children}
     </div>
   );
 }
 
-function StatusBadge({
-  label,
-  color,
-}: {
-  label: string;
-  color: string;
-}) {
+function StatusBadge({ label, color }: { label: string; color: string }) {
   return (
     <span
       style={{
-        flexShrink: 0,
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: '3px 9px',
-        borderRadius: 999,
-        fontSize: 11,
-        fontWeight: 700,
-        fontFamily: 'var(--font-mono)',
+        flexShrink: 0, display: 'inline-flex', alignItems: 'center', padding: '3px 9px', borderRadius: 999,
+        fontSize: 11, fontWeight: 700, fontFamily: sb.fontMono,
         background: `color-mix(in oklab, ${color} 18%, transparent)`,
         border: `1px solid color-mix(in oklab, ${color} 35%, transparent)`,
-        color,
-        whiteSpace: 'nowrap',
+        color, whiteSpace: 'nowrap',
       }}
     >
       {label}
@@ -272,124 +228,25 @@ function StatusBadge({
   );
 }
 
-// ── Skeleton ──────────────────────────────────────────────────────────────────
-
-function SkeletonBlock({ w, h }: { w?: string | number; h?: string | number }) {
+// Centered muted empty inside a tile (keeps the tile's grid slot).
+function TileEmpty({ icon, title, description }: { icon: React.ReactNode; title: string; description?: string }) {
   return (
-    <div
-      className="animate-pulse"
-      style={{
-        width: w ?? '100%',
-        height: h ?? 14,
-        borderRadius: 6,
-        background: 'rgba(220,245,240,0.1)',
-      }}
-    />
-  );
-}
-
-function SkeletonCard({ className, tall }: { className?: string; tall?: boolean }) {
-  return (
-    <div
-      className={className}
-      style={{ ...CARD_BASE, padding: '20px 22px', minHeight: tall ? 200 : 120, display: 'flex', flexDirection: 'column', gap: 12 }}
-    >
-      <SkeletonBlock w={90} h={12} />
-      <SkeletonBlock h={16} />
-      <SkeletonBlock w="70%" h={14} />
-      {tall && (
-        <>
-          <SkeletonBlock h={14} />
-          <SkeletonBlock w="55%" h={14} />
-        </>
-      )}
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 96 }}>
+      <GlobalStateCard variant="empty" icon={icon} title={title} description={description} />
     </div>
   );
 }
 
-function FullPageSkeleton() {
+function FullPageState({ children }: { children: React.ReactNode }) {
   return (
-    <div dir="rtl" style={{ minHeight: '100dvh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '14px 24px',
-          borderBottom: '1px solid var(--line)',
-          background: 'var(--surface)',
-        }}
-      >
-        <SkeletonBlock w={32} h={32} />
-        <SkeletonBlock w={120} h={16} />
-      </header>
-      <main style={{ flex: 1, maxWidth: 1200, width: '100%', margin: '0 auto', padding: '32px 24px 64px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <SkeletonBlock w={280} h={28} />
-          <SkeletonBlock w={200} h={16} />
-        </div>
-        <div style={{ display: 'flex', gap: 14 }}>
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="animate-pulse" style={{ width: 54, height: 54, borderRadius: '50%', background: 'rgba(220,245,240,0.1)' }} />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-6 lg:gap-5">
-          <SkeletonCard className="order-1 lg:col-span-2" />
-          <SkeletonCard className="order-2 lg:col-span-4" />
-          <SkeletonCard className="order-3 lg:col-span-4 lg:row-span-2" tall />
-          <SkeletonCard className="order-4 lg:col-span-2" />
-          <SkeletonCard className="order-5 lg:col-span-2" />
-          <SkeletonCard className="order-6 lg:col-span-2" />
-        </div>
-      </main>
-    </div>
-  );
-}
-
-// ── Error / empty states ──────────────────────────────────────────────────────
-
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div dir="rtl" style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-      <div style={{ textAlign: 'center', maxWidth: 360, padding: '0 24px' }}>
-        <p style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 500, color: 'var(--text-2)', lineHeight: 1.65 }}>
-          שגיאה בטעינת הדשבורד: {message}
-        </p>
-        <button
-          type="button"
-          onClick={onRetry}
-          style={{
-            padding: '10px 24px',
-            borderRadius: 'var(--radius-sm)',
-            border: 'none',
-            background: SB_NEON,
-            color: '#042a2a',
-            fontSize: 13,
-            fontWeight: 800,
-            cursor: 'pointer',
-            fontFamily: 'var(--font-display)',
-          }}
-        >
-          נסה שוב
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function NoChildrenState() {
-  return (
-    <div dir="rtl" style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-      <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--text-3)', textAlign: 'center', padding: '0 24px' }}>
-        לא נמצאו ילדים מקושרים לחשבונך. פנה לתמיכה להוספת ילד.
-      </p>
+    <div dir="rtl" style={{ minHeight: '100dvh', background: sb.bgCanvas, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 24px' }}>
+      {children}
     </div>
   );
 }
 
 // ── Card 1: Upcoming Lesson ────────────────────────────────────────────────────
 
-// Returns true when the current time is within [startsAt - 2 min, endsAt].
 function isLessonLive(startsAt: string, endsAt: string): boolean {
   const now = Date.now();
   const unlockAt = new Date(startsAt).getTime() - 2 * 60 * 1000;
@@ -397,16 +254,7 @@ function isLessonLive(startsAt: string, endsAt: string): boolean {
   return now >= unlockAt && now <= closesAt;
 }
 
-function UpcomingLessonCard({
-  childName,
-  data,
-  className,
-}: {
-  childName: string;
-  data: UpcomingLessonData;
-  className?: string;
-}) {
-  // Re-evaluate the live window every 30 seconds so the button appears without a reload.
+function UpcomingLessonCard({ childName, data, className }: { childName: string; data: UpcomingLessonData; className?: string }) {
   const [, setTick] = useState(0);
   useEffect(() => {
     if (!data?.meetingLink) return;
@@ -417,19 +265,15 @@ function UpcomingLessonCard({
   const live = data ? isLessonLive(data.startsAt, data.endsAt) : false;
 
   return (
-    <div
-      className={className}
-      style={{ ...CARD_BASE, padding: '20px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 14 }}
-    >
-      <CardHeader icon={<Calendar size={16} />} title='הלו"ז הקרוב (Upcoming Schedule)' accentColor={SB_NEON} />
+    <BentoCard className={className} hover={false} style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 14 }}>
+      <CardHeader icon={<Calendar size={16} />} title='הלו"ז הקרוב (Upcoming Schedule)' accentColor={ACCENT} />
       {data ? (
         <>
-          <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--text)', lineHeight: 1.65 }}>
+          <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: sb.textPrimary, lineHeight: 1.65 }}>
             השיעור הבא של {childName}:{' '}
-            <span style={{ color: SB_NEON, fontWeight: 700 }}>{data.subject}</span> עם{' '}
-            <span style={{ color: 'var(--text)' }}>{data.teacherName}</span> ביום {data.day},{' '}
-            {data.date} בשעה{' '}
-            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{data.time}</span>.
+            <span style={{ color: ACCENT, fontWeight: 700 }}>{data.subject}</span> עם{' '}
+            <span style={{ color: sb.textPrimary }}>{data.teacherName}</span> ביום {data.day}, {data.date} בשעה{' '}
+            <span className="data-mono" style={{ fontWeight: 700 }}>{data.time}</span>.
           </p>
           {data.meetingLink && (
             <a
@@ -438,24 +282,14 @@ function UpcomingLessonCard({
               rel="noopener noreferrer"
               aria-disabled={!live}
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 7,
-                alignSelf: 'flex-start',
-                padding: '10px 18px',
-                borderRadius: 'var(--radius-sm)',
-                border: 'none',
-                background: live ? SB_NEON : 'rgba(0,246,255,0.15)',
-                color: live ? '#042a2a' : SB_NEON,
-                fontSize: 13,
-                fontWeight: 800,
-                fontFamily: 'var(--font-display)',
-                cursor: live ? 'pointer' : 'not-allowed',
-                opacity: live ? 1 : 0.55,
-                pointerEvents: live ? 'auto' : 'none',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, alignSelf: 'flex-start',
+                padding: '10px 18px', borderRadius: sb.radiusSmall, border: 'none',
+                background: live ? ACCENT : `color-mix(in oklab, ${ACCENT} 15%, transparent)`,
+                color: live ? sb.onPrimary : ACCENT,
+                fontSize: 13, fontWeight: 800,
+                cursor: live ? 'pointer' : 'not-allowed', opacity: live ? 1 : 0.55, pointerEvents: live ? 'auto' : 'none',
                 textDecoration: 'none',
-                boxShadow: live ? `0 0 20px -4px color-mix(in oklab, ${SB_NEON} 40%, transparent)` : 'none',
+                boxShadow: live ? `0 0 20px -4px color-mix(in oklab, ${ACCENT} 40%, transparent)` : 'none',
                 transition: 'opacity 0.2s ease, background 0.2s ease',
               }}
             >
@@ -466,50 +300,25 @@ function UpcomingLessonCard({
           <AddLessonToCalendarButton lessonId={data.id} />
         </>
       ) : (
-        <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--text-3)', lineHeight: 1.65 }}>
-          אין ל{childName} שיעורים מתוזמנים לימים הקרובים.
-        </p>
+        <TileEmpty icon={<Calendar size={26} />} title={`אין ל${childName} שיעורים מתוזמנים`} description="הימים הקרובים פנויים." />
       )}
-    </div>
+    </BentoCard>
   );
 }
 
-// ── Card 2: Pending Approval ───────────────────────────────────────────────────
+// ── Card 2: Awaiting Your Action ───────────────────────────────────────────────
 
-function PendingApprovalCard({
-  data,
-  onApprove,
-  className,
-}: {
-  data: PendingApprovalData;
-  onApprove: () => void;
-  className?: string;
-}) {
+function PendingApprovalCard({ data, onApprove, className }: { data: PendingApprovalData; onApprove: () => void; className?: string }) {
   return (
-    <div
-      className={className}
-      style={{
-        ...CARD_BASE,
-        padding: '20px 22px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-      }}
-    >
-      <CardHeader
-        icon={<CreditCard size={16} />}
-        title="מחכה לטיפולך (Action Required)"
-        accentColor={data ? SB_ORANGE : 'var(--text-3)'}
-      />
+    <BentoCard className={className} hover={false} style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+      <CardHeader icon={<CreditCard size={16} />} title="מחכה לטיפולך (Action Required)" accentColor={data ? ALERT : sb.textMuted} />
       {data ? (
         <>
-          <p style={{ margin: '0 0 16px', fontSize: 13, fontWeight: 500, color: 'var(--text-2)', lineHeight: 1.65, flex: 1 }}>
-            המורה{' '}
-            <span style={{ fontWeight: 700, color: 'var(--text)' }}>{data.teacherName}</span> סימן
-            שהשיעור ב{data.subject}
+          <p style={{ margin: '0 0 16px', fontSize: 13, fontWeight: 500, color: sb.textSecondary, lineHeight: 1.65, flex: 1 }}>
+            המורה <span style={{ fontWeight: 700, color: sb.textPrimary }}>{data.teacherName}</span> סימן שהשיעור ב{data.subject}
             {data.date ? ` מתאריך ${data.date}` : ''} בוצע ושולם{' '}
             {data.amount != null && (
-              <>(<span style={{ fontFamily: 'var(--font-mono)', color: SB_SUCCESS }}>₪{data.amount}</span>). </>
+              <>(<span className="data-mono" style={{ color: SUCCESS }}>₪{data.amount}</span>). </>
             )}
             הכל תקין?
           </p>
@@ -517,86 +326,110 @@ function PendingApprovalCard({
             type="button"
             onClick={onApprove}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 7,
-              width: '100%',
-              padding: '11px 16px',
-              borderRadius: 'var(--radius-sm)',
-              border: 'none',
-              background: SB_SUCCESS,
-              color: '#1a2a00',
-              fontSize: 13,
-              fontWeight: 800,
-              fontFamily: 'var(--font-display)',
-              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%',
+              padding: '11px 16px', borderRadius: sb.radiusSmall, border: 'none',
+              background: SUCCESS, color: sb.onPrimary, fontSize: 13, fontWeight: 800, cursor: 'pointer',
               transition: 'transform 0.15s ease, filter 0.15s ease',
-              boxShadow: `0 0 16px -4px color-mix(in oklab, ${SB_SUCCESS} 40%, transparent)`,
+              boxShadow: `0 0 16px -4px color-mix(in oklab, ${SUCCESS} 40%, transparent)`,
             }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)';
-              (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.filter = '';
-              (e.currentTarget as HTMLButtonElement).style.transform = '';
-            }}
+            onMouseEnter={(e) => { const b = e.currentTarget; b.style.filter = 'brightness(1.1)'; b.style.transform = 'translateY(-1px)'; }}
+            onMouseLeave={(e) => { const b = e.currentTarget; b.style.filter = ''; b.style.transform = ''; }}
           >
             <CreditCard size={14} />
             אישור וסגירת השיעור
           </button>
         </>
       ) : (
-        <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: 'var(--text-3)', lineHeight: 1.65 }}>
-          הכל סגור! אין שיעורים שממתינים לאישור תשלום.
-        </p>
+        <TileEmpty icon={<CheckCircle2 size={26} />} title="הכל סגור!" description="אין שיעורים שממתינים לאישור תשלום." />
       )}
-    </div>
+    </BentoCard>
   );
 }
 
-// ── Card 3: Latest Lesson Update ──────────────────────────────────────────────
+// ── Card: Pending Teacher Approval (booking requests, NOT billing) ─────────────
+// Distinct from "Action Required" (post-lesson billing). These are the parent's
+// submitted booking requests awaiting the teacher's approve/reject — no lesson
+// exists yet. Declined (rejected/expired) rows are transient (cleared server-side
+// after 24h) and offer a re-search CTA.
 
-function LatestLessonCard({
-  childName,
-  data,
-  className,
-}: {
-  childName: string;
-  data: LatestLessonData;
-  className?: string;
-}) {
-  const taskStatusLabel =
-    data?.taskStatus === 'completed'
-      ? 'סימן שהושלם'
-      : data?.taskStatus === 'in_progress'
-        ? 'בתהליך'
-        : data?.taskStatus === 'open'
-          ? 'לא התחיל'
-          : null;
+function pendingRequestMeta(status: PendingRequestItem['status']): { label: string; color: string; declined: boolean } {
+  switch (status) {
+    case 'rejected':
+      return { label: 'הבקשה נדחתה', color: sb.error, declined: true };
+    case 'expired':
+      return { label: 'פג תוקף הבקשה', color: sb.textMuted, declined: true };
+    default:
+      return { label: 'ממתין לאישור המורה', color: ALERT, declined: false };
+  }
+}
 
-  const taskStatusColor =
-    data?.taskStatus === 'completed' ? SB_SUCCESS : SB_NEON;
+function PendingRequestsCard({ items, childId, className }: { items: PendingRequestItem[]; childId: string; className?: string }) {
+  const navigate = useNavigate();
+  const reSearch = () => navigate('/parent/find-tutor', { state: { activeChildId: childId } });
 
   return (
-    <div
-      className={className}
-      style={{ ...CARD_BASE, padding: '22px 24px', display: 'flex', flexDirection: 'column' }}
-    >
-      <CardHeader
-        icon={<BookOpen size={16} />}
-        title={`עדכון מהשיעור האחרון של ${childName} (Latest Lesson Update)`}
-        accentColor={SB_NEON}
-      />
+    <BentoCard className={className} hover={false} style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column' }}>
+      <CardHeader icon={<Hourglass size={16} />} title="ממתין לאישור מורה (Pending Approval)" accentColor={ALERT} />
+      <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+        {items.map((item) => {
+          const meta = pendingRequestMeta(item.status);
+          return (
+            <div
+              key={item.id}
+              style={{
+                display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px', borderRadius: sb.radiusSmall,
+                background: sb.glassSoft, border: `1px solid color-mix(in oklab, ${meta.color} 28%, ${sb.borderCyber})`,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: sb.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {item.teacherName}
+                </span>
+                <StatusBadge label={meta.label} color={meta.color} />
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 500, color: sb.textMuted }}>
+                ביום {item.day}, <span className="data-mono">{item.date}</span> בשעה{' '}
+                <span className="data-mono" style={{ fontWeight: 700, color: sb.textSecondary }}>{item.time}</span>
+              </span>
+              {meta.declined && (
+                <button
+                  type="button"
+                  onClick={reSearch}
+                  style={{
+                    alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 2,
+                    background: 'none', border: 'none', padding: 0, color: ACCENT, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+                  }}
+                >
+                  <Search size={13} />
+                  חפש/י מורה אחר
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </BentoCard>
+  );
+}
 
+// ── Card 3: Latest Lesson Update (homework is READ-ONLY) ───────────────────────
+
+function LatestLessonCard({ childName, data, className }: { childName: string; data: LatestLessonData; className?: string }) {
+  const taskStatusLabel =
+    data?.taskStatus === 'completed' ? 'סימן שהושלם'
+      : data?.taskStatus === 'in_progress' ? 'בתהליך'
+        : data?.taskStatus === 'open' ? 'לא התחיל'
+          : null;
+  const taskStatusColor = data?.taskStatus === 'completed' ? SUCCESS : ACCENT;
+
+  return (
+    <BentoCard className={className} hover={false} style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column' }}>
+      <CardHeader icon={<BookOpen size={16} />} title={`עדכון מהשיעור האחרון של ${childName} (Latest Lesson Update)`} accentColor={ACCENT} />
       {data ? (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
           <div>
             <SectionLabel>מה המורה כתב</SectionLabel>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--text)', lineHeight: 1.65 }}>
-              {data.teacherNote}
-            </p>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: sb.textPrimary, lineHeight: 1.65 }}>{data.teacherNote}</p>
           </div>
 
           <Divider />
@@ -604,44 +437,18 @@ function LatestLessonCard({
           <div>
             <SectionLabel>שיעורי בית</SectionLabel>
             {data.homework === 'none' ? (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '10px 14px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: `color-mix(in oklab, ${SB_SUCCESS} 12%, transparent)`,
-                  border: `1px solid color-mix(in oklab, ${SB_SUCCESS} 28%, transparent)`,
-                }}
-              >
-                <Sun size={15} style={{ color: SB_SUCCESS, flexShrink: 0 }} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: SB_SUCCESS }}>
-                  אין משימות פתוחות מהשיעור הזה. חופש!
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: sb.radiusSmall, background: `color-mix(in oklab, ${SUCCESS} 12%, transparent)`, border: `1px solid color-mix(in oklab, ${SUCCESS} 28%, transparent)` }}>
+                <Sun size={15} style={{ color: SUCCESS, flexShrink: 0 }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: SUCCESS }}>אין משימות פתוחות מהשיעור הזה. חופש!</span>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {data.rawTasks.map((t) => (
-                  <div
-                    key={t.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 8,
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'rgba(220,245,240,0.05)',
-                      border: '1px solid rgba(220,245,240,0.08)',
-                    }}
-                  >
-                    <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', flex: 1 }}>
-                      {t.title}
-                    </span>
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 12px', borderRadius: sb.radiusSmall, background: sb.glassSoft, border: `1px solid ${sb.borderCyber}` }}>
+                    <span style={{ fontSize: 13, fontWeight: 500, color: sb.textPrimary, flex: 1 }}>{t.title}</span>
                     <StatusBadge
                       label={t.status === 'completed' ? 'הושלם' : t.status === 'in_progress' ? 'בתהליך' : 'פתוח'}
-                      color={t.status === 'completed' ? SB_SUCCESS : t.status === 'in_progress' ? SB_NEON : SB_ORANGE}
+                      color={t.status === 'completed' ? SUCCESS : t.status === 'in_progress' ? ACCENT : ALERT}
                     />
                   </div>
                 ))}
@@ -653,16 +460,7 @@ function LatestLessonCard({
             <>
               <Divider />
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 'auto' }}>
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: 'var(--text-3)',
-                    fontFamily: 'var(--font-mono)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                  }}
-                >
+                <span style={{ fontSize: 11, fontWeight: 600, color: sb.textMuted, fontFamily: sb.fontMono, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                   סטטוס המשימה אצל הילד:
                 </span>
                 <StatusBadge label={taskStatusLabel} color={taskStatusColor} />
@@ -671,189 +469,85 @@ function LatestLessonCard({
           )}
         </div>
       ) : (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--text-3)', textAlign: 'center' }}>
-            אין עדיין עדכון שיעור עבור {childName}.
-          </p>
-        </div>
+        <TileEmpty icon={<BookOpen size={26} />} title={`אין עדיין עדכון שיעור עבור ${childName}`} />
       )}
-    </div>
+    </BentoCard>
   );
 }
 
-// ── Card 4: Find a New Teacher ────────────────────────────────────────────────
+// ── Card 4: Find a New Teacher → matching wizard for the active child ──────────
 
-function FindTeacherCard({
-  childName,
-  className,
-}: {
-  childName: string;
-  className?: string;
-}) {
+function FindTeacherCard({ child, className }: { child: { id: string; name: string }; className?: string }) {
   const navigate = useNavigate();
 
+  // Entry point: open the child-selection picker first (the active child is
+  // pre-selected there). Child context comes from the selected profile, not this copy.
+  const onFind = () => navigate('/parent/find-tutor', { state: { activeChildId: child.id } });
+
   return (
-    <div
-      className={className}
-      style={{ ...CARD_BASE, padding: '22px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
-    >
+    <BentoCard className={className} hover={false} style={{ padding: 22, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
       <div>
-        <CardHeader
-          icon={<ChevronLeft size={16} />}
-          title="צריכים עזרה במשהו חדש? (New Request)"
-          accentColor={SB_NEON}
-        />
-        <p style={{ margin: '0 0 20px', fontSize: 13, fontWeight: 500, color: 'var(--text-2)', lineHeight: 1.65 }}>
-          הבוט שלנו יעזור לך למצוא מורה מדויק עבור{' '}
-          <span style={{ fontWeight: 700, color: 'var(--text)' }}>{childName}</span> תוך דקה.
+        <CardHeader icon={<ChevronLeft size={16} />} title="מחפשים מורה חדש?" accentColor={ACCENT} />
+        <p style={{ margin: '0 0 20px', fontSize: 13, fontWeight: 500, color: sb.textSecondary, lineHeight: 1.65 }}>
+          נמצא את ההתאמה הטובה ביותר עבור הילד שבחרת.
         </p>
       </div>
       <button
         type="button"
-        onClick={() => navigate('/onboarding/matching')}
+        onClick={onFind}
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 7,
-          width: '100%',
-          padding: '11px 16px',
-          borderRadius: 'var(--radius-sm)',
-          border: 'none',
-          background: SB_NEON,
-          color: '#042a2a',
-          fontSize: 13,
-          fontWeight: 800,
-          fontFamily: 'var(--font-display)',
-          cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%',
+          padding: '11px 16px', borderRadius: sb.radiusSmall, border: 'none',
+          background: ACCENT, color: sb.onPrimary, fontSize: 13, fontWeight: 800, cursor: 'pointer', lineHeight: 1,
           transition: 'transform 0.15s ease, filter 0.15s ease',
-          lineHeight: 1,
-          boxShadow: `0 0 20px -4px color-mix(in oklab, ${SB_NEON} 40%, transparent)`,
+          boxShadow: `0 0 20px -4px color-mix(in oklab, ${ACCENT} 40%, transparent)`,
         }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)';
-          (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.filter = '';
-          (e.currentTarget as HTMLButtonElement).style.transform = '';
-        }}
+        onMouseEnter={(e) => { const b = e.currentTarget; b.style.filter = 'brightness(1.1)'; b.style.transform = 'translateY(-1px)'; }}
+        onMouseLeave={(e) => { const b = e.currentTarget; b.style.filter = ''; b.style.transform = ''; }}
       >
-        מצא מורה חדש ל-{childName}
+        התחל חיפוש מורה
       </button>
-    </div>
+    </BentoCard>
   );
 }
 
-// ── Card 5: Previous Lessons ──────────────────────────────────────────────────
+// ── Card 5: Past Lessons ───────────────────────────────────────────────────────
 
-function PreviousLessonsCard({
-  childName,
-  lessons,
-  className,
-}: {
-  childName: string;
-  lessons: PreviousLessonItem[];
-  className?: string;
-}) {
+function PreviousLessonsCard({ childName, lessons, className }: { childName: string; lessons: PreviousLessonItem[]; className?: string }) {
   const [expanded, setExpanded] = useState(false);
-
-  // Desktop: up to 6; Mobile: up to 3 (toggled by `expanded`)
   const visibleLessons = expanded ? lessons : lessons.slice(0, 3);
 
   return (
-    <div
-      className={className}
-      style={{ ...CARD_BASE, padding: '22px', display: 'flex', flexDirection: 'column' }}
-    >
-      <CardHeader
-        icon={<Calendar size={16} />}
-        title={`שיעורים קודמים של ${childName} (Past Lessons)`}
-        accentColor={SB_ORANGE}
-      />
+    <BentoCard className={className} hover={false} style={{ padding: 22, display: 'flex', flexDirection: 'column' }}>
+      <CardHeader icon={<Calendar size={16} />} title={`שיעורים קודמים של ${childName} (Past Lessons)`} accentColor={ALERT} />
 
       {lessons.length === 0 ? (
-        <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: 'var(--text-3)', lineHeight: 1.65 }}>
-          אין שיעורים קודמים עבור {childName}.
-        </p>
+        <TileEmpty icon={<Calendar size={26} />} title={`אין שיעורים קודמים עבור ${childName}`} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-          {/* On desktop show up to 6 always; on mobile use 3/all toggle */}
           <div className="hidden lg:flex" style={{ flexDirection: 'column' }}>
             {lessons.slice(0, 6).map((lesson, i) => (
-              <div key={i}>
-                {i > 0 && <Divider />}
-                <LessonRow lesson={lesson} />
-              </div>
+              <div key={i}>{i > 0 && <Divider />}<LessonRow lesson={lesson} /></div>
             ))}
           </div>
           <div className="flex lg:hidden" style={{ flexDirection: 'column' }}>
             {visibleLessons.map((lesson, i) => (
-              <div key={i}>
-                {i > 0 && <Divider />}
-                <LessonRow lesson={lesson} />
-              </div>
+              <div key={i}>{i > 0 && <Divider />}<LessonRow lesson={lesson} /></div>
             ))}
           </div>
+          {lessons.length > 3 && (
+            <button
+              type="button"
+              className="lg:hidden"
+              onClick={() => setExpanded((v) => !v)}
+              style={{ marginTop: 14, background: 'none', border: 'none', padding: 0, color: sb.textMuted, fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'right' }}
+            >
+              {expanded ? 'הצג פחות' : `הצג הכל (${lessons.length})`}
+            </button>
+          )}
         </div>
       )}
-
-      {lessons.length > 3 && (
-        <button
-          type="button"
-          className="lg:hidden"
-          onClick={() => setExpanded((v) => !v)}
-          style={{
-            marginTop: 14,
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            color: 'var(--text-3)',
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: 'pointer',
-            textAlign: 'right',
-            fontFamily: 'var(--font-body)',
-            transition: 'color 0.15s ease',
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.color = SB_NEON;
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)';
-          }}
-        >
-          {expanded ? 'הצג פחות' : `הצג הכל (${lessons.length})`}
-        </button>
-      )}
-
-      <button
-        type="button"
-        style={{
-          marginTop: 14,
-          background: 'none',
-          border: 'none',
-          padding: 0,
-          color: 'var(--text-3)',
-          fontSize: 12,
-          fontWeight: 600,
-          cursor: 'pointer',
-          textAlign: 'right',
-          fontFamily: 'var(--font-body)',
-          transition: 'color 0.15s ease',
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.color = SB_NEON;
-          (e.currentTarget as HTMLButtonElement).style.textDecoration = 'underline';
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)';
-          (e.currentTarget as HTMLButtonElement).style.textDecoration = 'none';
-        }}
-      >
-        לצפייה בהיסטוריית הלמידה המלאה
-      </button>
-    </div>
+    </BentoCard>
   );
 }
 
@@ -861,131 +555,40 @@ function LessonRow({ lesson }: { lesson: PreviousLessonItem }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>
-          {lesson.date}
-        </span>
-        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span className="data-mono" style={{ fontSize: 12, fontWeight: 700, color: sb.textPrimary }}>{lesson.date}</span>
+        <span style={{ fontSize: 12, fontWeight: 500, color: sb.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {lesson.teacherName} · {lesson.subject}
         </span>
       </div>
-      <StatusBadge
-        label={lesson.status === 'closed' ? 'סגור' : 'ממתין לאישור'}
-        color={lesson.status === 'closed' ? SB_SUCCESS : SB_ORANGE}
-      />
+      <StatusBadge label={lesson.status === 'closed' ? 'סגור' : 'ממתין לאישור'} color={lesson.status === 'closed' ? SUCCESS : ALERT} />
     </div>
   );
 }
 
-// ── Card 6: Weekly Family Schedule ────────────────────────────────────────────
+// ── Card 6: Weekly Family Schedule (all children) ──────────────────────────────
 
-function WeeklyScheduleCard({
-  groups,
-  className,
-}: {
-  groups: WeeklyGroup[];
-  className?: string;
-}) {
+function WeeklyScheduleCard({ groups, className }: { groups: WeeklyGroup[]; className?: string }) {
   return (
-    <div
-      className={className}
-      style={{ ...CARD_BASE, padding: '22px', display: 'flex', flexDirection: 'column' }}
-    >
-      <CardHeader
-        icon={<CalendarDays size={16} />}
-        title="לוח שבועי משפחתי (Weekly Schedule)"
-        accentColor={SB_PURPLE}
-      />
-
+    <BentoCard className={className} hover={false} style={{ padding: 22, display: 'flex', flexDirection: 'column' }}>
+      <CardHeader icon={<CalendarDays size={16} />} title="לוח שבועי משפחתי (Weekly Schedule)" accentColor={FAMILY} />
       {groups.length === 0 ? (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: 'var(--text-3)', textAlign: 'center', lineHeight: 1.65 }}>
-            אין שיעורים מתוזמנים השבוע.
-          </p>
-        </div>
+        <TileEmpty icon={<CalendarDays size={26} />} title="אין שיעורים מתוזמנים השבוע" />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {groups.map((group) => (
             <div key={group.dayIndex}>
-              {/* Day header */}
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: SB_PURPLE,
-                  fontFamily: 'var(--font-mono)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                  marginBottom: 8,
-                }}
-              >
+              <div style={{ fontSize: 11, fontWeight: 700, color: FAMILY, fontFamily: sb.fontMono, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
                 {group.dayLabel}
               </div>
-              {/* Lesson capsules */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {group.lessons.map((lesson, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '7px 10px',
-                      borderRadius: 'var(--radius-sm)',
-                      background: `color-mix(in oklab, ${SB_PURPLE} 8%, transparent)`,
-                      border: `1px solid color-mix(in oklab, ${SB_PURPLE} 18%, transparent)`,
-                    }}
-                  >
-                    {/* Time */}
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: SB_PURPLE,
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {lesson.timeStart}
-                    </span>
-                    <span style={{ color: 'rgba(176,133,245,0.4)', fontSize: 11, flexShrink: 0 }}>|</span>
-                    {/* Student name */}
-                    <span
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: 'var(--text)',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {lesson.studentName}
-                    </span>
-                    <span style={{ color: 'rgba(176,133,245,0.4)', fontSize: 11, flexShrink: 0 }}>|</span>
-                    {/* Subject */}
-                    <span
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 500,
-                        color: 'var(--text-2)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        flex: 1,
-                      }}
-                    >
-                      {lesson.subject}
-                    </span>
-                    {/* Status dot */}
-                    <span
-                      style={{
-                        width: 7,
-                        height: 7,
-                        borderRadius: '50%',
-                        background: lesson.status === 'completed' ? SB_SUCCESS : SB_PURPLE,
-                        flexShrink: 0,
-                        boxShadow: `0 0 6px ${lesson.status === 'completed' ? SB_SUCCESS : SB_PURPLE}`,
-                      }}
-                    />
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: sb.radiusSmall, background: `color-mix(in oklab, ${FAMILY} 8%, transparent)`, border: `1px solid color-mix(in oklab, ${FAMILY} 18%, transparent)` }}>
+                    <span className="data-mono" style={{ fontSize: 11, fontWeight: 700, color: FAMILY, whiteSpace: 'nowrap', flexShrink: 0 }}>{lesson.timeStart}</span>
+                    <span style={{ color: sb.textMuted, fontSize: 11, flexShrink: 0 }}>|</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: sb.textPrimary, flexShrink: 0 }}>{lesson.studentName}</span>
+                    <span style={{ color: sb.textMuted, fontSize: 11, flexShrink: 0 }}>|</span>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: sb.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{lesson.subject}</span>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: lesson.status === 'completed' ? SUCCESS : FAMILY, flexShrink: 0, boxShadow: `0 0 6px ${lesson.status === 'completed' ? SUCCESS : FAMILY}` }} />
                   </div>
                 ))}
               </div>
@@ -993,28 +596,16 @@ function WeeklyScheduleCard({
           ))}
         </div>
       )}
-    </div>
+    </BentoCard>
   );
 }
 
-// ── Child Selector ─────────────────────────────────────────────────────────────
+// ── Child Selector (client-side context switch; no reload) ─────────────────────
 
-function ChildSelector({
-  children,
-  selectedId,
-  onSelect,
-}: {
-  children: { id: string; name: string }[];
-  selectedId: string;
-  onSelect: (id: string) => void;
-}) {
+function ChildSelector({ children, selectedId, onSelect }: { children: { id: string; name: string }[]; selectedId: string; onSelect: (id: string) => void }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '16px 0 4px' }}>
-      <span
-        style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-3)', whiteSpace: 'nowrap', flexShrink: 0 }}
-      >
-        בחר ילד לצפייה:
-      </span>
+      <span style={{ fontSize: 13, fontWeight: 600, color: sb.textMuted, whiteSpace: 'nowrap', flexShrink: 0 }}>בחר ילד לצפייה:</span>
       <div style={{ display: 'flex', gap: 14 }}>
         {children.map((child) => {
           const isSelected = child.id === selectedId;
@@ -1025,64 +616,22 @@ function ChildSelector({
               aria-label={`הצג דשבורד עבור ${child.name}`}
               aria-pressed={isSelected}
               onClick={() => onSelect(child.id)}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 6,
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: 4,
-                opacity: isSelected ? 1 : 0.6,
-                transition: 'opacity 0.2s ease, transform 0.2s ease',
-              }}
-              onMouseEnter={(e) => {
-                const btn = e.currentTarget as HTMLButtonElement;
-                btn.style.transform = 'scale(1.05)';
-                if (!isSelected) btn.style.opacity = '0.85';
-              }}
-              onMouseLeave={(e) => {
-                const btn = e.currentTarget as HTMLButtonElement;
-                btn.style.transform = '';
-                if (!isSelected) btn.style.opacity = '0.6';
-              }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 4, opacity: isSelected ? 1 : 0.6, transition: 'opacity 0.2s ease, transform 0.2s ease' }}
             >
               <div
                 style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: '50%',
-                  border: isSelected ? `2px solid ${SB_NEON}` : '1.5px solid rgba(220,245,240,0.25)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 17,
-                  fontWeight: 800,
-                  color: isSelected ? SB_NEON : 'var(--text-2)',
-                  fontFamily: 'var(--font-display)',
-                  background: isSelected
-                    ? `color-mix(in oklab, ${SB_NEON} 10%, transparent)`
-                    : 'rgba(63,126,118,0.3)',
-                  boxShadow: isSelected
-                    ? `0 0 0 3px color-mix(in oklab, ${SB_NEON} 18%, transparent), 0 0 16px -4px color-mix(in oklab, ${SB_NEON} 40%, transparent)`
-                    : 'none',
+                  width: 44, height: 44, borderRadius: '50%',
+                  border: isSelected ? `2px solid ${ACCENT}` : `1.5px solid ${sb.borderCyber}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 800,
+                  color: isSelected ? ACCENT : sb.textSecondary,
+                  background: isSelected ? `color-mix(in oklab, ${ACCENT} 10%, transparent)` : sb.glassSoft,
+                  boxShadow: isSelected ? `0 0 0 3px color-mix(in oklab, ${ACCENT} 18%, transparent), 0 0 16px -4px color-mix(in oklab, ${ACCENT} 40%, transparent)` : 'none',
                   transition: 'all 0.2s ease',
                 }}
               >
                 {child.name.charAt(0)}
               </div>
-              <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: isSelected ? SB_NEON : 'var(--text-3)',
-                  fontFamily: 'var(--font-display)',
-                  transition: 'color 0.2s ease',
-                }}
-              >
-                {child.name}
-              </span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: isSelected ? ACCENT : sb.textMuted, transition: 'color 0.2s ease' }}>{child.name}</span>
             </button>
           );
         })}
@@ -1091,187 +640,106 @@ function ChildSelector({
   );
 }
 
+// ── Monthly Calendar row (calendar 2/3 + Day Agenda 1/3, same selected child) ──
+
+function MonthlyCalendarSection({ childId, childName }: { childId: string; childName: string }) {
+  const [month, setMonth] = useState(() => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), 1);
+  });
+  const [selectedDay, setSelectedDay] = useState(() => new Date());
+
+  // Keyed off the SAME selected child as the dashboard; refetches on child/month change.
+  const { schedule, events, loading } = useChildSchedule(childId, month);
+
+  return (
+    <MonthlyCalendarAnchor
+      month={month}
+      onMonthChange={setMonth}
+      selectedDay={selectedDay}
+      onSelectDay={setSelectedDay}
+      events={events}
+      loading={loading}
+    >
+      <DayAgenda childName={childName} schedule={schedule} selectedDay={selectedDay} loading={loading} />
+    </MonthlyCalendarAnchor>
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export function ParentDashboardPage() {
   const auth = useAuth();
   const navigate = useNavigate();
-  const {
-    data,
-    initialLoading,
-    childSwitching,
-    error,
-    selectedStudentId,
-    selectStudent,
-    approveConfirmation,
-  } = useParentDashboard();
+  const { data, initialLoading, childSwitching, error, selectedStudentId, selectStudent, approveConfirmation } = useParentDashboard();
 
   useEffect(() => {
-    if (auth.status === 'unauthenticated') {
-      navigate('/login');
-    }
+    if (auth.status === 'unauthenticated') navigate('/login');
   }, [auth.status, navigate]);
 
-  if (auth.status === 'loading' || initialLoading) return <FullPageSkeleton />;
-
-  if (error) return <ErrorState message={error} onRetry={() => window.location.reload()} />;
-
-  if (!data || data.children.length === 0) return <NoChildrenState />;
+  if (auth.status === 'loading' || initialLoading) {
+    return <FullPageState><GlobalStateCard variant="loading" title="טוען את לוח הבקרה…" /></FullPageState>;
+  }
+  if (error) {
+    return (
+      <FullPageState>
+        <GlobalStateCard variant="error" title="שגיאה בטעינת הדשבורד" description={error} cta={{ label: 'נסה שוב', onClick: () => window.location.reload() }} />
+      </FullPageState>
+    );
+  }
+  if (!data || data.children.length === 0) {
+    return (
+      <FullPageState>
+        <GlobalStateCard variant="empty" icon={<Users size={32} />} title="לא נמצאו ילדים מקושרים לחשבונך" description="פנה לתמיכה להוספת ילד." />
+      </FullPageState>
+    );
+  }
 
   const parentName = auth.user?.full_name?.split(' ')[0] ?? 'ההורה';
   const children = data.children.map((c) => ({ id: c.id, name: c.first_name }));
   const currentStudentId = selectedStudentId ?? children[0]!.id;
   const selectedChild = children.find((c) => c.id === currentStudentId) ?? children[0]!;
 
-  const { upcomingLesson, pendingApproval, latestLessonUpdate, previousLessons, weeklyGroups } =
-    transformPayload(data);
+  const { upcomingLesson, pendingApproval, latestLessonUpdate, previousLessons, weeklyGroups, pendingRequests } = transformPayload(data);
 
   return (
-    <div
-      dir="rtl"
-      className="parent-dashboard"
-      style={{ minHeight: '100dvh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}
-    >
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '14px 24px',
-          borderBottom: '1px solid var(--line)',
-          background: 'var(--surface)',
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-        }}
-      >
+    <div dir="rtl" className="parent-dashboard" style={{ minHeight: '100dvh', background: sb.bgCanvas, color: sb.textPrimary, display: 'flex', flexDirection: 'column' }}>
+      {/* Brand header — shell chrome (navbar canonization is a separate task). */}
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', borderBottom: `1px solid ${sb.borderCyber}`, background: sb.glassBase, position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(12px)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 'var(--radius-sm)',
-              background: `color-mix(in oklab, ${SB_NEON} 12%, transparent)`,
-              border: `1.5px solid color-mix(in oklab, ${SB_NEON} 30%, transparent)`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: SB_NEON,
-            }}
-          >
+          <span style={{ width: 32, height: 32, borderRadius: sb.radiusSmall, background: `color-mix(in oklab, ${ACCENT} 12%, transparent)`, border: `1.5px solid color-mix(in oklab, ${ACCENT} 30%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: ACCENT }}>
             <BookOpen size={16} />
           </span>
-          <span
-            style={{
-              fontSize: 15,
-              fontWeight: 800,
-              color: 'var(--text)',
-              fontFamily: 'var(--font-display)',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            StudyBuddy
-          </span>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: 'var(--text-3)',
-              paddingRight: 8,
-              borderRight: '1px solid var(--line)',
-            }}
-          >
-            דשבורד הורה
-          </span>
+          <span style={{ fontSize: 15, fontWeight: 800, color: sb.textPrimary, letterSpacing: '-0.02em' }}>StudyBuddy</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: sb.textMuted, paddingRight: 8, borderRight: `1px solid ${sb.borderCyber}` }}>דשבורד הורה (Parent Dashboard)</span>
         </div>
       </header>
 
-      {/* ── Main ────────────────────────────────────────────────────────────── */}
-      <main
-        style={{
-          flex: 1,
-          maxWidth: 1200,
-          width: '100%',
-          margin: '0 auto',
-          padding: '32px 20px 64px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 24,
-        }}
-      >
-        {/* Welcome */}
-        <div className="ob-step-enter">
-          <h1
-            style={{
-              margin: '0 0 4px',
-              fontSize: 'clamp(20px, 4vw, 28px)',
-              fontWeight: 900,
-              color: 'var(--text)',
-              fontFamily: 'var(--font-display)',
-              letterSpacing: '-0.025em',
-            }}
-          >
+      <main style={{ flex: 1, maxWidth: 1200, width: '100%', margin: '0 auto', padding: '32px 20px 64px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div>
+          <h1 style={{ margin: '0 0 4px', fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 900, color: sb.textPrimary, letterSpacing: '-0.025em' }}>
             היי {parentName}, איזה כיף לראות אותך.
           </h1>
-          <p style={{ margin: 0, fontSize: 14, color: 'var(--text-3)', fontWeight: 500 }}>
-            הנה סיכום של מה שקורה עם הלמידה של הילדים שלך.
-          </p>
+          <p style={{ margin: 0, fontSize: 14, color: sb.textMuted, fontWeight: 500 }}>הנה סיכום של מה שקורה עם הלמידה של הילדים שלך.</p>
         </div>
 
-        {/* Child selector */}
         <ChildSelector children={children} selectedId={currentStudentId} onSelect={selectStudent} />
 
-        {/* Bento grid — fades on child switch */}
+        {/* Monthly calendar + day agenda — additive row, same selected child. */}
+        <MonthlyCalendarSection childId={currentStudentId} childName={selectedChild.name} />
+
+        {/* Bento grid — cross-fades on child switch (no grid shift; slots are stable). */}
         <div style={{ opacity: childSwitching ? 0 : 1, transition: 'opacity 0.2s ease' }}>
-          {/*
-            6-column Bento grid:
-            Mobile:  1 col, cards appear in order-1..order-6
-            Tablet:  2 col
-            Desktop: 6 col
-              - Upcoming:       col-span-4 (row 1 right zone)
-              - Pending:        col-span-2 (row 1 left zone)
-              - Latest lesson:  col-span-4, row-span-2 (rows 2–3, right zone)
-              - Weekly sched:   col-span-2 (row 2, left zone)
-              - Find teacher:   col-span-2 (row 3 left top)
-              - Previous:       col-span-2 (row 3 left bottom — rendered as row 4 mobile)
-          */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-4 lg:grid-cols-6 lg:gap-5">
-            {/* Row 1 */}
-            <UpcomingLessonCard
-              childName={selectedChild.name}
-              data={upcomingLesson}
-              className="order-1 lg:col-span-4 lg:order-1"
-            />
-            <PendingApprovalCard
-              data={pendingApproval}
-              onApprove={() => {
-                if (pendingApproval) void approveConfirmation(pendingApproval.id);
-              }}
-              className="order-2 lg:col-span-2 lg:order-2"
-            />
-
-            {/* Row 2–3: Latest lesson (tall) + Weekly + Find teacher */}
-            <LatestLessonCard
-              childName={selectedChild.name}
-              data={latestLessonUpdate}
-              className="order-3 md:col-span-2 lg:col-span-4 lg:row-span-2 lg:order-3"
-            />
-            <WeeklyScheduleCard
-              groups={weeklyGroups}
-              className="order-4 lg:col-span-2 lg:order-4"
-            />
-            <FindTeacherCard
-              childName={selectedChild.name}
-              className="order-5 lg:col-span-2 lg:order-5"
-            />
-
-            {/* Row 4 */}
-            <PreviousLessonsCard
-              childName={selectedChild.name}
-              lessons={previousLessons}
-              className="order-6 md:col-span-2 lg:col-span-6 lg:order-6"
-            />
+            <UpcomingLessonCard childName={selectedChild.name} data={upcomingLesson} className="order-1 lg:col-span-4 lg:order-1" />
+            <PendingApprovalCard data={pendingApproval} onApprove={() => { if (pendingApproval) void approveConfirmation(pendingApproval.id); }} className="order-2 lg:col-span-2 lg:order-2" />
+            {pendingRequests.length > 0 && (
+              <PendingRequestsCard items={pendingRequests} childId={selectedChild.id} className="order-3 md:col-span-2 lg:col-span-6 lg:order-3" />
+            )}
+            <LatestLessonCard childName={selectedChild.name} data={latestLessonUpdate} className="order-4 md:col-span-2 lg:col-span-4 lg:row-span-2 lg:order-4" />
+            <WeeklyScheduleCard groups={weeklyGroups} className="order-5 lg:col-span-2 lg:order-5" />
+            <FindTeacherCard child={selectedChild} className="order-6 lg:col-span-2 lg:order-6" />
+            <PreviousLessonsCard childName={selectedChild.name} lessons={previousLessons} className="order-7 md:col-span-2 lg:col-span-6 lg:order-7" />
           </div>
         </div>
       </main>

@@ -29,7 +29,7 @@ export function PendingVerificationBanner() {
           ממתין לאישור <span style={{ color: T.text3, fontWeight: 600 }}>(Pending Verification)</span>
         </span>
         <span style={{ fontSize: 12.5, color: T.text2 }}>
-          הפרופיל שלך בבדיקה ויופעל אוטומטית תוך 5 ימי עסקים. המערכת זמינה לסיור והגדרות.
+          הפרופיל שלך נשלח לבדיקת הצוות ויופעל לאחר אישור. המערכת זמינה לסיור והגדרות.
         </span>
       </div>
     </div>

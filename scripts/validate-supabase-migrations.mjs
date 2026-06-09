@@ -31,6 +31,7 @@ const expectedFiles = [
   '020_find_tutor_quick_wizard.sql',
   '021_students_user_id_unique.sql',
   '022_intake_manual_subject.sql',
+  '023_teacher_approval_status.sql',
 ];
 
 const migrationFiles = {

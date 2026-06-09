@@ -76,7 +76,11 @@ export function CalendarSyncCard({ availMode, calSyncing, calSyncError, onConnec
           }}
         >
           {calSyncing ? <Loader2 size={16} className="sb-spinner" /> : <CalendarDays size={16} />}
-          {calSyncing ? 'מסנכרן…' : 'חבר יומן גוגל (Connect Calendar)'}
+          {calSyncing
+            ? 'מסנכרן…'
+            : calSyncError
+              ? 'חבר מחדש את יומן Google (Reconnect Google Calendar)'
+              : 'חבר יומן גוגל (Connect Calendar)'}
         </button>
 
         {calSyncError && (

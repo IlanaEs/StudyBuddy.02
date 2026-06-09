@@ -180,8 +180,11 @@ export async function updateUserFullName(
   if (error) throw new AppError('Failed to update user full name', 500);
 }
 
-// Sets all fields required for the matching engine to include this teacher.
-// Must be called AFTER teacher_subjects and availability_slots are written.
+// Finalizes the profile on onboarding completion. NOTE: this does NOT set
+// is_verified — completion now leaves the teacher PENDING admin approval
+// (approval_status defaults to 'pending'). An admin must Approve before the
+// matching gate (is_verified=true) opens. Must be called AFTER teacher_subjects
+// and availability_slots are written.
 export async function activateTeacherProfile(
   profileId: string,
   params: { hourlyRate: number; professionalStatus: string | null | undefined },
@@ -192,7 +195,7 @@ export async function activateTeacherProfile(
       hourly_rate: params.hourlyRate,
       professional_status: params.professionalStatus ?? null,
       is_active: true,
-      is_verified: true,
+      is_verified: false, // pending admin approval — no longer auto-verified
       onboarding_completed: true,
       is_demo: false,
       last_active_at: new Date().toISOString(),

@@ -20,6 +20,7 @@ export function mapOnboardingToConfig(remote: OnboardingStateRemote): TeacherCon
   return {
     fullName: remote.fullName,
     isVerified: remote.isVerified,
+    teacherProfileId: remote.teacherProfileId ?? null,
     subjects: draft?.selectedSubjects ?? [],
     weeklyTimeBlocks: draft?.weeklyTimeBlocks ?? [],
     maxActiveStudents: draft?.maxActiveStudents ?? null,

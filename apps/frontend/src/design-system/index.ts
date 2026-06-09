@@ -13,6 +13,8 @@ export { WizardFooter } from './WizardFooter';
 export { PrimaryButton, SecondaryButton, GhostButton, UrgentButton } from './buttons';
 export { GlobalStateCard } from './GlobalStateCard';
 export type { StateVariant } from './GlobalStateCard';
+export { CrmTable, NaCell, NumCell } from './CrmTable';
+export type { CrmColumn } from './CrmTable';
 export { RoleBadge } from './RoleBadge';
 export type { Role } from './RoleBadge';
 export { SideDrawer } from './SideDrawer';

@@ -2,6 +2,7 @@ import cors from 'cors';
 import express from 'express';
 
 import { academicRepositoriesRouter } from './academicRepositories/academicRepositories.routes.js';
+import { adminRouter } from './admin/admin.routes.js';
 import { allowedOrigins } from './config/env.js';
 import { errorHandler } from './errors/errorHandler.js';
 import { authRouter } from './auth/authRoutes.js';
@@ -56,6 +57,7 @@ export function createApp() {
   app.use('/api/student-availability', studentAvailabilityRouter);
   app.use('/api/attachments', attachmentsRouter);
   app.use('/api/parents/me', parentDashboardRouter);
+  app.use('/api/admin', adminRouter);
 
   app.use(errorHandler);
 
