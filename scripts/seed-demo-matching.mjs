@@ -12,6 +12,11 @@ import { seedTaxonomy } from './seed-taxonomy.mjs';
 
 const DEMO_SEED_TYPE = 'matching_mvp';
 
+// Phase 2 roster (10 teachers). All subjects are level=null (teach every band),
+// so coverage is subject-driven. Engineered so every level band has a 3-result
+// "cap" anchor + exactly-2 + exactly-1 paths; see docs/demo-seed-coverage-phase2.md.
+// All teachers are online/both (online intakes only, post-017). Rates spread
+// 80–180 so budget filtering is testable; availability spans all 7 days.
 const teachers = [
   {
     email: 'devseed.teacher.math@studybuddy.local',
@@ -54,7 +59,7 @@ const teachers = [
   {
     email: 'devseed.teacher.science@studybuddy.local',
     fullName: 'מורה דמו מדעים',
-    bio: 'מורה דמו ל-QA מקומי: כימיה, ביולוגיה ומדעי המחשב.',
+    bio: 'מורה דמו ל-QA מקומי: כימיה, ביולוגיה, מדעי המחשב ופיזיקה.',
     hourlyRate: 140,
     locationType: 'online',
     ratingAvg: 4.9,
@@ -64,6 +69,7 @@ const teachers = [
       { name: 'ביולוגיה', level: null, yearsExperience: 4 },
       { name: 'מדעי המחשב', level: null, yearsExperience: 7 },
       { name: 'מתמטיקה', level: null, yearsExperience: 4 },
+      { name: 'פיזיקה', level: null, yearsExperience: 5 },
     ],
     slots: [
       { dayOfWeek: 0, startTime: '17:00', endTime: '22:00' },
@@ -71,7 +77,261 @@ const teachers = [
       { dayOfWeek: 5, startTime: '09:00', endTime: '13:00' },
     ],
   },
+  {
+    email: 'devseed.teacher.elementary-core@studybuddy.local',
+    fullName: 'מורה דמו יסודי',
+    bio: 'מורה דמו ל-QA מקומי: חשבון, מדעים ועברית לבית הספר היסודי.',
+    hourlyRate: 80,
+    locationType: 'online',
+    ratingAvg: 4.6,
+    ratingCount: 18,
+    subjects: [
+      { name: 'חשבון', level: null, yearsExperience: 8 },
+      { name: 'מדעים', level: null, yearsExperience: 6 },
+      { name: 'עברית', level: null, yearsExperience: 8 },
+      { name: 'קריאה וכתיבה', level: null, yearsExperience: 8 },
+      { name: 'הבנת הנקרא', level: null, yearsExperience: 6 },
+      { name: 'הכנה לכיתה א׳', level: null, yearsExperience: 5 },
+    ],
+    slots: [
+      { dayOfWeek: 0, startTime: '16:00', endTime: '20:00' },
+      { dayOfWeek: 2, startTime: '16:00', endTime: '20:00' },
+      { dayOfWeek: 4, startTime: '16:00', endTime: '20:00' },
+    ],
+  },
+  {
+    email: 'devseed.teacher.elementary-lang@studybuddy.local',
+    fullName: 'מורת דמו יסודי ושפות',
+    bio: 'מורת דמו ל-QA מקומי: חשבון, מדעים ואנגלית ליסודי.',
+    hourlyRate: 90,
+    locationType: 'both',
+    city: 'תל אביב',
+    ratingAvg: 4.7,
+    ratingCount: 22,
+    subjects: [
+      { name: 'חשבון', level: null, yearsExperience: 6 },
+      { name: 'מדעים', level: null, yearsExperience: 5 },
+      { name: 'אנגלית', level: null, yearsExperience: 7 },
+    ],
+    slots: [
+      { dayOfWeek: 1, startTime: '15:00', endTime: '19:00' },
+      { dayOfWeek: 3, startTime: '15:00', endTime: '19:00' },
+      { dayOfWeek: 6, startTime: '09:00', endTime: '12:00' },
+    ],
+  },
+  {
+    email: 'devseed.teacher.elementary-plus@studybuddy.local',
+    fullName: 'מורה דמו יסודי נוסף',
+    bio: 'מורה דמו ל-QA מקומי: חשבון, מדעים ועברית.',
+    hourlyRate: 85,
+    locationType: 'online',
+    ratingAvg: 4.5,
+    ratingCount: 15,
+    subjects: [
+      { name: 'חשבון', level: null, yearsExperience: 4 },
+      { name: 'מדעים', level: null, yearsExperience: 4 },
+      { name: 'עברית', level: null, yearsExperience: 5 },
+    ],
+    slots: [
+      { dayOfWeek: 0, startTime: '15:00', endTime: '19:00' },
+      { dayOfWeek: 1, startTime: '16:00', endTime: '20:00' },
+      { dayOfWeek: 3, startTime: '16:00', endTime: '20:00' },
+    ],
+  },
+  {
+    email: 'devseed.teacher.humanities@studybuddy.local',
+    fullName: 'מורה דמו מדעי הרוח',
+    bio: 'מורה דמו ל-QA מקומי: היסטוריה, ספרות, תנ״ך, אזרחות ולשון.',
+    hourlyRate: 110,
+    locationType: 'online',
+    ratingAvg: 4.8,
+    ratingCount: 29,
+    subjects: [
+      { name: 'היסטוריה', level: null, yearsExperience: 9 },
+      { name: 'ספרות', level: null, yearsExperience: 7 },
+      { name: 'תנ״ך', level: null, yearsExperience: 8 },
+      { name: 'אזרחות', level: null, yearsExperience: 6 },
+      { name: 'גיאוגרפיה', level: null, yearsExperience: 5 },
+      { name: 'לשון', level: null, yearsExperience: 7 },
+    ],
+    slots: [
+      { dayOfWeek: 0, startTime: '18:00', endTime: '22:00' },
+      { dayOfWeek: 2, startTime: '18:00', endTime: '22:00' },
+      { dayOfWeek: 4, startTime: '18:00', endTime: '22:00' },
+    ],
+  },
+  {
+    email: 'devseed.teacher.social@studybuddy.local',
+    fullName: 'מורה דמו מדעי החברה',
+    bio: 'מורה דמו ל-QA מקומי: פסיכולוגיה, כלכלה, תקשורת ואזרחות.',
+    hourlyRate: 115,
+    locationType: 'online',
+    ratingAvg: 4.7,
+    ratingCount: 24,
+    subjects: [
+      { name: 'היסטוריה', level: null, yearsExperience: 6 },
+      { name: 'אזרחות', level: null, yearsExperience: 6 },
+      { name: 'פסיכולוגיה', level: null, yearsExperience: 5 },
+      { name: 'כלכלה', level: null, yearsExperience: 5 },
+      { name: 'תקשורת', level: null, yearsExperience: 4 },
+    ],
+    slots: [
+      { dayOfWeek: 1, startTime: '18:00', endTime: '22:00' },
+      { dayOfWeek: 3, startTime: '18:00', endTime: '22:00' },
+      { dayOfWeek: 4, startTime: '17:00', endTime: '21:00' },
+    ],
+  },
+  {
+    email: 'devseed.teacher.cs-school@studybuddy.local',
+    fullName: 'מורה דמו מדעי המחשב',
+    bio: 'מורה דמו ל-QA מקומי: תכנות, רובוטיקה, סייבר ומדעי המחשב.',
+    hourlyRate: 160,
+    locationType: 'online',
+    ratingAvg: 4.9,
+    ratingCount: 37,
+    subjects: [
+      { name: 'מדעי המחשב', level: null, yearsExperience: 8 },
+      { name: 'תכנות בסיסי', level: null, yearsExperience: 8 },
+      { name: 'רובוטיקה', level: null, yearsExperience: 5 },
+      { name: 'סייבר', level: null, yearsExperience: 4 },
+      { name: 'Python', level: null, yearsExperience: 7 },
+      { name: 'Java', level: null, yearsExperience: 6 },
+      { name: 'מבני נתונים', level: null, yearsExperience: 6 },
+      { name: 'אלגוריתמים', level: null, yearsExperience: 6 },
+      { name: 'OOP', level: null, yearsExperience: 6 },
+    ],
+    slots: [
+      { dayOfWeek: 0, startTime: '18:00', endTime: '22:00' },
+      { dayOfWeek: 1, startTime: '18:00', endTime: '22:00' },
+      { dayOfWeek: 3, startTime: '18:00', endTime: '22:00' },
+    ],
+  },
+  {
+    email: 'devseed.teacher.academic-stem@studybuddy.local',
+    fullName: 'מורה דמו אקדמי',
+    bio: 'מורה דמו ל-QA מקומי: חדו״א, לינארית, הסתברות, סטטיסטיקה ופיתוח תוכנה.',
+    hourlyRate: 180,
+    locationType: 'both',
+    city: 'חיפה',
+    ratingAvg: 5.0,
+    ratingCount: 52,
+    subjects: [
+      { name: 'חדו״א', level: null, yearsExperience: 10 },
+      { name: 'לינארית', level: null, yearsExperience: 10 },
+      { name: 'הסתברות', level: null, yearsExperience: 8 },
+      { name: 'סטטיסטיקה', level: null, yearsExperience: 8 },
+      { name: 'חקר ביצועים', level: null, yearsExperience: 6 },
+      { name: 'מעגלים', level: null, yearsExperience: 6 },
+      { name: 'פיזיקה', level: null, yearsExperience: 9 },
+      { name: 'Python', level: null, yearsExperience: 8 },
+      { name: 'React', level: null, yearsExperience: 6 },
+      { name: 'Node.js', level: null, yearsExperience: 6 },
+      { name: 'Full Stack', level: null, yearsExperience: 6 },
+      { name: 'SQL', level: null, yearsExperience: 7 },
+      { name: 'בסיסי נתונים', level: null, yearsExperience: 7 },
+      { name: 'Data Analysis', level: null, yearsExperience: 5 },
+      { name: 'מערכות הפעלה', level: null, yearsExperience: 6 },
+      { name: 'רשתות', level: null, yearsExperience: 6 },
+    ],
+    slots: [
+      { dayOfWeek: 2, startTime: '16:00', endTime: '21:00' },
+      { dayOfWeek: 4, startTime: '16:00', endTime: '21:00' },
+      { dayOfWeek: 5, startTime: '09:00', endTime: '14:00' },
+    ],
+  },
 ];
+
+// Demo students + intakes (independent learners), one per QA scenario across the
+// bands. Intakes are seeded status='open'; match_results are produced by the REAL
+// matching engine on demand (POST /api/matching/:id/run, or via the app) — the
+// seed never replicates the locked scorer. preferred_days/time_ranges are left
+// null (= full availability overlap) so the documented outcome isn't reduced by
+// soft gates. `expect` documents the intended outcome with the Phase 2 roster.
+const students = [
+  {
+    email: 'demo.student.elementary@studybuddy.local',
+    fullName: 'תלמיד דמו יסודי',
+    gradeLevel: 'כיתה ה׳',
+    intake: { subjectName: 'חשבון', level: 'elementary', expect: 'multi (3) — חשבון anchor' },
+  },
+  {
+    email: 'demo.student.middle@studybuddy.local',
+    fullName: 'תלמיד דמו חטיבה',
+    gradeLevel: 'כיתה ח׳',
+    intake: { subjectName: 'מתמטיקה', level: 'middle', expect: 'multi (3) — מתמטיקה anchor' },
+  },
+  {
+    email: 'demo.student.high@studybuddy.local',
+    fullName: 'תלמיד דמו תיכון',
+    gradeLevel: 'כיתה י״א',
+    intake: { subjectName: 'פיזיקה', level: 'high', expect: 'multi (3) — פיזיקה anchor' },
+  },
+  {
+    email: 'demo.student.academic@studybuddy.local',
+    fullName: 'סטודנט דמו',
+    gradeLevel: 'שנה ב׳',
+    intake: { subjectName: 'פיזיקה', level: 'academic', expect: 'multi (3) — פיזיקה anchor' },
+  },
+  {
+    email: 'demo.student.single@studybuddy.local',
+    fullName: 'תלמיד דמו התאמה יחידה',
+    gradeLevel: 'כיתה י״ב',
+    intake: { subjectName: 'כימיה', level: 'high', expect: 'single (1) — only the science teacher' },
+  },
+  {
+    email: 'demo.student.nomatch@studybuddy.local',
+    fullName: 'תלמיד דמו ללא התאמה',
+    gradeLevel: 'כיתה ט׳',
+    // Off-catalog subject → needs_manual_match; always zero matches + manual lead.
+    intake: { customSubjectText: 'גיטרה קלאסית', level: 'middle', expect: 'zero — off-catalog manual-match lead' },
+  },
+  // ── Phase 3: soft-gate scenarios (covered subject, but a runtime filter bites) ──
+  {
+    email: 'demo.student.budget@studybuddy.local',
+    fullName: 'תלמיד דמו תקציב נמוך',
+    gradeLevel: 'כיתה י״א',
+    // מתמטיקה is covered (rates 95/120/140) but budgetMax=70 fails strict budget.
+    // Budget is relaxed in the budget_expansion phase, so this yields matches via
+    // FALLBACK (fallback_phase_used='budget_expansion'), NOT zero.
+    intake: {
+      subjectName: 'מתמטיקה', level: 'high', budgetMax: 70,
+      expect: 'matches via budget_expansion fallback (all teachers over budget)',
+    },
+  },
+  {
+    email: 'demo.student.availzero@studybuddy.local',
+    fullName: 'תלמיד דמו ללא חפיפת זמינות',
+    gradeLevel: 'כיתה י״ב',
+    // כימיה has exactly one teacher (science), who teaches Sun/Mon eve + Fri morning.
+    // Requesting Saturday (day 6) only → zero availability overlap. The 30-min
+    // overlap floor is NEVER relaxed (incl. partial_results) → TRUE in-catalog zero.
+    intake: {
+      subjectName: 'כימיה', level: 'high', preferredDays: [6],
+      expect: 'zero — covered subject but no availability overlap (Saturday)',
+    },
+  },
+];
+
+// ── Phase 3: parent → child matching path ──────────────────────────────────────
+// A parent user with two children (students.parent_user_id). Intakes are created
+// BY THE PARENT (created_by_user_id = parent), exercising the parent matching flow
+// for both a multi and a single outcome.
+const parent = {
+  email: 'demo.parent@studybuddy.local',
+  fullName: 'הורה דמו',
+  children: [
+    {
+      fullName: 'ילד דמו א׳',
+      gradeLevel: 'כיתה ח׳',
+      intake: { subjectName: 'מתמטיקה', level: 'middle', expect: 'multi (3) — parent flow' },
+    },
+    {
+      fullName: 'ילד דמו ב׳',
+      gradeLevel: 'כיתה י״א',
+      intake: { subjectName: 'כימיה', level: 'high', expect: 'single (1) — parent flow' },
+    },
+  ],
+};
 
 async function ensureAuthTeacher(supabase, teacher) {
   const existing = await findAuthUserByEmail(supabase, teacher.email);
@@ -100,6 +360,197 @@ async function ensureAuthTeacher(supabase, teacher) {
   });
   if (error) throw new Error(`auth create ${teacher.email} failed: ${error.message}`);
   return data.user;
+}
+
+// Generic auth provisioning for non-teacher demo accounts (student / parent).
+async function ensureAuthAccount(supabase, account, role) {
+  const existing = await findAuthUserByEmail(supabase, account.email);
+  const metadata = { full_name: account.fullName, dev_seed: true, dev_seed_type: DEMO_SEED_TYPE };
+  const appMetadata = { role, is_demo: true, seed_type: DEMO_SEED_TYPE };
+
+  if (existing) {
+    const { data, error } = await supabase.auth.admin.updateUserById(existing.id, {
+      app_metadata: appMetadata,
+      user_metadata: metadata,
+      email_confirm: true,
+    });
+    if (error) throw new Error(`auth update ${account.email} failed: ${error.message}`);
+    return data.user;
+  }
+
+  const { data, error } = await supabase.auth.admin.createUser({
+    email: account.email,
+    password: 'StudyBuddyDevSeed123!',
+    email_confirm: true,
+    app_metadata: appMetadata,
+    user_metadata: metadata,
+  });
+  if (error) throw new Error(`auth create ${account.email} failed: ${error.message}`);
+  return data.user;
+}
+
+// Builds a student_intakes row from a scenario `intake` def. Catalog subjects
+// resolve via subjectIds; off-catalog use needs_manual_match + custom_subject_text.
+// Optional soft-gate fields (budget / preferred days+times) default to null.
+function buildIntakeRow(intake, studentId, createdByUserId, subjectIds, label) {
+  const {
+    subjectName,
+    customSubjectText,
+    level = null,
+    budgetMin = null,
+    budgetMax = null,
+    preferredDays = null,
+    preferredTimeRanges = null,
+  } = intake;
+  const isManual = !!customSubjectText;
+  if (!isManual && !subjectIds.get(subjectName)) {
+    throw new Error(`intake ${label}: subject '${subjectName}' missing from taxonomy`);
+  }
+  return {
+    student_id: studentId,
+    created_by_user_id: createdByUserId,
+    subject_id: isManual ? null : subjectIds.get(subjectName),
+    custom_subject_text: isManual ? customSubjectText : null,
+    needs_manual_match: isManual,
+    level,
+    location_preference: 'online',
+    budget_min: budgetMin,
+    budget_max: budgetMax,
+    preferred_days: preferredDays,
+    preferred_time_ranges: preferredTimeRanges,
+    status: 'open',
+  };
+}
+
+// Seeds independent demo students + one open intake each. Idempotent: users
+// upsert by email, the student row is reused per user_id (unique post-021), and
+// the student's intakes are cleared then re-inserted. Intakes stay status='open';
+// the real matching engine produces match_results on demand.
+async function seedStudentsAndIntakes({ supabase, subjectIds, usersHasIsDemo }) {
+  let intakeCount = 0;
+
+  for (const student of students) {
+    const authUser = await ensureAuthAccount(supabase, student, 'student');
+    const [user] = await must(
+      `user upsert ${student.email}`,
+      supabase
+        .from('users')
+        .upsert(
+          {
+            supabase_auth_user_id: authUser.id,
+            email: student.email,
+            role: 'student',
+            full_name: student.fullName,
+            status: 'active',
+            ...(usersHasIsDemo ? { is_demo: true } : {}),
+          },
+          { onConflict: 'email' },
+        )
+        .select('id,email')
+        .limit(1),
+    );
+
+    // Reuse the existing student row for this user (user_id is unique post-021).
+    const { data: existingStudent } = await supabase
+      .from('students')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    let studentId = existingStudent?.id;
+    if (!studentId) {
+      const [created] = await must(
+        `student insert ${student.email}`,
+        supabase
+          .from('students')
+          .insert({ user_id: user.id, full_name: student.fullName, grade_level: student.gradeLevel })
+          .select('id')
+          .limit(1),
+      );
+      studentId = created.id;
+    }
+
+    // Idempotent: clear this student's intakes, then insert the scenario intake.
+    await must(
+      `clear intakes ${student.email}`,
+      supabase.from('student_intakes').delete().eq('student_id', studentId),
+    );
+
+    await must(
+      `intake insert ${student.email}`,
+      supabase
+        .from('student_intakes')
+        .insert(buildIntakeRow(student.intake, studentId, user.id, subjectIds, student.email)),
+    );
+    intakeCount += 1;
+  }
+
+  return { students: students.length, intakes: intakeCount };
+}
+
+// Seeds the demo parent + children (students.parent_user_id) + one intake per
+// child, created BY THE PARENT. Idempotent: parent user upsert by email, child
+// reused by (parent_user_id, full_name), child intakes cleared then re-inserted.
+async function seedParentAndChildren({ supabase, subjectIds, usersHasIsDemo }) {
+  const authUser = await ensureAuthAccount(supabase, parent, 'parent');
+  const [user] = await must(
+    `user upsert ${parent.email}`,
+    supabase
+      .from('users')
+      .upsert(
+        {
+          supabase_auth_user_id: authUser.id,
+          email: parent.email,
+          role: 'parent',
+          full_name: parent.fullName,
+          status: 'active',
+          ...(usersHasIsDemo ? { is_demo: true } : {}),
+        },
+        { onConflict: 'email' },
+      )
+      .select('id,email')
+      .limit(1),
+  );
+
+  let childCount = 0;
+  let intakeCount = 0;
+
+  for (const child of parent.children) {
+    const { data: existingChild } = await supabase
+      .from('students')
+      .select('id')
+      .eq('parent_user_id', user.id)
+      .eq('full_name', child.fullName)
+      .maybeSingle();
+
+    let childId = existingChild?.id;
+    if (!childId) {
+      const [created] = await must(
+        `child insert ${child.fullName}`,
+        supabase
+          .from('students')
+          .insert({ parent_user_id: user.id, full_name: child.fullName, grade_level: child.gradeLevel })
+          .select('id')
+          .limit(1),
+      );
+      childId = created.id;
+    }
+    childCount += 1;
+
+    await must(
+      `clear child intakes ${child.fullName}`,
+      supabase.from('student_intakes').delete().eq('student_id', childId),
+    );
+    await must(
+      `child intake insert ${child.fullName}`,
+      supabase
+        .from('student_intakes')
+        .insert(buildIntakeRow(child.intake, childId, user.id, subjectIds, child.fullName)),
+    );
+    intakeCount += 1;
+  }
+
+  return { parents: 1, children: childCount, parentIntakes: intakeCount };
 }
 
 export async function seedDemoMatching({ supabase }) {
@@ -203,6 +654,9 @@ export async function seedDemoMatching({ supabase }) {
     );
   }
 
+  const studentResult = await seedStudentsAndIntakes({ supabase, subjectIds, usersHasIsDemo });
+  const parentResult = await seedParentAndChildren({ supabase, subjectIds, usersHasIsDemo });
+
   const [{ count: subjectCount }, { count: teacherSubjectCount }, { count: availabilityCount }] =
     await Promise.all([
       supabase.from('subjects').select('*', { count: 'exact', head: true }),
@@ -222,6 +676,11 @@ export async function seedDemoMatching({ supabase }) {
     teachers: seededTeacherIds.length,
     teacherSubjects: teacherSubjectCount,
     availabilitySlots: availabilityCount,
+    students: studentResult.students,
+    intakes: studentResult.intakes,
+    parents: parentResult.parents,
+    children: parentResult.children,
+    parentIntakes: parentResult.parentIntakes,
     usersIsDemoColumn: usersHasIsDemo,
     teacherProfilesIsDemoColumn: profilesHasIsDemo,
     teacherProfilesApprovalStatusColumn: profilesHasApprovalStatus,
