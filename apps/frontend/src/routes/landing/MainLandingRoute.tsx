@@ -1,79 +1,36 @@
-import {
-  AudienceListSection,
-  BrutalComparisonTable,
-  FAQAccordion,
-  LandingCTA,
-  LandingHero,
-  LandingScreenNav,
-  LegalFooter,
-  ParentDashboardPreview,
-  ProcessStepper,
-  UnifiedOnboardingCtaCard,
-  ValueSection,
-} from '../../components/landing/LandingComponents';
-import { mainLandingContent } from '../../content/landing/mainLandingContent';
+import { useNavigate } from 'react-router-dom';
 
+import { FloatingTopNavbar, GhostButton, SecondaryButton } from '../../design-system';
+import { DynamicHeroLogo } from '../../components/landing/DynamicHeroLogo';
+import { LandingStage } from '../../components/landing/LandingStage';
+import { LandingSections } from '../../components/landing/LandingSections';
+
+/**
+ * Student (main) landing — redesigned cinematic stage. `.landing-theme` scopes the
+ * landing semantic tokens. The canonical FloatingTopNavbar (variant="landing")
+ * carries pre-auth actions on the left; the morphing DynamicHeroLogo owns the
+ * top-right slot. The hero stage and bento sections re-home the existing copy.
+ */
 export function MainLandingRoute() {
-  const content = mainLandingContent;
+  const navigate = useNavigate();
 
   return (
-    <div className="landing-page" dir="rtl" lang="he">
-      <LandingHero
-        brand={content.brand}
-        title={content.hero.title}
-        subtitle={content.hero.subtitle}
-        context={content.hero.context}
-        teacherCta={content.hero.teacherCta}
-      >
-        <UnifiedOnboardingCtaCard cta={content.hero.unifiedCta} />
-      </LandingHero>
-      <LandingScreenNav
-        items={[
-          { label: 'למי StudyBuddy מתאימה?', href: '#audience' },
-          { label: 'איך זה עובד?', href: '#process' },
-          { label: 'למה StudyBuddy?', href: '#value' },
-          { label: content.faq.title, href: '#faq' },
-          { label: content.hero.teacherCta.label, href: content.hero.teacherCta.to },
-          { label: 'כניסה למערכת', href: '/login', tone: 'primary' },
-        ]}
+    <div className="landing-theme landing-redesign" dir="rtl" lang="he">
+      <FloatingTopNavbar
+        variant="landing"
+        tabs={[]}
+        actions={
+          <>
+            <GhostButton onClick={() => navigate('/login')}>כניסה למערכת (Sign In)</GhostButton>
+            <SecondaryButton onClick={() => navigate('/teachers')}>
+              התחברות ל-Teacher OS (Teacher OS)
+            </SecondaryButton>
+          </>
+        }
       />
-      <AudienceListSection
-        id="audience"
-        title={content.audience.title}
-        subtitle={content.audience.subtitle}
-        items={content.audience.items}
-      />
-      <ProcessStepper
-        id="process"
-        title={content.process.title}
-        summary={content.process.summary}
-        steps={content.process.steps}
-        closing={content.process.closing}
-      />
-      <ValueSection id="value" title={content.value.title} hook={content.value.hook} items={content.value.items} />
-      <BrutalComparisonTable
-        title={content.comparison.title}
-        columns={content.comparison.columns}
-        rows={content.comparison.rows}
-      />
-      <ParentDashboardPreview
-        title={content.parents.title}
-        intro={content.parents.intro}
-        items={content.parents.items}
-      />
-      <FAQAccordion title={content.quickFaq.title} items={content.quickFaq.items} />
-      <FAQAccordion id="faq" title={content.faq.title} sections={content.faq.sections} />
-      <LandingCTA
-        title={content.finalCta.title}
-        label={content.finalCta.label}
-        to={content.finalCta.to}
-      />
-      <LegalFooter
-        title={content.legal.title}
-        items={content.legal.items}
-        support={content.legal.support}
-        supportLinks={content.legal.supportLinks}
-      />
+      <DynamicHeroLogo />
+      <LandingStage />
+      <LandingSections />
     </div>
   );
 }

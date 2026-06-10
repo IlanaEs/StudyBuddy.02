@@ -95,6 +95,23 @@
   --sb-fs-caption: 0.75rem;                                      /* 12 captions / meta */
 }
 
+/* ── Landing redesign — scoped semantic tokens (theme-dark / landing-context) ──
+   Mirrors the .tow scoping pattern: a wrapper class with landing-only semantics.
+   Reuses canonical --sb-active (#00F6FF) + --sb-border-cyber (#24747A); adds
+   bento/inverse-text semantics. Lime #BBE341 is NOT canonical (canonical success
+   is #A3E635) — introduced here, scoped, NOT a canonical redefinition. CSS token
+   definitions are not scanned by lint:colors, so the ratchet is unaffected. */
+.landing-theme {
+  --bg-canvas-deep: var(--sb-bg-depth);          /* #175655 */
+  --bg-bento-cell: rgba(63, 126, 118, 0.2);
+  --border-bento-subtle: rgba(1, 108, 124, 0.4);
+  --text-primary-inverse: #FFFFFF;
+  --text-secondary-muted: rgba(255, 255, 255, 0.6);
+  --accent-lime: #BBE341;                          /* scoped landing accent (non-canonical) */
+  --accent-cyan: var(--sb-active);                 /* #00F6FF */
+  --accent-cyber: var(--sb-border-cyber);          /* #24747A */
+}
+
 /* ── Design System v1 — typography utilities (consume --sb-* only) ───────────
    Heading / Subheading / Body / Caption scale + numeric mono. Rubik for text,
    JetBrains Mono (.data-mono) for numbers/dates/prices/scores. */
@@ -184,6 +201,17 @@
   /* Capsule: fully-rounded ends + soft drop shadow for elevation. */
   border-radius: 999px;
   box-shadow: 0 12px 32px -14px rgba(0, 0, 0, 0.5);
+}
+/* Landing (pre-auth) variant: full-width transparent bar at the top with only a
+   subtle bottom border — drops the floating capsule so it doesn't compete with
+   the hero CTA, and leaves the top-right clear for the morphing hero logo. */
+.sb-navbar--landing {
+  top: 0; inset-inline: 0; width: 100%; max-width: none; margin-inline: 0;
+  background: transparent;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  border: none; border-bottom: 1px solid var(--border-bento-subtle, rgba(1, 108, 124, 0.4));
+  border-radius: 0;
+  box-shadow: none;
 }
 /* Sign-Out (admin utility): red-on-hover per the destructive-action token. */
 .sb-navbar-signout:hover { color: var(--sb-error); }
@@ -4423,4 +4451,135 @@ a {
     align-items: start;
     padding-top: 72px;
   }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   STUDENT LANDING REDESIGN — cinematic stage + bento. Scoped to .landing-theme
+   tokens (consumes var(--*) only; rgba/hex in CSS is not scanned by lint:colors).
+   ════════════════════════════════════════════════════════════════════════════ */
+.landing-redesign {
+  background: var(--bg-canvas-deep);
+  color: var(--text-primary-inverse);
+  font-family: var(--sb-font-ui);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Dynamic hero logo (single fixed element, morphs into the navbar slot) ──── */
+.dynamic-hero-logo {
+  position: fixed; top: 0; right: 0; z-index: 100;
+  transform-origin: top right;
+  width: min(340px, 56vw);
+  filter: drop-shadow(0 0 10px rgba(0, 246, 255, 0.22));
+  transition: filter var(--sb-motion-slow) ease;
+  will-change: transform;
+}
+.dynamic-hero-logo img { display: block; width: 100%; height: auto; }
+.dynamic-hero-logo:hover { filter: drop-shadow(0 0 20px var(--accent-cyan)); }
+.dynamic-hero-logo--rest { width: min(120px, 30vw); transform: translate(-1.5vw, 0.8vh); }
+
+/* ── Layered hero stage (bottom→top: bg over deep canvas, desk, elements, content) */
+.ls-stage {
+  position: relative; height: 100vh; min-height: 640px; width: 100%;
+  overflow: hidden; isolation: isolate;
+  background: var(--bg-canvas-deep); /* base/fallback under the bg image */
+}
+.ls-layer { position: absolute; inset: 0; }
+.ls-bg { z-index: 1; background-size: cover; background-position: center; }
+.ls-desk {
+  z-index: 2; top: auto; bottom: 0; height: 56%;
+  background-size: cover; background-position: center bottom; background-repeat: no-repeat;
+}
+.ls-elem { z-index: 3; pointer-events: none; }
+.ls-elem img { width: 100%; height: 100%; object-fit: cover; object-position: center bottom; }
+@keyframes lsFloatA { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+@keyframes lsFloatB { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-18px); } }
+.ls-float-a { animation: lsFloatA 6.5s ease-in-out infinite; }
+.ls-float-b { animation: lsFloatB 7s ease-in-out infinite; }
+
+.ls-content {
+  position: absolute; inset: 0; z-index: 4;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 0 24px; gap: 12px;
+}
+/* Scrim keeps #FFFFFF ≥ AA over the bright centre of the glow. */
+.ls-scrim {
+  position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(ellipse 62% 46% at 50% 44%, rgba(11, 43, 42, 0.72), rgba(11, 43, 42, 0) 70%);
+}
+.ls-h1 { margin: 0; font-weight: 900; line-height: 1.02; color: var(--text-primary-inverse);
+  font-size: clamp(2.6rem, 1.8rem + 5vw, 5.5rem); text-shadow: 0 2px 24px rgba(0, 0, 0, 0.45); }
+.ls-h2 { margin: 0; font-weight: 800; line-height: 1.05; color: var(--accent-cyan);
+  font-size: clamp(2rem, 1.4rem + 3.6vw, 4rem); text-shadow: 0 2px 20px rgba(0, 0, 0, 0.4); }
+.ls-sub { max-width: 620px; margin: 8px 0 0; line-height: 1.6; color: var(--text-primary-inverse);
+  opacity: 0.92; font-size: clamp(1rem, 0.9rem + 0.5vw, 1.25rem); text-shadow: 0 1px 10px rgba(0, 0, 0, 0.5); }
+.ls-cta { margin-top: 16px; }
+.ls-context { margin-top: 6px; color: var(--text-secondary-muted); font-size: 0.9rem; }
+.ls-scroll-hint {
+  position: absolute; bottom: 18px; inset-inline: 0; z-index: 5; text-align: center;
+  color: var(--text-secondary-muted); font-size: 1.2rem; animation: lsBounce 2s ease-in-out infinite;
+}
+@keyframes lsBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
+
+/* ── Bento sections (re-homed copy) ───────────────────────────────────────── */
+.lb-flow { position: relative; z-index: 4; background: var(--bg-canvas-deep); }
+.lb-section { max-width: 1120px; margin: 0 auto; padding: 64px 24px; }
+.lb-head { text-align: center; margin-bottom: 28px; }
+.lb-title { margin: 0; font-weight: 800; color: var(--text-primary-inverse);
+  font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.4rem); }
+.lb-title--quote { font-style: italic; }
+.lb-title-en { color: var(--text-secondary-muted); font-weight: 600; font-size: 0.6em; }
+.lb-sub { margin: 10px 0 0; color: var(--text-secondary-muted); font-size: 1.05rem; }
+.lb-body { margin: 0; color: var(--text-secondary-muted); font-size: var(--sb-fs-body); line-height: 1.65; }
+.lb-caption { max-width: 760px; margin: 24px auto 0; text-align: center; line-height: 1.6;
+  color: var(--text-secondary-muted); font-size: 0.95rem; }
+.lb-step-num { display: inline-flex; width: 30px; height: 30px; align-items: center; justify-content: center;
+  margin-bottom: 10px; border-radius: 999px; background: var(--bg-bento-cell);
+  border: 1px solid var(--border-bento-subtle); color: var(--accent-cyan); font-weight: 700; }
+
+.lb-feature { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+  padding: 22px; margin-bottom: 20px; border-radius: var(--sb-radius-card);
+  background: var(--bg-bento-cell); border: 1px solid var(--accent-lime); }
+.lb-feature-quote { font-weight: 900; color: var(--accent-lime);
+  font-size: clamp(1.4rem, 1.1rem + 1.2vw, 2rem); }
+.lb-feature-sub { color: var(--text-primary-inverse); opacity: 0.85; }
+
+.lb-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.lb-compare-col { padding: 18px; border-radius: var(--sb-radius-card);
+  border: 1px solid var(--border-bento-subtle); background: var(--bg-bento-cell); }
+.lb-compare-before { opacity: 0.82; }
+.lb-compare-after { border-color: var(--accent-cyan); }
+.lb-compare-head { margin: 0 0 12px; font-size: 1rem; font-weight: 800; color: var(--text-primary-inverse); }
+.lb-compare-cell { margin: 0; padding: 9px 0; border-top: 1px solid var(--border-bento-subtle);
+  color: var(--text-secondary-muted); font-size: var(--sb-fs-body); }
+.lb-compare-after .lb-compare-cell { color: var(--text-primary-inverse); }
+
+.lb-faq { max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+.lb-faq-group-title { margin: 22px 0 8px; color: var(--accent-cyan); font-size: 1.1rem; font-weight: 800; }
+.lb-faq-item { padding: 14px 18px; border-radius: var(--sb-radius-card);
+  border: 1px solid var(--border-bento-subtle); background: var(--bg-bento-cell); }
+.lb-faq-q { cursor: pointer; font-weight: 700; color: var(--text-primary-inverse); list-style: none; }
+.lb-faq-q::-webkit-details-marker { display: none; }
+.lb-faq-a { margin: 10px 0 0; color: var(--text-secondary-muted); line-height: 1.65; }
+
+.lb-cta-band { display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; }
+.lb-cta-title { margin: 0; max-width: 720px; font-weight: 800; color: var(--text-primary-inverse);
+  font-size: clamp(1.6rem, 1.2rem + 1.8vw, 2.6rem); }
+
+.lb-footer { max-width: 1120px; margin: 0 auto; padding: 48px 24px 72px;
+  border-top: 1px solid var(--border-bento-subtle); }
+.lb-footer-title { margin: 0 0 20px; text-align: center; color: var(--text-secondary-muted); font-size: 1.1rem; }
+.lb-footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+.lb-footer-item-title { margin: 0 0 6px; font-size: 0.95rem; font-weight: 700; color: var(--text-primary-inverse); }
+.lb-footer-item-body { margin: 0; color: var(--text-secondary-muted); font-size: 0.85rem; line-height: 1.6; }
+.lb-footer-support { margin: 24px 0 0; text-align: center; color: var(--text-secondary-muted); font-size: 0.85rem; }
+
+@media (max-width: 768px) {
+  .lb-compare { grid-template-columns: 1fr; }
+  .lb-section { padding: 48px 18px; }
+}
+/* Reduced motion: kill the resting/idle choreography (scroll transforms are
+   already gated via useReducedMotion in the components). */
+@media (prefers-reduced-motion: reduce) {
+  .ls-float-a, .ls-float-b, .ls-scroll-hint { animation: none !important; }
 }

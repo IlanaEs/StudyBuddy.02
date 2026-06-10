@@ -59,6 +59,28 @@ export const sbTokens = {
 export type SbTokens = typeof sbTokens;
 
 /**
+ * Landing-redesign scoped semantic tokens — the `.landing-theme` scope in
+ * styles.css (mirrors the `.tow` scoping pattern). `var(--*)` refs only, never
+ * raw hex, so components stay guard-pure. Reuses the canonical accent
+ * (`--sb-active` #00F6FF) and cyber border (`--sb-border-cyber` #24747A); adds
+ * landing-only semantics. NOTE: lime #BBE341 is NOT in the canonical layer
+ * (canonical success is #A3E635), so it is introduced here, scoped — it does not
+ * redefine a canonical token.
+ */
+export const landingTokens = {
+  bgCanvasDeep: 'var(--bg-canvas-deep)', // ≡ --sb-bg-depth #175655
+  bgBentoCell: 'var(--bg-bento-cell)',
+  borderBentoSubtle: 'var(--border-bento-subtle)',
+  textPrimaryInverse: 'var(--text-primary-inverse)',
+  textSecondaryMuted: 'var(--text-secondary-muted)',
+  accentLime: 'var(--accent-lime)',
+  accentCyan: 'var(--accent-cyan)', // ≡ --sb-active #00F6FF
+  accentCyber: 'var(--accent-cyber)', // ≡ --sb-border-cyber #24747A
+} as const;
+
+export type LandingTokens = typeof landingTokens;
+
+/**
  * @deprecated Teacher Onboarding Wizard (v2) palette — mirrors the `.tow`-scoped
  * CSS variables. Superseded by {@link sbTokens}. Kept working during the phased
  * migration (60+ consumers); do NOT use in new code. Migrate onto `sbTokens` per

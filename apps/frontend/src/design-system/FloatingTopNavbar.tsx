@@ -13,6 +13,10 @@ export type NavTab = {
 };
 
 type Props = {
+  /** `app` (default) = floating glass capsule for authed roles. `landing` =
+   *  full-width transparent pre-auth bar (subtle bottom border), no role tabs,
+   *  top-right left clear for the morphing hero logo. */
+  variant?: 'app' | 'landing';
   /** Right side (RTL): brand logo; click returns to the role dashboard. Omit for a
    *  flat icon-only bar (no logo/search). */
   logo?: ReactNode;
@@ -42,9 +46,9 @@ const iconBtn = {
  * floating, glass, icon-only, RTL. Right = logo, center = role tabs, left =
  * actions. The active tab uses --sb-active with a thin neon indicator.
  */
-export function FloatingTopNavbar({ logo, onLogoClick, tabs, actions }: Props) {
+export function FloatingTopNavbar({ variant = 'app', logo, onLogoClick, tabs, actions }: Props) {
   return (
-    <nav dir="rtl" className="sb-navbar" aria-label="ניווט ראשי (Main navigation)">
+    <nav dir="rtl" className={`sb-navbar${variant === 'landing' ? ' sb-navbar--landing' : ''}`} aria-label="ניווט ראשי (Main navigation)">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '8px 22px' }}>
         {/* Right (RTL-first): brand — omit for a flat icon-only bar. */}
         {logo ? (
