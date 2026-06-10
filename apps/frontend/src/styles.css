@@ -4478,14 +4478,23 @@ a {
 .dynamic-hero-logo:hover { filter: drop-shadow(0 0 20px var(--accent-cyan)); }
 .dynamic-hero-logo--rest { width: min(120px, 30vw); transform: translate(-1.5vw, 0.8vh); }
 
-/* ── Layered hero stage (bottom→top: bg over deep canvas, elements, content) */
+/* ── Layered hero stage. The tall track is the scroll driver; the stage pins to
+   the viewport (sticky) so one scroll choreographs brand → promise → product. */
+.ls-track {
+  position: relative; height: 280vh; width: 100%;
+  background: var(--bg-canvas-deep);
+}
 .ls-stage {
-  position: relative; height: 100vh; min-height: 640px; width: 100%;
+  position: sticky; top: 0; height: 100vh; min-height: 640px; width: 100%;
   overflow: hidden; isolation: isolate;
   background: var(--bg-canvas-deep); /* base/fallback under the bg image */
 }
+/* Reduced motion: a single static viewport (no sticky pin, no tall track). */
+.ls-stage--rest { position: relative; }
 .ls-layer { position: absolute; inset: 0; }
 .ls-bg { z-index: 1; background-size: cover; background-position: center; }
+/* Desk surface sits above the bg, pinned to the bottom; both persist on scroll. */
+.ls-desk { z-index: 2; background-size: cover; background-position: center bottom; pointer-events: none; }
 .ls-elem { z-index: 3; pointer-events: none; }
 .ls-elem img { width: 100%; height: 100%; object-fit: cover; object-position: center bottom; }
 @keyframes lsFloatA { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }

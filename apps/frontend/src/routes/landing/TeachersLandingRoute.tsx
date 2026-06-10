@@ -16,14 +16,14 @@ import {
 import { teachersLandingContent } from '../../content/landing/teachersLandingContent';
 
 const teacherLandingAssets = {
-  background: '/images/landing/teacher/teacher-landing-background-foundation.png',
+  // Shared persistent foundation (turquoise + grid), matching the student stage.
+  background: '/images/landing/teacher/Sticky_Background.svg',
   decorationLeft: '/images/landing/teacher/teacher-landing-decoration-left.png',
-  decorationRight: '/images/landing/teacher/teacher-landing-decoration-right.png',
-  productMockup: '/images/landing/teacher/teacher-landing-product-mockup.png',
+  productMockup: '/images/landing/teacher/teacher-landing-product-mockup-right.png',
 } as const;
 
-// Layer 0 — the frozen "desk world": dark teal canvas + foundation photo and the
-// decorative side props/laptop framing the content. Rendered fixed and inert so it
+// Layer 0 — the frozen "desk world": dark teal canvas + foundation and the
+// decorative side prop/laptop framing the content. Rendered fixed and inert so it
 // never moves while Layer 1 scrolls over it.
 function TeacherDepthBackground() {
   return (
@@ -34,7 +34,6 @@ function TeacherDepthBackground() {
       />
       <img className="teacher-depth-prop teacher-depth-prop-left" src={teacherLandingAssets.decorationLeft} alt="" />
       <img className="teacher-depth-prop teacher-depth-prop-mockup" src={teacherLandingAssets.productMockup} alt="" />
-      <img className="teacher-depth-prop teacher-depth-prop-right" src={teacherLandingAssets.decorationRight} alt="" />
     </div>
   );
 }
