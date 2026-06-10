@@ -9,7 +9,7 @@ via the running backend (`http://localhost:4000`) + the Supabase REST client, pl
 |---|---|
 | `npm run typecheck` (both apps) | ✅ pass |
 | `npm run build` (both apps) | ✅ pass |
-| `npm test` (unit) | ✅ **164 / 164** |
+| `npm test` (unit) | ✅ **282 / 282** (271 backend + 11 frontend) |
 | `npm run db:validate` | ✅ pass (after a cross-platform path fix) |
 | `node scripts/qa-auth-flow-e2e.mjs` | ✅ **82 / 82** |
 | REST domain checks (parallel verification) | ✅ **42 / 49** (the 7 non-passes are a fixture limit, not bugs — see below) |
@@ -18,8 +18,8 @@ via the running backend (`http://localhost:4000`) + the Supabase REST client, pl
 **One thing blocks "everything works": migration `014_parent_dashboard.sql` is not applied to the
 live database** (the `lesson_confirmations` and `homework_tasks` tables are missing). That breaks
 lesson **completion** and the **parent dashboard** only. Everything up to and including
-booking-approval → lesson-creation is verified working end-to-end. Apply 014 (see
-`HANDOFF_TO_ILANA.md` → Part B) and the remaining steps pass.
+booking-approval → lesson-creation is verified working end-to-end. Apply 014 (Supabase SQL Editor or
+`supabase db push`) and the remaining steps pass.
 
 ## Per-feature matrix
 
@@ -55,13 +55,13 @@ directly, give the QA teacher a completed profile (run onboarding or `npm run db
 1. **Migration 014 not applied (BLOCKER)** — `lesson_confirmations` + `homework_tasks` missing from
    the live DB. Fix: apply `supabase/migrations/014_parent_dashboard.sql` (Supabase SQL Editor or
    `supabase db push`), then `notify pgrst, 'reload schema';`. Unblocks lesson-completion + parent
-   dashboard. See `HANDOFF_TO_ILANA.md` Part B.
+   dashboard.
 2. **Fixed: `db:validate` crashed on Windows** — used `URL.pathname` (yields `/C:/...` → `C:\C:\...`).
    Switched to `fileURLToPath`. Cross-platform now.
 3. **Direct `DATABASE_URL` host is IPv6-only** (`db.<ref>.supabase.co`). The running backend
    connected fine in our testing, but one-off connections on an IPv4-only network fail. If you see
    `ENOTFOUND`/connection errors, use the IPv4 **pooler** connection string (recommended for
-   reliability). See `HANDOFF_TO_ILANA.md` Part B2.
+   reliability).
 4. **`/api/teachers` mounted twice** (`app.ts`) — onboarding routes in `teacherRouter` are shadowed
    by `teacherOnboardingRouter`, and every teacher request verifies the JWT twice. Recommend
    consolidating. (Documented, not changed.)
