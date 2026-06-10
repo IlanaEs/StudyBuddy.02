@@ -45,11 +45,13 @@ Because the frontend bakes the backend URL at build time, you should know the ba
 ## Step 0 — Supabase (production project)
 
 1. Confirm your production Supabase project (or create one).
-2. Apply the schema. Run the migrations under `supabase/migrations/` against the prod database, then run the hard gate locally:
+2. Apply the schema. Run **all** the migrations under `supabase/migrations/` **in order** against the prod database. The current set is **`001`–`023`** (the later ones add Google-only auth, online-only location, lesson calendar/file links, the find-tutor quick wizard, and the admin teacher-approval flow in `023_teacher_approval_status.sql`). Then run the hard gate locally:
    ```bash
    npm run db:validate
    ```
    This asserts exact migration order, every table + RLS enablement, enum names/values, the Auth FK link, and that no RLS policy is unrestricted or granted to `anon`. **Do not deploy on a failing `db:validate`.**
+
+   > Note: `supabase/admin/promote-admin.sql` is **not** a migration — it lives outside `supabase/migrations/` on purpose and is run by hand later (Step 6).
 3. From **Project Settings → API**, copy:
    - `SUPABASE_URL` (Project URL)
    - `SUPABASE_ANON_KEY` (anon / public key)
@@ -83,6 +85,7 @@ The backend `build` runs `tsc -p tsconfig.json`, emitting compiled ESM to `apps/
 | `SUPABASE_ANON_KEY` | from Step 0 | |
 | `SUPABASE_SERVICE_ROLE_KEY` | from Step 0 | |
 | `DATABASE_URL` | from Step 0 | Session pooler / direct connection |
+| `ADMIN_GOOGLE_EMAIL` | the admin's Google email | Identifies the single admin account for the `scripts/bootstrap-admin.mjs` promotion (Step 6). Not a login secret — the admin still signs in with Google. |
 
 If you use the Google Calendar integration, also set:
 
@@ -93,7 +96,7 @@ If you use the Google Calendar integration, also set:
 | `GOOGLE_CALENDAR_REDIRECT_URI` | your prod backend callback URL, e.g. `https://studybuddy-api.onrender.com/api/teachers/me/calendar/callback` |
 | `CALENDAR_TOKEN_ENCRYPTION_KEY` | base64 key used to encrypt stored calendar tokens |
 
-> ❌ **Never set in production:** `ENABLE_ADMIN_QA_MODE`, `DEV_AUTH_BYPASS`. (`DEV_AUTH_BYPASS` is double‑gated off whenever `NODE_ENV=production`, but leave it unset anyway.)
+> ❌ **Never set in production:** `ENABLE_ADMIN_QA_MODE`, `DEV_AUTH_BYPASS`. (`DEV_AUTH_BYPASS` is double‑gated off whenever `NODE_ENV=production`, but leave it unset anyway.) Also leave **all the QA/staging‑only bootstrap vars unset**: `ADMIN_BOOTSTRAP_PASSWORD`, `TEST_USERS_BOOTSTRAP_PASSWORD`, `TEACHER_BOOTSTRAP_PASSWORD`, `PARENT_BOOTSTRAP_PASSWORD`, and `CONFIRM_REMOTE_DEVELOPMENT_USER_RESET`.
 
 ### Notes
 
@@ -157,6 +160,24 @@ Deploy, then record the Vercel production URL (e.g. `https://studybuddy.vercel.a
 
 ---
 
+## Step 6 — Provision the admin (Control Tower)
+
+The Admin Control Tower is the highest‑privilege surface and has **no self‑registration** — there is no endpoint or code path that grants the `admin` role. A single flat `admin` role is provisioned **by hand**, once, after deploy.
+
+1. Have the admin **sign in with Google once** on the production app. First sign‑in creates their `public.users` row (the promotion below requires the row to already exist).
+2. Promote that row to `admin`, either:
+   - **SQL (recommended):** edit `supabase/admin/promote-admin.sql`, replace the email literal with the admin's email, and run it in the **Supabase SQL editor** or `psql "$DATABASE_URL" -f supabase/admin/promote-admin.sql`. It's idempotent (re‑running on an already‑admin row is a no‑op).
+   - **Script:** with `ADMIN_GOOGLE_EMAIL` set, run `node scripts/bootstrap-admin.mjs`.
+3. Verify exactly one row was promoted:
+   ```sql
+   select id, email, role, status from public.users where email = '<admin-email>';
+   ```
+4. Sign in as the admin and confirm the Control Tower loads (Overview / Users CRM / Approvals Center).
+
+> This SQL lives **outside** `supabase/migrations/` deliberately — it's a one‑off DBA action, not part of the validated migration sequence, so `db:validate` never touches it.
+
+---
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
@@ -169,6 +190,7 @@ Deploy, then record the Vercel production URL (e.g. `https://studybuddy.vercel.a
 | Sign‑up loops or 500s | Broken OAuth provisioning flow, or `DEV_AUTH_BYPASS` set in prod | Keep `NODE_ENV=production`, never set `DEV_AUTH_BYPASS`; verify Supabase/Google redirect URLs |
 | OAuth redirect mismatch error | Prod URLs not registered | Add the Vercel + backend callback URLs in Google Cloud Console and Supabase |
 | `db:validate` fails | Migration drift vs the locked schema | Reconcile `supabase/migrations/` before deploying |
+| Admin sees no Control Tower / 403 on `/api/admin/*` | Admin role not provisioned | Run Step 6 (`promote-admin.sql`) — and make sure the admin signed in with Google **once** first so their `users` row exists |
 
 ---
 
