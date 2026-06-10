@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 
 import { FloatingTopNavbar, GhostButton, SecondaryButton } from '../../design-system';
+import { LandingFoundation } from '../../components/landing/LandingFoundation';
 import { DynamicHeroLogo } from '../../components/landing/DynamicHeroLogo';
 import { LandingStage } from '../../components/landing/LandingStage';
 import { LandingSections } from '../../components/landing/LandingSections';
@@ -16,6 +17,7 @@ export function MainLandingRoute() {
 
   return (
     <div className="landing-theme landing-redesign" dir="rtl" lang="he">
+      <LandingFoundation />
       <FloatingTopNavbar
         variant="landing"
         tabs={[]}

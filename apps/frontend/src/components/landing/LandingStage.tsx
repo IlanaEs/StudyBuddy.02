@@ -5,11 +5,9 @@ import { motion, useScroll, useTransform, useReducedMotion } from 'framer-motion
 import { PrimaryButton } from '../../design-system';
 import { mainLandingContent } from '../../content/landing/mainLandingContent';
 
-// Layered stage assets (public URLs — Vite-served, not base64).
-// Foundation = the persistent "world": turquoise + grid (Sticky_Background) and
-// the desk surface (Desk_). Element groups = the decorative props that dissolve.
-const BG = '/images/landing/student/Sticky_Background.svg';
-const DESK = '/images/landing/student/Desk_.svg';
+// Stage assets (public URLs — Vite-served). Only the decorative element groups
+// live here; the persistent foundation (bg + grid + desk) is rendered globally
+// and fixed by LandingFoundation, behind this stage.
 const ELEM_LEFT = '/images/landing/student/Student_Left_Elements.svg';
 const ELEM_RIGHT = '/images/landing/student/Student_Right_Elements.svg';
 
@@ -20,7 +18,9 @@ const ELEM_RIGHT = '/images/landing/student/Student_Right_Elements.svg';
  *   2. Promise — as the logo retreats into the navbar, the headline / sub / CTA
  *                reveal and settle into the vacated centre.
  *   3. Product — the decorative element groups + hero copy dissolve (fade + blur +
- *                part outward); the FOUNDATION (bg + grid + desk) persists.
+ *                part outward) to nothing; the FIXED foundation (LandingFoundation)
+ *                stays put underneath.
+ * The stage itself is transparent — the fixed turquoise+grid + desk show through.
  * Respects prefers-reduced-motion (static rest, everything visible, no track).
  * The morphing logo is rendered by the page (DynamicHeroLogo), above this stage.
  */
@@ -35,7 +35,7 @@ export function LandingStage() {
   const leftX = useTransform(scrollYProgress, [0, 1], ['0%', '-12%']);
   const rightX = useTransform(scrollYProgress, [0, 1], ['0%', '12%']);
   const elemY = useTransform(scrollYProgress, [0, 1], ['0%', '-7%']);
-  const elemOpacity = useTransform(scrollYProgress, [0, 0.58, 0.92], [1, 1, 0.1]);
+  const elemOpacity = useTransform(scrollYProgress, [0, 0.58, 0.92], [1, 1, 0]);
   const elemBlur = useTransform(scrollYProgress, [0.55, 1], ['blur(0px)', 'blur(6px)']);
 
   // Hero copy: hidden during the brand beat, reveals + settles into place during
@@ -52,18 +52,15 @@ export function LandingStage() {
 
   const content = (
     <>
-      {/* 1. Foundation: turquoise + grid over the deep canvas base (persistent). */}
-      <div className="ls-layer ls-bg" style={{ backgroundImage: `url(${BG})` }} aria-hidden />
-      {/* 2. Foundation: desk surface, pinned to the bottom (persistent). */}
-      <div className="ls-layer ls-desk" style={{ backgroundImage: `url(${DESK})` }} aria-hidden />
-      {/* 3. Element groups — decorative props, gentle float + dissolve on scroll. */}
+      {/* Element groups — decorative props, gentle float + dissolve on scroll. The
+          fixed foundation (bg + grid + desk) shows through from LandingFoundation. */}
       <motion.div className="ls-layer ls-elem ls-elem-left" style={leftStyle} aria-hidden>
         <img className="ls-float ls-float-a" src={ELEM_LEFT} alt="" />
       </motion.div>
       <motion.div className="ls-layer ls-elem ls-elem-right" style={rightStyle} aria-hidden>
         <img className="ls-float ls-float-b" src={ELEM_RIGHT} alt="" />
       </motion.div>
-      {/* 4. Content — highest layer; scrim behind H1+sub for AA contrast. */}
+      {/* Content — highest layer; scrim behind H1+sub for AA contrast. */}
       <motion.div className="ls-content" style={contentStyle}>
         <div className="ls-scrim" aria-hidden />
         <h1 className="ls-h1">המורה המדויק.</h1>
