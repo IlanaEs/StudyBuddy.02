@@ -6,13 +6,12 @@ import { PrimaryButton } from '../../design-system';
 import { mainLandingContent } from '../../content/landing/mainLandingContent';
 
 // Layered stage assets (public URLs — Vite-served, not base64).
-const BG = '/images/landing/student/student-landing-background-foundation.webp';
-const DESK = '/images/landing/student/student-landing-desk-surface.webp';
-const ELEM_LEFT = '/images/landing/student/student-landing-decoration-left.webp';
-const ELEM_RIGHT = '/images/landing/student/student-landing-decoration-right.webp';
+const BG = '/images/landing/student/student-landing-bg-main.webp';
+const ELEM_LEFT = '/images/landing/student/Student_Left_Elements.svg';
+const ELEM_RIGHT = '/images/landing/student/Student_Right_Elements.svg';
 
 /**
- * The fixed cinematic hero stage (bottom→top: bg over --bg-canvas-deep, desk,
+ * The fixed cinematic hero stage (bottom→top: bg over --bg-canvas-deep,
  * element groups, content). On scroll the element groups part outward+up and
  * dim/blur while the hero text recedes; a scrim keeps white text ≥ AA over the glow.
  * Respects prefers-reduced-motion (static rest, no choreography). The morphing
@@ -42,9 +41,7 @@ export function LandingStage() {
     <section ref={ref} className="ls-stage" dir="rtl" lang="he" aria-label="StudyBuddy">
       {/* 1. bg over the deep canvas base (image is NOT flattened to a solid). */}
       <div className="ls-layer ls-bg" style={{ backgroundImage: `url(${BG})` }} aria-hidden />
-      {/* 2. desk, anchored bottom, full width. */}
-      <div className="ls-layer ls-desk" style={{ backgroundImage: `url(${DESK})` }} aria-hidden />
-      {/* 3. element groups — full-canvas layers, gentle float + scroll choreography. */}
+      {/* 2. element groups — full-canvas SVG layers, gentle float + scroll choreography. */}
       <motion.div className="ls-layer ls-elem ls-elem-left" style={leftStyle} aria-hidden>
         <img className="ls-float ls-float-a" src={ELEM_LEFT} alt="" />
       </motion.div>
