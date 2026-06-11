@@ -34,14 +34,6 @@ export async function syncCalendarController(
     const userId = req.auth!.user.id;
     const providerToken = req.headers['x-provider-token'];
 
-    if (process.env['NODE_ENV'] !== 'production') {
-      console.debug('[syncCalendarController]', {
-        hasXProviderToken: !!providerToken,
-        tokenType: typeof providerToken,
-        tokenLength: typeof providerToken === 'string' ? providerToken.length : 0,
-      });
-    }
-
     if (!providerToken || typeof providerToken !== 'string') {
       throw new AppError('Missing Google provider token — X-Provider-Token header not received', 400);
     }
