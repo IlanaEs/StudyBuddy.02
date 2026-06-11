@@ -4,7 +4,6 @@ import { BookOpen, Check, ChevronDown, ChevronUp, Plus, Trash2, Clock } from 'lu
 import { useAuth } from '../auth/AuthProvider';
 import { getTeacherLessons, completeLesson } from '../api/lessons';
 import type { TeacherLessonItem } from '../api/lessons';
-import { AttachmentList } from '../components/AttachmentList';
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 
@@ -324,9 +323,6 @@ function LessonCard({
           </button>
         )}
       </div>
-
-      {/* Student attachments (read-only download) */}
-      <AttachmentList lessonId={lesson.id} />
 
       {/* Completion form */}
       {isScheduled && expanded && (
