@@ -185,9 +185,15 @@ export async function generateAvailableSlots(
   }
 
   const lessonDuration = requestedDurationMinutes ?? prefs.defaultLessonDurationMinutes;
-  const breakDuration = prefs.defaultBreakDurationMinutes;
+  const breakDuration = prefs.defaultBreakDurationMinutes; // returned as metadata only
   const slotAlignment = prefs.slotAlignment;
-  const stepMinutes = lessonDuration + breakDuration;
+  // Slots step by exactly the lesson length so the bookable grid stays predictable:
+  // a 60-minute lesson from an on-the-hour window yields clean 08:00 / 09:00 / 10:00
+  // start times. We intentionally do NOT add the configured break to the step — doing
+  // so produced a drifting cadence (e.g. 60+10 → 08:00 / 09:10 / 10:20) that read as
+  // arbitrary to students. The break preference is retained for future per-lesson
+  // buffering but no longer offsets the grid.
+  const stepMinutes = lessonDuration;
 
   // Day of week of the Jerusalem calendar date (0=Sunday … 6=Saturday)
   const dayOfWeek = jerusalemDowOf(date);

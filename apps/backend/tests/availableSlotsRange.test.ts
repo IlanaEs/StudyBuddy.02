@@ -74,4 +74,27 @@ describe('generateAvailableSlotsRange', () => {
     // Day 1: both slots free.
     expect(result.days[1]!.availableSlots).toHaveLength(2);
   });
+
+  it('keeps an on-the-hour cadence even with a configured break (no 70-min drift)', async () => {
+    // 60-min lesson + 10-min break: the step must stay 60 (lesson length), NOT 70.
+    // A 14:00–17:00 window therefore yields 14:00 / 15:00 / 16:00 — not 14:00 / 15:10 / 16:20.
+    vi.mocked(getTeacherSchedulingPrefs).mockResolvedValue({
+      teacherId: 't1',
+      defaultLessonDurationMinutes: 60,
+      defaultBreakDurationMinutes: 10,
+      slotAlignment: 'window_start',
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(getActiveSlotsByTeacherAndDay).mockResolvedValue([{ startTime: '14:00', endTime: '17:00' }] as any);
+    vi.mocked(getScheduledLessonsOnDate).mockResolvedValue([]);
+
+    const result = await generateAvailableSlotsRange('t1', FROM, 1, 60);
+
+    // 14:00 / 15:00 / 16:00 Jerusalem (IDT +3) → 11:00Z / 12:00Z / 13:00Z.
+    expect(result.days[0]!.availableSlots).toEqual([
+      { startAt: '2026-07-06T11:00:00.000Z', endAt: '2026-07-06T12:00:00.000Z' },
+      { startAt: '2026-07-06T12:00:00.000Z', endAt: '2026-07-06T13:00:00.000Z' },
+      { startAt: '2026-07-06T13:00:00.000Z', endAt: '2026-07-06T14:00:00.000Z' },
+    ]);
+  });
 });
