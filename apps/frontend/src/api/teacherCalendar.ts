@@ -22,10 +22,17 @@ export async function ensureCalendarLinkSession() {
   return ensureActiveSupabaseSession();
 }
 
-// Triggers Google OAuth via Supabase linkIdentity — causes a full-page redirect.
-// linkIdentity pre-checks the session via GET /auth/v1/user before redirecting.
-// A 403 from that pre-check means the session is expired or allow_manual_linking
-// is disabled in the Supabase dashboard (Auth → Advanced → Allow manual linking).
+// Triggers a scoped Google OAuth RE-AUTH (signInWithOAuth) for the full calendar
+// scope (freeBusy read + event/Meet write). Full-page redirect; on return the
+// fresh provider_token is captured by supabaseClient (consumeEarlyProviderToken).
+//
+// NOT linkIdentity: the Google account is already linked (Google-only auth), and
+// linkIdentity does not return a fresh provider_token carrying the requested scope
+// — the documented 403 cause in studentCalendar.ts and the reason teacher calendar
+// events were never created on approval. signInWithOAuth re-authenticates the SAME
+// Google account (same Supabase user, session preserved) and yields a real
+// calendar-scoped token. `prompt=consent` forces the scope dialog; `access_type=
+// offline` persists consent.
 //
 // redirectTo is intentionally stable. Do not use window.location.href here; OAuth
 // callback URLs can include code/state fragments that must not be replayed.
@@ -35,7 +42,7 @@ export async function initiateCalendarConnect(
   const supabase = getSupabaseBrowserClient();
   await ensureCalendarLinkSession();
 
-  const { error } = await supabase.auth.linkIdentity({
+  const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       scopes: GCAL_SCOPE,
