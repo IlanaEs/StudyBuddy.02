@@ -4546,6 +4546,11 @@ a {
 .lb-flow {
   position: relative; z-index: 4;
   background: transparent;
+  /* Pull the first content section up so it climbs into view over the (empty,
+     transparent) tail of the pinned hero stage — overlapping the end of the
+     decoration dissolve so the user never hits a fully blank frame in the
+     hero→product handoff. Choreography/logo/dissolve timing are untouched. */
+  margin-top: -50vh;
 }
 .lb-section { max-width: 1120px; margin: 0 auto; padding: 64px 24px; }
 .lb-head { text-align: center; margin-bottom: 28px; }
