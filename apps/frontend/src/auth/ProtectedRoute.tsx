@@ -28,6 +28,13 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     return <Navigate replace to="/login" state={{ from: location }} />;
   }
 
+  // More than one account under this Google login and none chosen yet → send to
+  // the account picker first (don't route straight to a dashboard). Excludes
+  // /select-account itself so it can render without a redirect loop.
+  if (auth.needsAccountSelection && location.pathname !== '/select-account') {
+    return <Navigate replace to="/select-account" />;
+  }
+
   if (allowedRoles && auth.effectiveRole && !allowedRoles.includes(auth.effectiveRole)) {
     // Wrong role for this route. Send the user to THEIR OWN dashboard rather than
     // the public marketing landing page ("/"), which read as broken/unauthorized.

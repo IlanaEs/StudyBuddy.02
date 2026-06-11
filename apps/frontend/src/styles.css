@@ -2875,6 +2875,17 @@ a {
   opacity: 0.6;
   font-family: var(--font-mono);
 }
+
+/* Account selection (Netflix-style picker): subtle lift + highlight on hover. */
+.account-pick .account-pick-circle {
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.account-pick:hover .account-pick-circle,
+.account-pick:focus-visible .account-pick-circle {
+  transform: scale(1.06);
+  border-color: var(--sb-active);
+  background: color-mix(in oklab, var(--sb-active) 20%, transparent);
+}
 .ob-avail-day:hover { background: rgba(255,255,255,0.07); color: var(--text); }
 .ob-avail-day--active {
   color: var(--blue);
