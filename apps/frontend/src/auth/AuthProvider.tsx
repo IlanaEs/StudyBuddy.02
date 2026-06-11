@@ -192,14 +192,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setSession((prev) => {
       const willPreserve = !effectiveSession.provider_token && !!prev?.provider_token && prev.user?.id === effectiveSession.user?.id;
-      if (import.meta.env.DEV) {
-        console.debug('[AuthProvider] setSession', {
-          incomingHasProviderToken: !!effectiveSession.provider_token,
-          prevHasProviderToken: !!prev?.provider_token,
-          sameUser: prev?.user?.id === effectiveSession.user?.id,
-          preservingPrevToken: willPreserve,
-        });
-      }
       if (willPreserve) {
         return { ...effectiveSession, provider_token: prev!.provider_token };
       }
@@ -245,15 +237,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const { data } = await supabase.auth.getSession();
 
-        if (import.meta.env.DEV) {
-          console.debug('[AuthProvider] getSession result', {
-            hasSession: !!data.session,
-            hasProviderToken: !!data.session?.provider_token,
-            providerTokenLength: data.session?.provider_token?.length ?? 0,
-            userId: data.session?.user?.id ?? null,
-          });
-        }
-
         if (isMounted) {
           await resolveSession(data.session);
         }
@@ -261,15 +244,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const {
           data: { subscription },
         } = supabase.auth.onAuthStateChange((event, nextSession) => {
-          if (import.meta.env.DEV) {
-            console.debug('[AuthProvider] onAuthStateChange', {
-              event,
-              hasSession: !!nextSession,
-              hasProviderToken: !!nextSession?.provider_token,
-              providerTokenLength: nextSession?.provider_token?.length ?? 0,
-              userId: nextSession?.user?.id ?? null,
-            });
-          }
           if (event === 'SIGNED_IN' && nextSession?.provider_token && nextSession.user?.id) {
             sessionStorage.setItem(
               PROVIDER_TOKEN_KEY,

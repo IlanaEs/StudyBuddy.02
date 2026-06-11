@@ -60,9 +60,6 @@ export async function createGoogleCalendarEvent(
     });
 
     if (!response.ok) {
-      if (process.env['NODE_ENV'] !== 'production') {
-        console.debug('[createGoogleCalendarEvent] failed', response.status);
-      }
       return { ok: false, status: response.status };
     }
 

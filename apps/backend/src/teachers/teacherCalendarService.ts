@@ -27,13 +27,6 @@ export async function fetchGoogleBusySlots(
     body: JSON.stringify(body),
   });
 
-  if (process.env['NODE_ENV'] !== 'production') {
-    console.debug('[fetchGoogleBusySlots] Google freeBusy response', {
-      status: response.status,
-      ok: response.ok,
-    });
-  }
-
   if (!response.ok) {
     if (response.status === 401) {
       throw new AppError('Google Calendar token expired — please reconnect', 401);
