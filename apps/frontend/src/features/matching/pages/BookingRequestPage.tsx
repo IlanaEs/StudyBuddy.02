@@ -7,10 +7,8 @@ import { BookingAvailabilityGrid } from '../components/BookingAvailabilityGrid';
 import type { GridSelection } from '../components/BookingAvailabilityGrid';
 import { useAuth } from '../../../auth/AuthProvider';
 import { createBookingRequest } from '../../../api/bookingRequests';
-import { linkAttachments } from '../../../api/attachments';
 import { getTeacherAvailableSlotsRange } from '../api/teacherAvailabilityRange';
 import type { DatedSlot } from '../api/teacherAvailabilityRange';
-import { AttachmentDropzone } from '../components/AttachmentDropzone';
 import { FloatingLabelInput } from '../../../components/onboarding/v2/FloatingLabelInput';
 import {
   WizardShell,
@@ -37,7 +35,6 @@ export function BookingRequestPage() {
   const [selection, setSelection] = useState<GridSelection | null>(null);
   const [topic, setTopic] = useState('');
   const [message, setMessage] = useState('');
-  const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -125,12 +122,6 @@ export function BookingRequestPage() {
       if ('error' in result) {
         setSubmitError(result.error ?? 'שגיאה בשליחת הבקשה. נסו שנית.');
         return;
-      }
-
-      // Link any uploaded attachments to the new booking_request (additive,
-      // non-blocking: the booking is already created and valid).
-      if (attachmentIds.length > 0) {
-        await linkAttachments(accessToken, result.data.booking_request.id, attachmentIds);
       }
 
       const lbl = dayLabel(selection.date);
@@ -278,14 +269,6 @@ export function BookingRequestPage() {
                   when that wizard migrates to DS. */}
               <div className="tow">
                 <FloatingLabelInput label="על מה יהיה השיעור?" value={topic} onChange={setTopic} />
-              </div>
-
-              {/* Asset Dropzone — uploads to private storage; linked on submit. */}
-              <div>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: sb.textSecondary, marginBottom: 6 }}>
-                  צירוף קבצים (Attachments)
-                </div>
-                <AttachmentDropzone onChange={setAttachmentIds} />
               </div>
 
               <div>
