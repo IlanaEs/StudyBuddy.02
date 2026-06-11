@@ -32,6 +32,9 @@ const expectedFiles = [
   '021_students_user_id_unique.sql',
   '022_intake_manual_subject.sql',
   '023_teacher_approval_status.sql',
+  '024_accounts.sql',
+  '025_accounts_backfill.sql',
+  '026_profiles_account_id.sql',
 ];
 
 const migrationFiles = {
@@ -45,6 +48,8 @@ const migrationFiles = {
   demoSeedFlags: '015_demo_seed_flags.sql',
   googleOnlyAuth: '016_google_only_auth.sql',
   onlineOnlyLocation: '017_online_only_location.sql',
+  accounts: '024_accounts.sql',
+  profilesAccountId: '026_profiles_account_id.sql',
 };
 
 const expectedTables = [
@@ -254,6 +259,41 @@ if (!sqlByFile[migrationFiles.googleOnlyAuth].includes("default 'google'")) {
 
 if (!sqlByFile[migrationFiles.onlineOnlyLocation].includes('student_intakes.location_preference')) {
   fail('missing online-only location comment in migration 017');
+}
+
+// --- 024 accounts (multi-account Phase 0) ---
+// Not in expectedTables because RLS is enabled in the table's own (new) migration
+// rather than 005 — same convention as availability_exceptions / onboarding_drafts.
+if (!sqlByFile[migrationFiles.accounts].includes('create table if not exists public.accounts')) {
+  fail('missing table accounts');
+}
+
+for (const column of ['user_id', 'role', 'onboarding_completed', 'status', 'is_default']) {
+  if (!sqlByFile[migrationFiles.accounts].includes(column)) {
+    fail(`missing accounts column ${column}`);
+  }
+}
+
+if (!sqlByFile[migrationFiles.accounts].includes('constraint accounts_user_id_fk')) {
+  fail('missing accounts user_id FK');
+}
+
+for (const index of ['accounts_user_id_role_unique', 'accounts_user_id_default_unique']) {
+  if (!sqlByFile[migrationFiles.accounts].includes(index)) {
+    fail(`missing accounts index ${index}`);
+  }
+}
+
+if (!sqlByFile[migrationFiles.accounts].includes('alter table public.accounts enable row level security;')) {
+  fail('missing RLS enablement for accounts');
+}
+
+// --- 026 profile account_id columns ---
+for (const table of ['teacher_profiles', 'students', 'onboarding_drafts']) {
+  if (!sqlByFile[migrationFiles.profilesAccountId].includes(`alter table public.${table}`)
+    || !sqlByFile[migrationFiles.profilesAccountId].includes('add column if not exists account_id uuid references public.accounts(id)')) {
+    fail(`missing account_id column on ${table}`);
+  }
 }
 
 console.log('Supabase migration validation passed.');

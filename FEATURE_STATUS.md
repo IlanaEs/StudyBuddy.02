@@ -9,7 +9,7 @@ via the running backend (`http://localhost:4000`) + the Supabase REST client, pl
 |---|---|
 | `npm run typecheck` (both apps) | ✅ pass |
 | `npm run build` (both apps) | ✅ pass |
-| `npm test` (unit) | ✅ **282 / 282** (271 backend + 11 frontend) |
+| `npm test` (unit) | ✅ **287 / 287** (276 backend + 11 frontend) |
 | `npm run db:validate` | ✅ pass (after a cross-platform path fix) |
 | `node scripts/qa-auth-flow-e2e.mjs` | ✅ **82 / 82** |
 | REST domain checks (parallel verification) | ✅ **42 / 49** (the 7 non-passes are a fixture limit, not bugs — see below) |
@@ -25,7 +25,7 @@ booking-approval → lesson-creation is verified working end-to-end. Apply 014 (
 
 | Feature | Endpoints | Verified | Evidence |
 |---|---|---|---|
-| **Auth** (signup/login/logout/me/OAuth-complete) | `/api/auth/*` | ✅ working | 82/82 auth E2E (all 3 roles, re-login, no dup/orphan rows); unit `auth.test.ts`, `authMiddleware.test.ts` |
+| **Auth** (Google OAuth provisioning/logout/me) | `/api/auth/*` | ✅ working | 82/82 auth E2E (all 3 roles, re-login, no dup/orphan rows); unit `auth.test.ts`, `authMiddleware.test.ts` |
 | **Teacher onboarding** (draft + complete → active profile) | `/api/teachers/me/onboarding*` | ✅ working | lifecycle E2E step 3 (profile created); unit `teacherOnboarding.test.ts` (25/25) |
 | **Teacher availability** (CRUD, soft-delete, available-slots) | `/api/teacher-availability/*` | ✅ working | available-slots read returns correctly-spaced slots; create verified in lifecycle E2E step 5; guards/validation/404 all pass |
 | **Teacher scheduling preferences** | `/api/teacher-scheduling-preferences/*` | ✅ working | admin/validation/guard checks pass; teacher happy-path needs a profile (see fixture note) |

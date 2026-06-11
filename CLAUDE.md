@@ -70,7 +70,7 @@ npm run test             # vitest run across all workspaces
 npm run db:validate      # validate supabase/migrations against the locked schema
 ```
 
-Backend tests use **Vitest** (`apps/backend/tests/**/*.test.ts`, node environment, supertest for HTTP). The frontend currently has no tests (`vitest run --passWithNoTests`).
+Backend and frontend tests use **Vitest** (`apps/backend/tests/**/*.test.ts`, node environment, supertest for HTTP; frontend tests live under `apps/frontend/src/**/*.test.ts`). The frontend command still uses `vitest run --passWithNoTests` so the workspace stays green if no frontend tests match in a narrow run.
 
 ```bash
 # single backend test file / single test
