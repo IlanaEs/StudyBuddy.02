@@ -6,7 +6,12 @@ import { apiRequest } from '../api/client';
 import type { Account, LocalUser, MeProfile, UserRole } from './authTypes';
 import { getSupabaseBrowserClient } from './supabaseClient';
 import { clearAppSessionStorage } from './sessionStorageKeys';
-import { clearActiveAccount, setActiveAccountId } from './activeAccount';
+import {
+  clearActiveAccount,
+  setActiveAccountId,
+  getAccountSelectionResolved,
+  setAccountSelectionResolved,
+} from './activeAccount';
 import {
   type QaRole,
   authorizeQaHeader,
@@ -33,6 +38,9 @@ type AuthContextValue = {
   activeAccount: Account | null;
   /** Switches the active account by id, then re-resolves the session (/me). */
   switchAccount: (accountId: string) => Promise<void>;
+  /** True when authenticated, the identity owns >1 account, and the user has not
+   *  yet chosen which to enter this session — gates routing to /select-account. */
+  needsAccountSelection: boolean;
   session: Session | null;
   error: string | null;
   /** Classifies `error` so callers can choose retry (transient) vs sign-out (fatal). */
@@ -62,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<LocalUser | null>(null);
   const [profile, setProfile] = useState<MeProfile>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectionResolved, setSelectionResolved] = useState<boolean>(getAccountSelectionResolved);
   const [activeAccount, setActiveAccount] = useState<Account | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +83,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // from clobbering the correct state ("last call wins", regardless of which
   // network response returns first).
   const resolveSeqRef = useRef(0);
+
+  // Mirrors the account-selection flag to both React state and sessionStorage.
+  const markSelectionResolved = useCallback((resolved: boolean) => {
+    setAccountSelectionResolved(resolved);
+    setSelectionResolved(resolved);
+  }, []);
 
   useEffect(() => {
     authorizeQaHeader(qaRole);
@@ -113,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAppSessionStorage();
     clearQaRoleOverride();
     clearActiveAccount();
+    markSelectionResolved(false);
     setQaRoleState(null);
     setSession(null);
     setUser(null);
@@ -124,13 +140,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     setErrorKind(null);
     setStatus('unauthenticated');
-  }, []);
+  }, [markSelectionResolved]);
 
   const resolveSession = useCallback(async (nextSession: Session | null) => {
     const seq = ++resolveSeqRef.current;
     if (!nextSession?.access_token) {
       clearQaRoleOverride();
       clearActiveAccount();
+      markSelectionResolved(false);
       setQaRoleState(null);
       sessionStorage.removeItem(PROVIDER_TOKEN_KEY);
       setSession(null);
@@ -186,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // succeeds, refreshProfile() re-runs /me and flips to 'authenticated'.
         clearQaRoleOverride();
         clearActiveAccount();
+        markSelectionResolved(false);
         setQaRoleState(null);
         setSession(effectiveSession);
         setUser(null);
@@ -238,6 +256,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       clearActiveAccount();
     }
+    // A single-account identity has nothing to choose — auto-resolve so it routes
+    // straight to its dashboard. With >1 account, leave the flag as-is (false on a
+    // fresh login → the selector shows; true after an in-tab choice → skip it).
+    if (resolvedAccounts.length <= 1) {
+      markSelectionResolved(true);
+    }
     setStatus('authenticated');
     setError(null);
     setErrorKind(null);
@@ -247,7 +271,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearQaRoleOverride();
       setQaRoleState(null);
     }
-  }, [clearInvalidSession]);
+  }, [clearInvalidSession, markSelectionResolved]);
 
   useEffect(() => {
     let isMounted = true;
@@ -352,6 +376,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     clearQaRoleOverride();
     clearActiveAccount();
+    markSelectionResolved(false);
     clearAppSessionStorage();
     const supabase = getSupabaseBrowserClient();
     await supabase.auth.signOut();
@@ -363,17 +388,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('unauthenticated');
     setError(null);
     setErrorKind(null);
-  }, [session]);
+  }, [session, markSelectionResolved]);
 
   // Switches the active account: pins the new id into the header store, then
   // re-resolves the session so /me returns that account's profile + role. The id
   // must come from the user's own `accounts` list, so the backend never 403s it.
+  // Switching IS a choice, so the account-selection gate is resolved. We also
+  // reflect the chosen account optimistically so effectiveRole/routing update
+  // immediately (before the /me round-trip) — avoiding a wrong-dashboard flash.
   const switchAccount = useCallback(async (accountId: string) => {
     setActiveAccountId(accountId);
+    markSelectionResolved(true);
+    const chosen = accounts.find((a) => a.id === accountId);
+    if (chosen) {
+      setActiveAccount(chosen);
+      setUser((prev) => (prev ? { ...prev, role: chosen.role } : prev));
+    }
     if (session) {
       await resolveSession(session);
     }
-  }, [session, resolveSession]);
+  }, [session, resolveSession, accounts, markSelectionResolved]);
 
   const value = useMemo(
     () => {
@@ -385,9 +419,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // QA override wins; otherwise the active account's role drives routing/access,
         // falling back to user.role before accounts have resolved.
         effectiveRole: (eligibleQaRole ?? activeAccount?.role ?? user?.role) ?? null,
+        needsAccountSelection: status === 'authenticated' && accounts.length > 1 && !selectionResolved,
       };
     },
-    [error, errorKind, retry, logout, profile, accounts, activeAccount, switchAccount, refreshProfile, session, status, user, qaRole, setQaRole],
+    [error, errorKind, retry, logout, profile, accounts, activeAccount, switchAccount, refreshProfile, session, status, user, qaRole, setQaRole, selectionResolved],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

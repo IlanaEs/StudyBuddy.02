@@ -37,6 +37,9 @@ export function LoginRoute() {
   const redirectTo = getRedirectPath(location.state);
 
   if (auth.status === 'authenticated') {
+    if (auth.needsAccountSelection) {
+      return <Navigate replace to="/select-account" />;
+    }
     return <Navigate replace to={getDashboardPathByRole(auth.effectiveRole)} />;
   }
 

@@ -16,6 +16,7 @@ export const APP_SESSION_STORAGE_KEYS = [
   GCAL_PROVIDER_TOKEN_KEY,
   'sb_provider_token',
   ADMIN_QA_ROLE_KEY,
+  'sb_account_selection_resolved',
 ] as const;
 
 export function clearAppSessionStorage() {

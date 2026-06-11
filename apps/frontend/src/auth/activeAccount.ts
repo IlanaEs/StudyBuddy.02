@@ -47,3 +47,28 @@ export function clearActiveAccount(): void {
 export function getActiveAccountHeader(): Record<string, string> {
   return _activeAccountId ? { 'X-Account-Id': _activeAccountId } : {};
 }
+
+// "Has the user chosen which account to enter this session?" Session-scoped (not
+// localStorage) so a fresh login re-prompts the account selector, while an in-tab
+// reload keeps the choice. A single-account identity is auto-resolved.
+export const ACCOUNT_SELECTION_KEY = 'sb_account_selection_resolved';
+
+export function getAccountSelectionResolved(): boolean {
+  try {
+    return sessionStorage.getItem(ACCOUNT_SELECTION_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function setAccountSelectionResolved(resolved: boolean): void {
+  try {
+    if (resolved) {
+      sessionStorage.setItem(ACCOUNT_SELECTION_KEY, 'true');
+    } else {
+      sessionStorage.removeItem(ACCOUNT_SELECTION_KEY);
+    }
+  } catch {
+    /* storage may be unavailable */
+  }
+}

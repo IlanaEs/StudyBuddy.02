@@ -24,6 +24,9 @@ export function AuthCallbackRoute() {
   }
 
   if (auth.status === 'authenticated') {
+    if (auth.needsAccountSelection) {
+      return <Navigate replace to="/select-account" />;
+    }
     return <Navigate replace to={getDashboardPathByRole(auth.effectiveRole)} />;
   }
 

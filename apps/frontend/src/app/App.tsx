@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router-dom';
 import { AppShell } from './AppShell';
 import { ProtectedRoute } from '../auth/ProtectedRoute';
 import { AuthCallbackRoute } from '../routes/AuthCallbackRoute';
+import { AccountSelectionPage } from '../routes/AccountSelectionPage';
 import { DashboardPlaceholderRoute } from '../routes/DashboardPlaceholderRoute';
 import { LoginRoute } from '../routes/LoginRoute';
 import { NotFoundRoute } from '../routes/NotFoundRoute';
@@ -49,6 +50,14 @@ export function App() {
         <Route path="/onboarding/confirmation" element={<BookingConfirmationPage />} />
         <Route path="/login" element={<LoginRoute />} />
         <Route path="/auth/callback" element={<AuthCallbackRoute />} />
+        <Route
+          path="/select-account"
+          element={
+            <ProtectedRoute>
+              <AccountSelectionPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/dashboard"
           element={
