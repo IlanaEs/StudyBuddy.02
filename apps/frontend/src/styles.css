@@ -4002,177 +4002,6 @@ a {
 
 
 /* ============================================================
-   TEACHERS LANDING — 3-LAYER DEPTH ENGINE
-   Scoped to /teachers only via .teacher-landing-depth-page.
-   Additive & isolated: new selectors only. Higher-specificity
-   ".teacher-landing-depth-page > X" selectors intentionally win
-   over the existing ".teacher-page > :not()" rule by source order.
-   ============================================================ */
-
-.teacher-landing-depth-page {
-  position: relative;
-  height: 100dvh;
-  overflow: hidden;
-  background-color: #175655;
-  direction: rtl;
-}
-
-/* ── Layer 0 — static desk world (frozen) ───────────────────── */
-.teacher-landing-depth-page > .teacher-depth-background {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 0;
-  pointer-events: none;
-  background-color: #175655;
-  overflow: hidden;
-}
-
-.teacher-depth-canvas {
-  position: absolute;
-  inset: 0;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: cover;
-  opacity: 0.5;
-}
-
-/* keep the centre calm so it never competes with the hero text */
-.teacher-depth-background::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    120% 95% at 50% 42%,
-    rgba(23, 86, 85, 0) 0%,
-    rgba(23, 86, 85, 0.45) 62%,
-    rgba(7, 36, 37, 0.82) 100%
-  );
-}
-
-.teacher-depth-prop {
-  position: absolute;
-  bottom: 0;
-  height: auto;
-  object-fit: contain;
-  user-select: none;
-  -webkit-user-drag: none;
-  opacity: 0.9;
-}
-
-.teacher-depth-prop-left {
-  left: 0;
-  width: min(28vw, 400px);
-}
-
-.teacher-depth-prop-right {
-  right: 0;
-  width: min(28vw, 400px);
-}
-
-.teacher-depth-prop-mockup {
-  right: clamp(-24px, -1vw, 0px);
-  bottom: 4vh;
-  z-index: 1;
-  width: min(50vw, 740px);
-  filter:
-    drop-shadow(0 34px 46px rgba(0, 0, 0, 0.38))
-    drop-shadow(0 0 32px rgba(90, 232, 226, 0.12));
-}
-
-/* ── Layer 1 — scrollable foreground content ────────────────── */
-.teacher-landing-depth-page > .teacher-depth-content {
-  position: relative;
-  z-index: 10;
-  width: 100%;
-  height: 100dvh;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scroll-behavior: smooth;
-}
-
-/* hero: horizontally centred, comfortable column */
-.teacher-depth-content .teacher-hero {
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-
-.teacher-depth-content .teacher-hero-layout {
-  width: min(820px, 92%);
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 22px;
-}
-
-.teacher-depth-content .teacher-hero-ctas {
-  justify-content: center;
-}
-
-/* ── Layer 2 — sticky glass navbar ──────────────────────────── */
-.teacher-depth-nav {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 64px;
-  padding: 12px clamp(16px, 4vw, 48px);
-  border-bottom: 1px solid rgba(1, 108, 124, 0);
-  background: rgba(23, 86, 85, 0.16);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
-}
-
-.teacher-depth-nav[data-scrolled="true"] {
-  background: rgba(11, 55, 54, 0.72);
-  border-bottom: 1px solid #016c7c;
-  box-shadow: 0 12px 32px -20px rgba(0, 0, 0, 0.62);
-}
-
-.teacher-depth-nav-links {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-/* ── Responsive: props must never overlap the centred hero ──── */
-@media (max-width: 900px) {
-  .teacher-depth-prop-left,
-  .teacher-depth-prop-right {
-    width: min(26vw, 200px);
-    opacity: 0.55;
-  }
-  .teacher-depth-prop-mockup {
-    width: min(72vw, 440px);
-    opacity: 0.5;
-  }
-}
-
-@media (max-width: 600px) {
-  .teacher-depth-prop-left,
-  .teacher-depth-prop-right {
-    display: none;
-  }
-  .teacher-depth-prop-mockup {
-    width: 88vw;
-    opacity: 0.32;
-    bottom: 2vh;
-  }
-  .teacher-depth-nav {
-    padding: 10px 16px;
-    min-height: 56px;
-  }
-}
-
-/* ============================================================
    FLOW NAV — lightweight consistent back/home navigation
    Used on auth + onboarding flow screens. Fixed top-start so it
    never shifts page layout. z-index 40 keeps it above page
@@ -4491,6 +4320,14 @@ a {
   position: fixed; inset: 0; z-index: 1; pointer-events: none;
   background-size: cover; background-position: center bottom; background-repeat: no-repeat;
 }
+/* Product Showcase — its own tier (not decoration): a FIXED full-canvas layer
+   (the laptop/dashboard composition placed center-right) above the foundation and
+   below the hero stage. Anchors the composition through Brand+Promise and fades
+   late (opacity animated by LandingShowcase; static fallback under reduced motion). */
+.lf-showcase {
+  position: fixed; inset: 0; z-index: 2; pointer-events: none; will-change: opacity;
+}
+.lf-showcase img { width: 100%; height: 100%; object-fit: cover; object-position: center bottom; }
 
 /* ── Layered hero stage. The tall track is the scroll driver; the stage pins to
    the viewport (sticky) so one scroll choreographs brand → promise → product.
@@ -4519,6 +4356,11 @@ a {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   text-align: center; padding: 0 24px; gap: 12px;
 }
+/* Teacher hero: copy sits left-of-centre so the fixed product showcase anchors the
+   right. RTL → padding-inline-start is the RIGHT gutter reserved for the showcase;
+   the centred content block then settles into the remaining left portion. */
+.ls-content--start { padding-inline-start: min(40vw, 580px); }
+@media (max-width: 768px) { .ls-content--start { padding-inline-start: 0; } }
 /* Scrim keeps #FFFFFF ≥ AA over the bright centre of the glow. */
 .ls-scrim {
   position: absolute; inset: 0; z-index: -1; pointer-events: none;
@@ -4606,6 +4448,14 @@ a {
 @media (max-width: 768px) {
   .lb-compare { grid-template-columns: 1fr; }
   .lb-section { padding: 48px 18px; }
+  /* Mobile: the decoration / showcase layers are wide 16:9 compositions whose
+     elements sit at the sides + bottom. `cover` scales them up to fill the tall
+     portrait viewport and crops the sides away (elements vanish). Switch to
+     `contain` anchored to the bottom so the whole scene shows as a full-width
+     strip along the bottom — every element (plant, laptop, cup) stays visible,
+     with the hero copy in the clear space above. */
+  .ls-elem img,
+  .lf-showcase img { object-fit: contain; object-position: center bottom; }
 }
 /* Reduced motion: kill the resting/idle choreography (scroll transforms are
    already gated via useReducedMotion in the components). */

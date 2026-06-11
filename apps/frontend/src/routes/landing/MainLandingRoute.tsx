@@ -5,6 +5,13 @@ import { LandingFoundation } from '../../components/landing/LandingFoundation';
 import { DynamicHeroLogo } from '../../components/landing/DynamicHeroLogo';
 import { LandingStage } from '../../components/landing/LandingStage';
 import { LandingSections } from '../../components/landing/LandingSections';
+import { mainLandingContent } from '../../content/landing/mainLandingContent';
+
+// Student decorative element groups (atmosphere; dissolve during the Product beat).
+const STUDENT_DECORATIONS = [
+  { src: '/images/landing/student/Student_Left_Elements.svg', side: 'left' as const },
+  { src: '/images/landing/student/Student_Right_Elements.svg', side: 'right' as const },
+];
 
 /**
  * Student (main) landing — redesigned cinematic stage. `.landing-theme` scopes the
@@ -14,6 +21,7 @@ import { LandingSections } from '../../components/landing/LandingSections';
  */
 export function MainLandingRoute() {
   const navigate = useNavigate();
+  const { hero } = mainLandingContent;
 
   return (
     <div className="landing-theme landing-redesign" dir="rtl" lang="he">
@@ -31,7 +39,16 @@ export function MainLandingRoute() {
         }
       />
       <DynamicHeroLogo />
-      <LandingStage />
+      <LandingStage
+        headline="המורה המדויק."
+        headlineAccent="בלי ניחושים."
+        subtitle={hero.subtitle}
+        context={hero.context}
+        ctaLabel="מתחילים התאמה (Start Matching)"
+        ctaTo={hero.unifiedCta.to}
+        align="center"
+        decorations={STUDENT_DECORATIONS}
+      />
       <LandingSections />
     </div>
   );

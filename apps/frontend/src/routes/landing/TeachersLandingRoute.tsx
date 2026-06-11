@@ -1,7 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Shield, Lock, Star, Calendar, DollarSign, Award, Target, X } from 'lucide-react';
 
+import { FloatingTopNavbar, GhostButton, SecondaryButton } from '../../design-system';
+import { LandingFoundation } from '../../components/landing/LandingFoundation';
+import { LandingShowcase } from '../../components/landing/LandingShowcase';
+import { DynamicHeroLogo } from '../../components/landing/DynamicHeroLogo';
+import { LandingStage } from '../../components/landing/LandingStage';
 import {
   BentoAudienceGrid,
   BrutalComparisonTable,
@@ -15,91 +19,67 @@ import {
 } from '../../components/landing/LandingComponents';
 import { teachersLandingContent } from '../../content/landing/teachersLandingContent';
 
-const teacherLandingAssets = {
-  // Shared persistent foundation (turquoise + grid), matching the student stage.
-  background: '/images/landing/teacher/Sticky_Background.svg',
-  decorationLeft: '/images/landing/teacher/teacher-landing-decoration-left.png',
-  productMockup: '/images/landing/teacher/teacher-landing-product-mockup-right.png',
+// Teacher world + three visual tiers (all full-canvas 1366×768 layers).
+const TEACHER_ASSETS = {
+  bg: '/images/landing/teacher/Sticky_Background.svg',
+  desk: '/images/landing/teacher/Desk_.svg',
+  // Decoration — atmosphere (dissolves during the Product beat, like the student decorations).
+  decorationLeft: '/images/landing/teacher/teacher-landing-decoration-left.png', // plant · notebooks · pen
+  decorationRight: '/images/landing/teacher/Teacher_Right_Elements.png', // cup · desk accessories
+  // Product Showcase — the platform itself (laptop + dashboard); persists past the hero, fades late.
+  productShowcase: '/images/landing/teacher/Teacher_Center_Computer_Elements.png',
 } as const;
 
-// Layer 0 — the frozen "desk world": dark teal canvas + foundation and the
-// decorative side prop/laptop framing the content. Rendered fixed and inert so it
-// never moves while Layer 1 scrolls over it.
-function TeacherDepthBackground() {
-  return (
-    <div className="teacher-depth-background" aria-hidden="true">
-      <div
-        className="teacher-depth-canvas"
-        style={{ backgroundImage: `url(${teacherLandingAssets.background})` }}
-      />
-      <img className="teacher-depth-prop teacher-depth-prop-left" src={teacherLandingAssets.decorationLeft} alt="" />
-      <img className="teacher-depth-prop teacher-depth-prop-mockup" src={teacherLandingAssets.productMockup} alt="" />
-    </div>
-  );
-}
-
+/**
+ * Teacher (Teacher OS) landing — the SAME storytelling shell as the student page
+ * (fixed world + morphing logo + sticky hero lifecycle + window-scroll), with a
+ * teacher-specific visual hierarchy:
+ *   - Foundation (bg + desk): the persistent world.
+ *   - Product Showcase (LandingShowcase): the laptop/dashboard anchors the right
+ *     through Brand+Promise and fades only AFTER the hero→content handoff.
+ *   - Decorative (left group): atmosphere that dissolves during the Product beat.
+ *   - Hero copy: left-of-centre (align="start") so the showcase anchors the right.
+ * The product-messaging content sections re-home (unchanged styling) into the
+ * transparent `.lb-flow` over the fixed world.
+ */
 export function TeachersLandingRoute() {
+  const navigate = useNavigate();
   const content = teachersLandingContent;
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [isScrolled, setIsScrolled] = useState(false);
-
-  // Drive the sticky-nav scroll state from Layer 1's own scroll position
-  // (Layer 1 is the scroll container; the document/body does not scroll here).
-  useEffect(() => {
-    const el = contentRef.current;
-    if (!el) return undefined;
-    const handleScroll = () => setIsScrolled(el.scrollTop > 8);
-    handleScroll();
-    el.addEventListener('scroll', handleScroll, { passive: true });
-    return () => el.removeEventListener('scroll', handleScroll);
-  }, []);
+  const { hero } = content;
 
   return (
-    <main className="teacher-landing-depth-page teacher-page" dir="rtl" lang="he">
-      {/* Layer 0 — static background world */}
-      <TeacherDepthBackground />
+    <div className="landing-theme landing-redesign" dir="rtl" lang="he">
+      <LandingFoundation bg={TEACHER_ASSETS.bg} desk={TEACHER_ASSETS.desk} />
+      <LandingShowcase src={TEACHER_ASSETS.productShowcase} />
 
-      {/* Layer 1 — scrollable foreground content */}
-      <div className="teacher-depth-content" ref={contentRef}>
-        {/* Layer 2 — sticky glass navbar */}
-        <nav
-          className="teacher-depth-nav"
-          data-scrolled={isScrolled ? 'true' : 'false'}
-          dir="rtl"
-          aria-label="ניווט עמוד מורים"
-        >
-          <Link className="brand-lockup" to="/">
-            <img alt="StudyBuddy" src="/assets/logo_s.png" />
-            <span>{content.brand}</span>
-          </Link>
-          <div className="teacher-depth-nav-links">
-            <Link className="role-switcher" to={content.hero.secondaryCta.to}>
-              {content.hero.secondaryCta.label}
-            </Link>
-            <Link className="role-switcher" style={{ opacity: 0.75 }} to="/login">
-              כניסה למערכת
-            </Link>
-          </div>
-        </nav>
+      <FloatingTopNavbar
+        variant="landing"
+        tabs={[]}
+        actions={
+          <>
+            <GhostButton onClick={() => navigate('/login')}>כניסה למערכת (Sign In)</GhostButton>
+            <SecondaryButton onClick={() => navigate('/')}>לתלמידים (For Students)</SecondaryButton>
+          </>
+        }
+      />
 
-        <section className="teacher-hero teacher-hero-complete" dir="rtl" aria-labelledby="teacher-landing-title">
-          <div className="teacher-hero-layout">
-            <h1 id="teacher-landing-title">
-              הופכים את ההוראה הפרטית<br />
-              לקריירה <span className="teacher-accent">מנוהלת</span>.
-            </h1>
-            <p className="teacher-hero-subtitle">{content.hero.body}</p>
-            <div className="teacher-hero-ctas">
-              <Link className="teacher-cta-primary" to={content.hero.primaryCta.to}>
-                {content.hero.primaryCta.label}
-              </Link>
-              <Link className="teacher-cta-secondary" to={content.hero.secondaryCta.to}>
-                {content.hero.secondaryCta.label}
-              </Link>
-            </div>
-          </div>
-        </section>
+      <DynamicHeroLogo />
 
+      <LandingStage
+        headline="הופכים את ההוראה הפרטית לקריירה"
+        headlineAccent="מנוהלת."
+        subtitle={hero.body}
+        ctaLabel={hero.primaryCta.label}
+        ctaTo={hero.primaryCta.to}
+        align="start"
+        decorations={[
+          { src: TEACHER_ASSETS.decorationLeft, side: 'left' },
+          { src: TEACHER_ASSETS.decorationRight, side: 'right' },
+        ]}
+      />
+
+      {/* Product-messaging content — scrolls over the fixed world (styling unchanged). */}
+      <div className="lb-flow">
         <LandingScreenNav
           items={[
             { label: 'איך זה עובד', href: '#teacher-process' },
@@ -212,6 +192,6 @@ export function TeachersLandingRoute() {
 
         <LegalFooter title={content.legal.title} items={content.legal.items} support="" supportLinks="" />
       </div>
-    </main>
+    </div>
   );
 }
