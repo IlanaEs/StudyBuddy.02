@@ -3,8 +3,13 @@ import type { User } from '@supabase/supabase-js';
 import { AppError } from '../errors/AppError.js';
 import { createSupabaseAdminClient, createSupabasePublicClient } from '../supabase/supabaseClients.js';
 import type { CompleteOAuthSignupInput } from './authValidation.js';
-import { findLocalUserByAuthId, syncLocalUser } from './authRepository.js';
-import type { LocalUser, UserRole } from './authTypes.js';
+import {
+  ensureDefaultAccount,
+  findLocalUserByAuthId,
+  getAccountsByUserId,
+  syncLocalUser,
+} from './authRepository.js';
+import type { Account, AuthenticatedRequestContext, LocalUser, UserRole } from './authTypes.js';
 import { userRoles } from './authTypes.js';
 
 const publicClient = createSupabasePublicClient;
@@ -44,7 +49,56 @@ function extractEmail(user: User) {
   return user.email;
 }
 
-export async function verifyAccessToken(accessToken: string) {
+// Resolves the active account for an identity. With a requested account id (the
+// X-Account-Id header) it must belong to the identity and be active, else 403 —
+// never a silent fallback to a different account. With no header it returns the
+// default account. Self-heals an account-less identity by provisioning its primary
+// account (covers users created before the backfill and brand-new signups).
+async function resolveActiveAccount(
+  user: LocalUser,
+  requestedAccountId?: string,
+): Promise<Account> {
+  let accounts = await getAccountsByUserId(user.id);
+
+  if (accounts.length === 0) {
+    accounts = [await ensureDefaultAccount(user.id, user.role)];
+  }
+
+  if (requestedAccountId) {
+    const match = accounts.find((account) => account.id === requestedAccountId);
+    if (!match) {
+      throw new AppError('Account not found for this user', 403);
+    }
+    if (match.status !== 'active') {
+      throw new AppError('Account is not active', 403);
+    }
+    return match;
+  }
+
+  return accounts.find((account) => account.is_default) ?? accounts[0]!;
+}
+
+// `user.role` is overridden to the ACTIVE account's role so every downstream
+// guard/service branches on the selected account rather than the identity's
+// stored default role. `user.id` remains the identity id (ownership keys).
+function buildAuthContext(
+  accessToken: string,
+  authUserId: string,
+  user: LocalUser,
+  account: Account,
+): AuthenticatedRequestContext {
+  return {
+    access_token: accessToken,
+    auth_user_id: authUserId,
+    user: { ...user, role: account.role },
+    account,
+  };
+}
+
+export async function verifyAccessToken(
+  accessToken: string,
+  requestedAccountId?: string,
+): Promise<AuthenticatedRequestContext> {
   const { data, error } = await publicClient().auth.getUser(accessToken);
 
   if (error || !data.user) {
@@ -59,7 +113,8 @@ export async function verifyAccessToken(accessToken: string) {
     if (existingUser.status !== 'active') {
       throw new AppError('User is not active', 403);
     }
-    return { access_token: accessToken, auth_user_id: data.user.id, user: existingUser };
+    const account = await resolveActiveAccount(existingUser, requestedAccountId);
+    return buildAuthContext(accessToken, data.user.id, existingUser, account);
   }
 
   // No local user for this token: provision a brand-new authenticated user. If
@@ -79,11 +134,8 @@ export async function verifyAccessToken(accessToken: string) {
     throw new AppError('User is not active', 403);
   }
 
-  return {
-    access_token: accessToken,
-    auth_user_id: data.user.id,
-    user: synced,
-  };
+  const account = await resolveActiveAccount(synced, requestedAccountId);
+  return buildAuthContext(accessToken, data.user.id, synced, account);
 }
 
 export async function completeOAuthSignup(

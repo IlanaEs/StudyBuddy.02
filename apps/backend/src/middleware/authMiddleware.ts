@@ -30,7 +30,9 @@ function resolveEffectiveRole(request: Request): UserRole | undefined {
     }
   }
 
-  return auth.user.role;
+  // The active account's role is authoritative (verifyAccessToken also mirrors it
+  // onto user.role); fall back to user.role for contexts built without an account.
+  return auth.account?.role ?? auth.user.role;
 }
 
 export async function requireAuth(request: Request, _response: Response, next: NextFunction) {
@@ -41,7 +43,10 @@ export async function requireAuth(request: Request, _response: Response, next: N
       throw new AppError('Missing authentication token', 401);
     }
 
-    request.auth = await verifyAccessToken(token);
+    // Optional active-account selector. Absent → the identity's default account,
+    // i.e. today's single-account behavior.
+    const requestedAccountId = request.header('x-account-id')?.trim() || undefined;
+    request.auth = await verifyAccessToken(token, requestedAccountId);
     next();
   } catch (error) {
     if (error instanceof AppError) {

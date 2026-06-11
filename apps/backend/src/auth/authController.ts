@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 
 import { AppError } from '../errors/AppError.js';
 import { completeOAuthSignup, logout } from './authService.js';
-import { getProfileForUser } from './authRepository.js';
+import { getAccountsByUserId, getProfileForUser } from './authRepository.js';
 
 function bearerToken(request: Request): string {
   const header = request.header('authorization');
@@ -27,10 +27,13 @@ export async function completeOAuthSignupController(request: Request, response: 
 }
 
 export async function meController(request: Request, response: Response) {
-  const user = request.auth!.user;
-  const profile = await getProfileForUser(user.id, user.role);
+  const { user, account } = request.auth!;
+  // user.role already reflects the active account; resolve the active role's profile.
+  const profile = await getProfileForUser(user.id, account?.role ?? user.role);
+  const accounts = await getAccountsByUserId(user.id);
 
   response.status(200).json({
-    data: { user, profile },
+    // `accounts` + `activeAccount` are additive; existing clients read user + profile.
+    data: { user, profile, accounts, activeAccount: account ?? null },
   });
 }
