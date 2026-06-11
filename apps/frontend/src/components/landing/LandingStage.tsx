@@ -30,19 +30,22 @@ export function LandingStage() {
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] });
 
-  // Element groups: hold full presence through the brand+promise beats, then part
-  // outward, drift up, blur and dim — they "dissolve", they never slide off.
-  const leftX = useTransform(scrollYProgress, [0, 1], ['0%', '-12%']);
-  const rightX = useTransform(scrollYProgress, [0, 1], ['0%', '12%']);
-  const elemY = useTransform(scrollYProgress, [0, 1], ['0%', '-7%']);
-  const elemOpacity = useTransform(scrollYProgress, [0, 0.58, 0.92], [1, 1, 0]);
-  const elemBlur = useTransform(scrollYProgress, [0.55, 1], ['blur(0px)', 'blur(6px)']);
+  // Element groups belong to BOTH the brand and promise beats: they stay fully
+  // present and in place through the entire hero-reading lifecycle, then — only
+  // after the copy has finished receding (≈0.78) — part outward, drift up, blur
+  // and dim during the promise→product transition. They dissolve, never slide off.
+  const leftX = useTransform(scrollYProgress, [0, 0.8, 1], ['0%', '0%', '-12%']);
+  const rightX = useTransform(scrollYProgress, [0, 0.8, 1], ['0%', '0%', '12%']);
+  const elemY = useTransform(scrollYProgress, [0, 0.8, 1], ['0%', '0%', '-7%']);
+  const elemOpacity = useTransform(scrollYProgress, [0, 0.8, 1], [1, 1, 0]);
+  const elemBlur = useTransform(scrollYProgress, [0.8, 1], ['blur(0px)', 'blur(6px)']);
 
-  // Hero copy: hidden during the brand beat, reveals + settles into place during
-  // the promise beat, then recedes during the product beat.
-  const contentOpacity = useTransform(scrollYProgress, [0, 0.16, 0.4, 0.62, 0.85], [0, 0, 1, 1, 0]);
-  const contentY = useTransform(scrollYProgress, [0, 0.16, 0.4, 0.62, 0.85], [36, 36, 0, 0, -40]);
-  const hintOpacity = useTransform(scrollYProgress, [0, 0.12], [1, 0]);
+  // Hero copy: hidden during the brand beat (logo owns the centre), reveals +
+  // settles into the vacated centre during the promise beat, holds for reading,
+  // then fully recedes — all while the decorative scene is still present.
+  const contentOpacity = useTransform(scrollYProgress, [0, 0.18, 0.38, 0.6, 0.76], [0, 0, 1, 1, 0]);
+  const contentY = useTransform(scrollYProgress, [0, 0.18, 0.38, 0.6, 0.76], [36, 36, 0, 0, -40]);
+  const hintOpacity = useTransform(scrollYProgress, [0, 0.14], [1, 0]);
 
   const { hero } = mainLandingContent;
 
