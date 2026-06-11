@@ -4448,6 +4448,14 @@ a {
 @media (max-width: 768px) {
   .lb-compare { grid-template-columns: 1fr; }
   .lb-section { padding: 48px 18px; }
+  /* Mobile: the decoration / showcase layers are wide 16:9 compositions whose
+     elements sit at the sides + bottom. `cover` scales them up to fill the tall
+     portrait viewport and crops the sides away (elements vanish). Switch to
+     `contain` anchored to the bottom so the whole scene shows as a full-width
+     strip along the bottom — every element (plant, laptop, cup) stays visible,
+     with the hero copy in the clear space above. */
+  .ls-elem img,
+  .lf-showcase img { object-fit: contain; object-position: center bottom; }
 }
 /* Reduced motion: kill the resting/idle choreography (scroll transforms are
    already gated via useReducedMotion in the components). */
