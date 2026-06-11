@@ -3,6 +3,7 @@
 import { assertStudentAccess } from '../auth/ownership.js';
 import type { LocalUser } from '../auth/authTypes.js';
 import { AppError } from '../errors/AppError.js';
+import { normalizeLevelToBand } from './levelBand.js';
 import {
   createStudentIntake as repoCreate,
   findSubjectIdByName,
@@ -44,7 +45,11 @@ export async function createIntake(
     subjectId,
     customSubjectText: isManualMatch ? body.custom_subject_text!.trim() : null,
     needsManualMatch: isManualMatch,
-    level: body.level ?? null,
+    // Normalize the raw grade/level (e.g. "ג׳", "כיתה ח׳") into a matching band
+    // (elementary|middle|high|academic) so it lines up with teacher_subjects.level.
+    // Both wizards POST here, so both store band levels consistently. Unrecognized
+    // values become null (= no level preference), never a wrong band.
+    level: normalizeLevelToBand(body.level),
     goal: body.goal ?? null,
     locationPreference: body.location_preference,
     city: body.city ?? null,
