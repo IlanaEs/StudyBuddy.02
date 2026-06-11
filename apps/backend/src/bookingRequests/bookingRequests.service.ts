@@ -25,6 +25,7 @@ import {
   markMatchResultSelectedViaClient,
   updateBookingRequestStatus,
   updateLessonCalendarFields,
+  getStudentContactEmailByStudentId,
   getSubjectNameById,
   insertLessonViaClient,
   getBookingRequestsByTeacherId,
@@ -323,11 +324,24 @@ export async function respondToBookingRequest(
     const subjectName = lessonSubjectId ? await getSubjectNameById(lessonSubjectId) : null;
     const eventTitle = subjectName ? `שיעור StudyBuddy — ${subjectName}` : 'שיעור StudyBuddy';
 
+    // Invite the student (or, for a parent-managed child, the managing parent) as an
+    // attendee on the single teacher-owned event. Best-effort — a lookup failure
+    // must not block the (already-created) lesson; we just create the event without
+    // an attendee.
+    let attendeeEmails: string[] = [];
+    try {
+      const studentEmail = await getStudentContactEmailByStudentId(bookingRequest.studentId);
+      if (studentEmail) attendeeEmails = [studentEmail];
+    } catch (err) {
+      console.error('[respondToBookingRequest] Failed to resolve student email for calendar invite', err);
+    }
+
     const event = await createGoogleCalendarEventWithMeet(
       googleProviderToken,
       eventTitle,
       createdLesson.scheduledStartAt,
       createdLesson.scheduledEndAt,
+      attendeeEmails,
     );
     if (event) {
       try {

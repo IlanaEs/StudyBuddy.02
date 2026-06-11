@@ -64,12 +64,14 @@ export async function createGoogleCalendarEventWithMeet(
   title: string,
   startAt: string,
   endAt: string,
+  attendeeEmails: string[] = [],
 ): Promise<{ link: string | null; eventId: string | null } | null> {
   const result = await createGoogleCalendarEvent(providerToken, {
     summary: title,
     startAt,
     endAt,
     createMeet: true,
+    attendeeEmails,
   });
   return result.ok ? { link: result.link, eventId: result.eventId } : null;
 }
