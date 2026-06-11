@@ -4478,23 +4478,32 @@ a {
 .dynamic-hero-logo:hover { filter: drop-shadow(0 0 20px var(--accent-cyan)); }
 .dynamic-hero-logo--rest { width: min(120px, 30vw); transform: translate(-1.5vw, 0.8vh); }
 
+/* ── Permanent foundation — two TRULY FIXED layers behind the whole page; they
+   never move regardless of scroll. Everything else floats/scrolls above them. */
+.lf-bg {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background: var(--bg-canvas-deep) center / cover no-repeat; /* deep canvas = fallback under the SVG */
+}
+.lf-desk {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background-size: cover; background-position: center bottom; background-repeat: no-repeat;
+}
+
 /* ── Layered hero stage. The tall track is the scroll driver; the stage pins to
-   the viewport (sticky) so one scroll choreographs brand → promise → product. */
+   the viewport (sticky) so one scroll choreographs brand → promise → product.
+   Both are transparent — the fixed foundation shows through. */
 .ls-track {
-  position: relative; height: 280vh; width: 100%;
-  background: var(--bg-canvas-deep);
+  position: relative; z-index: 2; height: 280vh; width: 100%;
+  background: transparent;
 }
 .ls-stage {
   position: sticky; top: 0; height: 100vh; min-height: 640px; width: 100%;
   overflow: hidden; isolation: isolate;
-  background: var(--bg-canvas-deep); /* base/fallback under the bg image */
+  background: transparent;
 }
 /* Reduced motion: a single static viewport (no sticky pin, no tall track). */
 .ls-stage--rest { position: relative; }
 .ls-layer { position: absolute; inset: 0; }
-.ls-bg { z-index: 1; background-size: cover; background-position: center; }
-/* Desk surface sits above the bg, pinned to the bottom; both persist on scroll. */
-.ls-desk { z-index: 2; background-size: cover; background-position: center bottom; pointer-events: none; }
 .ls-elem { z-index: 3; pointer-events: none; }
 .ls-elem img { width: 100%; height: 100%; object-fit: cover; object-position: center bottom; }
 @keyframes lsFloatA { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
@@ -4527,7 +4536,14 @@ a {
 @keyframes lsBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
 
 /* ── Bento sections (re-homed copy) ───────────────────────────────────────── */
-.lb-flow { position: relative; z-index: 4; background: var(--bg-canvas-deep); }
+/* Content flow sits over the fixed world: transparent at the top so the hero→
+   content hand-off is seamless, easing into a LIGHT scrim for legibility. Kept
+   gentle and slow so the fixed turquoise+grid stays clearly visible throughout —
+   the background must read as continuous, never as a section that started/stopped. */
+.lb-flow {
+  position: relative; z-index: 4;
+  background: linear-gradient(to bottom, rgba(11, 43, 42, 0) 0, rgba(11, 43, 42, 0.32) 320px);
+}
 .lb-section { max-width: 1120px; margin: 0 auto; padding: 64px 24px; }
 .lb-head { text-align: center; margin-bottom: 28px; }
 .lb-title { margin: 0; font-weight: 800; color: var(--text-primary-inverse);
