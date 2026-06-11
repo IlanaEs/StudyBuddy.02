@@ -4462,7 +4462,10 @@ a {
   color: var(--text-primary-inverse);
   font-family: var(--sb-font-ui);
   min-height: 100vh;
-  overflow-x: hidden;
+  /* `clip` (NOT `hidden`) — `overflow-x: hidden` forces `overflow-y: auto`, which
+     makes this a scroll container and breaks the hero's `position: sticky` pin and
+     the fixed foundation. `clip` clips horizontally without a scroll container. */
+  overflow-x: clip;
 }
 
 /* ── Dynamic hero logo (single fixed element, morphs into the navbar slot) ──── */
@@ -4536,13 +4539,18 @@ a {
 @keyframes lsBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
 
 /* ── Bento sections (re-homed copy) ───────────────────────────────────────── */
-/* Content flow sits over the fixed world: transparent at the top so the hero→
-   content hand-off is seamless, easing into a LIGHT scrim for legibility. Kept
-   gentle and slow so the fixed turquoise+grid stays clearly visible throughout —
-   the background must read as continuous, never as a section that started/stopped. */
+/* Content flow sits over the fixed world and is fully transparent, so the SAME
+   fixed turquoise+grid + desk shows through identically across every section —
+   one continuous world, never a panel that starts/stops. Legibility comes from
+   the glass bento cards + per-text shadows, not a section background. */
 .lb-flow {
   position: relative; z-index: 4;
-  background: linear-gradient(to bottom, rgba(11, 43, 42, 0) 0, rgba(11, 43, 42, 0.32) 320px);
+  background: transparent;
+  /* Pull the first content section up so it climbs into view over the (empty,
+     transparent) tail of the pinned hero stage — overlapping the end of the
+     decoration dissolve so the user never hits a fully blank frame in the
+     hero→product handoff. Choreography/logo/dissolve timing are untouched. */
+  margin-top: -50vh;
 }
 .lb-section { max-width: 1120px; margin: 0 auto; padding: 64px 24px; }
 .lb-head { text-align: center; margin-bottom: 28px; }

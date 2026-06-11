@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 
@@ -27,25 +27,42 @@ const ELEM_RIGHT = '/images/landing/student/Student_Right_Elements.svg';
 export function LandingStage() {
   const navigate = useNavigate();
   const reduce = useReducedMotion();
-  const ref = useRef<HTMLElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] });
+
+  // Drive the whole stage from ONE deterministic source: window scrollY in px
+  // (same source as DynamicHeroLogo, so logo + copy + scene stay in sync). NOTE:
+  // useScroll({ target }) is intentionally NOT used — in framer-motion 12 it drives
+  // `transform` off the measured-target progress but `opacity` off window progress,
+  // which desyncs the copy reveal from its movement. Window scrollY avoids that.
+  const { scrollY } = useScroll();
+
+  // The sticky stage stays pinned for scrollY ∈ [0, trackHeight − viewportHeight]
+  // = [0, 1.8 × innerHeight] (track is 280vh, stage 100vh). The full hero lifecycle
+  // is choreographed within this pin window so it all plays while pinned.
+  const [pin, setPin] = useState(1600);
+  useEffect(() => {
+    const update = () => setPin(Math.max(1, Math.round(window.innerHeight * 1.8)));
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  const at = (f: number) => Math.round(pin * f); // pin fraction → px
 
   // Element groups belong to BOTH the brand and promise beats: they stay fully
-  // present and in place through the entire hero-reading lifecycle, then — only
-  // after the copy has finished receding (≈0.78) — part outward, drift up, blur
-  // and dim during the promise→product transition. They dissolve, never slide off.
-  const leftX = useTransform(scrollYProgress, [0, 0.8, 1], ['0%', '0%', '-12%']);
-  const rightX = useTransform(scrollYProgress, [0, 0.8, 1], ['0%', '0%', '12%']);
-  const elemY = useTransform(scrollYProgress, [0, 0.8, 1], ['0%', '0%', '-7%']);
-  const elemOpacity = useTransform(scrollYProgress, [0, 0.8, 1], [1, 1, 0]);
-  const elemBlur = useTransform(scrollYProgress, [0.8, 1], ['blur(0px)', 'blur(6px)']);
+  // present and in place through the entire hero-reading window, then — only after
+  // the copy has finished receding (0.70) — part outward, drift up, blur and dim,
+  // fully gone by 0.96 (before the pin releases). They dissolve, never slide off.
+  const leftX = useTransform(scrollY, [0, at(0.74), pin], ['0%', '0%', '-12%']);
+  const rightX = useTransform(scrollY, [0, at(0.74), pin], ['0%', '0%', '12%']);
+  const elemY = useTransform(scrollY, [0, at(0.74), pin], ['0%', '0%', '-7%']);
+  const elemOpacity = useTransform(scrollY, [0, at(0.74), at(0.96)], [1, 1, 0]);
+  const elemBlur = useTransform(scrollY, [at(0.74), at(0.96)], ['blur(0px)', 'blur(6px)']);
 
   // Hero copy: hidden during the brand beat (logo owns the centre), reveals +
   // settles into the vacated centre during the promise beat, holds for reading,
   // then fully recedes — all while the decorative scene is still present.
-  const contentOpacity = useTransform(scrollYProgress, [0, 0.18, 0.38, 0.6, 0.76], [0, 0, 1, 1, 0]);
-  const contentY = useTransform(scrollYProgress, [0, 0.18, 0.38, 0.6, 0.76], [36, 36, 0, 0, -40]);
-  const hintOpacity = useTransform(scrollYProgress, [0, 0.14], [1, 0]);
+  const contentOpacity = useTransform(scrollY, [0, at(0.16), at(0.34), at(0.56), at(0.7)], [0, 0, 1, 1, 0]);
+  const contentY = useTransform(scrollY, [0, at(0.16), at(0.34), at(0.56), at(0.7)], [36, 36, 0, 0, -40]);
+  const hintOpacity = useTransform(scrollY, [0, at(0.1)], [1, 0]);
 
   const { hero } = mainLandingContent;
 
@@ -87,7 +104,7 @@ export function LandingStage() {
   // Reduced motion: a single static viewport — no scroll track, everything visible.
   if (reduce) {
     return (
-      <section ref={ref} className="ls-stage ls-stage--rest" dir="rtl" lang="he" aria-label="StudyBuddy">
+      <section className="ls-stage ls-stage--rest" dir="rtl" lang="he" aria-label="StudyBuddy">
         {content}
       </section>
     );
@@ -95,7 +112,7 @@ export function LandingStage() {
 
   // The tall track is the scroll driver; the stage pins to the viewport (sticky).
   return (
-    <section ref={ref} className="ls-track" dir="rtl" lang="he" aria-label="StudyBuddy">
+    <section className="ls-track" dir="rtl" lang="he" aria-label="StudyBuddy">
       <div className="ls-stage">{content}</div>
     </section>
   );
