@@ -1,6 +1,5 @@
 import type { PropsWithChildren } from 'react';
 
-import { SessionControls } from '../auth/SessionControls';
 import { useAuth } from '../auth/AuthProvider';
 
 function AdminQaBanner() {
@@ -28,7 +27,6 @@ export function AppShell({ children }: PropsWithChildren) {
   return (
     <>
       <AdminQaBanner />
-      <SessionControls />
       {children}
     </>
   );
