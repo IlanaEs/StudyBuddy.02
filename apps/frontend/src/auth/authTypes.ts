@@ -16,3 +16,13 @@ export type MeProfile = {
   status: 'onboarding' | 'active';
   onboardingCompleted: boolean;
 } | null;
+
+// A single app account belonging to the logged-in identity. One Google login may
+// own several (teacher/student/parent); the active one is sent as X-Account-Id.
+export type Account = {
+  id: string;
+  role: UserRole;
+  onboarding_completed: boolean;
+  status: 'active' | 'inactive' | 'blocked';
+  is_default: boolean;
+};

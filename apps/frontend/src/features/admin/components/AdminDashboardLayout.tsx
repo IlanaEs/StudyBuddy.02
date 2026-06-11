@@ -5,6 +5,7 @@ import { LogOut } from 'lucide-react';
 import { FloatingTopNavbar, type NavTab } from '../../../design-system';
 import { sbTokens as sb } from '../../../design/tokens';
 import { useAuth } from '../../../auth/AuthProvider';
+import { AccountSwitcher } from '../../../auth/AccountSwitcher';
 import { ADMIN_NAV_TABS } from '../adminNav';
 
 /**
@@ -40,17 +41,20 @@ export function AdminDashboardLayout({ children }: { children: ReactNode }) {
         onLogoClick={() => navigate('/admin/dashboard')}
         tabs={tabs}
         actions={
-          // Utility cluster: Sign Out only (no admin Settings screen for MVP).
-          <button
-            type="button"
-            onClick={handleSignOut}
-            aria-label="התנתקות (Sign Out)"
-            title="התנתקות (Sign Out)"
-            className="sb-focusable sb-navbar-icon sb-navbar-signout"
-            style={{ ...utilityIconStyle, color: sb.textSecondary }}
-          >
-            <LogOut size={20} />
-          </button>
+          // Utility cluster: account switcher (hidden until multi-account) + Sign Out.
+          <>
+            <AccountSwitcher />
+            <button
+              type="button"
+              onClick={handleSignOut}
+              aria-label="התנתקות (Sign Out)"
+              title="התנתקות (Sign Out)"
+              className="sb-focusable sb-navbar-icon sb-navbar-signout"
+              style={{ ...utilityIconStyle, color: sb.textSecondary }}
+            >
+              <LogOut size={20} />
+            </button>
+          </>
         }
       />
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: 'calc(1.5rem + 64px) 18px 64px' }}>

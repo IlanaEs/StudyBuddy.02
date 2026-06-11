@@ -3,9 +3,10 @@ import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { apiRequest } from '../api/client';
-import type { LocalUser, MeProfile, UserRole } from './authTypes';
+import type { Account, LocalUser, MeProfile, UserRole } from './authTypes';
 import { getSupabaseBrowserClient } from './supabaseClient';
 import { clearAppSessionStorage } from './sessionStorageKeys';
+import { clearActiveAccount, setActiveAccountId } from './activeAccount';
 import {
   type QaRole,
   authorizeQaHeader,
@@ -26,6 +27,12 @@ type AuthContextValue = {
   status: AuthStatus;
   user: LocalUser | null;
   profile: MeProfile;
+  /** All accounts owned by the logged-in identity (one per role). */
+  accounts: Account[];
+  /** The account currently acting (drives effectiveRole + the X-Account-Id header). */
+  activeAccount: Account | null;
+  /** Switches the active account by id, then re-resolves the session (/me). */
+  switchAccount: (accountId: string) => Promise<void>;
   session: Session | null;
   error: string | null;
   /** Classifies `error` so callers can choose retry (transient) vs sign-out (fatal). */
@@ -54,6 +61,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<LocalUser | null>(null);
   const [profile, setProfile] = useState<MeProfile>(null);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [activeAccount, setActiveAccount] = useState<Account | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorKind, setErrorKind] = useState<AuthErrorKind>(null);
@@ -103,10 +112,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     clearAppSessionStorage();
     clearQaRoleOverride();
+    clearActiveAccount();
     setQaRoleState(null);
     setSession(null);
     setUser(null);
     setProfile(null);
+    setAccounts([]);
+    setActiveAccount(null);
     // A 401 is a normal logged-out state — clear any stale transient error so
     // ProtectedRoute redirects to login rather than showing a retry screen.
     setError(null);
@@ -118,11 +130,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const seq = ++resolveSeqRef.current;
     if (!nextSession?.access_token) {
       clearQaRoleOverride();
+      clearActiveAccount();
       setQaRoleState(null);
       sessionStorage.removeItem(PROVIDER_TOKEN_KEY);
       setSession(null);
       setUser(null);
       setProfile(null);
+      setAccounts([]);
+      setActiveAccount(null);
       setError(null);
       setErrorKind(null);
       setStatus('unauthenticated');
@@ -142,7 +157,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    const response = await apiRequest<{ user: LocalUser; profile: MeProfile }>('/api/auth/me', undefined, effectiveSession.access_token);
+    const response = await apiRequest<{
+      user: LocalUser;
+      profile: MeProfile;
+      accounts?: Account[];
+      activeAccount?: Account | null;
+    }>('/api/auth/me', undefined, effectiveSession.access_token);
 
     // A newer resolveSession started while this /me was in flight — its result is
     // the current truth, so discard this stale one rather than overwrite it.
@@ -165,10 +185,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // error — it's an expected step, not a failure. Once provisioning
         // succeeds, refreshProfile() re-runs /me and flips to 'authenticated'.
         clearQaRoleOverride();
+        clearActiveAccount();
         setQaRoleState(null);
         setSession(effectiveSession);
         setUser(null);
         setProfile(null);
+        setAccounts([]);
+        setActiveAccount(null);
         setStatus('unauthenticated');
         setError(null);
         setErrorKind(null);
@@ -180,10 +203,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // backend blip). Keep the session token so retry() can reuse it, and surface
       // a recoverable error the UI can offer to retry.
       clearQaRoleOverride();
+      clearActiveAccount();
       setQaRoleState(null);
       setSession(effectiveSession);
       setUser(null);
       setProfile(null);
+      setAccounts([]);
+      setActiveAccount(null);
       setStatus('unauthenticated');
       setError(response.error || 'אירעה שגיאה באימות החשבון. נסו שוב.');
       setErrorKind('transient');
@@ -200,6 +226,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const resolvedUser = response.data.user;
     setUser(resolvedUser);
     setProfile(response.data.profile ?? null);
+    const resolvedAccounts = response.data.accounts ?? [];
+    const resolvedActiveAccount = response.data.activeAccount ?? null;
+    setAccounts(resolvedAccounts);
+    setActiveAccount(resolvedActiveAccount);
+    // Pin the resolved active account into the header store so subsequent data
+    // requests carry X-Account-Id. Always the backend-validated account id, so it
+    // can never be a stale/foreign id that would 403.
+    if (resolvedActiveAccount) {
+      setActiveAccountId(resolvedActiveAccount.id);
+    } else {
+      clearActiveAccount();
+    }
     setStatus('authenticated');
     setError(null);
     setErrorKind(null);
@@ -313,27 +351,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     clearQaRoleOverride();
+    clearActiveAccount();
     clearAppSessionStorage();
     const supabase = getSupabaseBrowserClient();
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);
+    setAccounts([]);
+    setActiveAccount(null);
     setQaRoleState(null);
     setStatus('unauthenticated');
     setError(null);
     setErrorKind(null);
   }, [session]);
 
+  // Switches the active account: pins the new id into the header store, then
+  // re-resolves the session so /me returns that account's profile + role. The id
+  // must come from the user's own `accounts` list, so the backend never 403s it.
+  const switchAccount = useCallback(async (accountId: string) => {
+    setActiveAccountId(accountId);
+    if (session) {
+      await resolveSession(session);
+    }
+  }, [session, resolveSession]);
+
   const value = useMemo(
     () => {
       const eligibleQaRole = isEligibleForAdminQa(user?.email, user?.role) ? qaRole : null;
       return {
-        status, user, profile, session, error, errorKind, retry, logout, refreshProfile,
+        status, user, profile, accounts, activeAccount, switchAccount, session, error, errorKind,
+        retry, logout, refreshProfile,
         qaRole, setQaRole,
-        effectiveRole: (eligibleQaRole ?? user?.role) ?? null,
+        // QA override wins; otherwise the active account's role drives routing/access,
+        // falling back to user.role before accounts have resolved.
+        effectiveRole: (eligibleQaRole ?? activeAccount?.role ?? user?.role) ?? null,
       };
     },
-    [error, errorKind, retry, logout, profile, refreshProfile, session, status, user, qaRole, setQaRole],
+    [error, errorKind, retry, logout, profile, accounts, activeAccount, switchAccount, refreshProfile, session, status, user, qaRole, setQaRole],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

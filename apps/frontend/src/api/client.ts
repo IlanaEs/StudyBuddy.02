@@ -11,6 +11,7 @@ type ApiFailure = {
 export type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
 
 import { getAuthorizedQaHeader } from '../adminQa/adminQaMode';
+import { getActiveAccountHeader } from '../auth/activeAccount';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
 
@@ -50,6 +51,7 @@ export async function apiRequest<T>(
         'Content-Type': 'application/json',
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...getAuthorizedQaHeader(),
+        ...getActiveAccountHeader(),
         ...init?.headers,
       },
     });
