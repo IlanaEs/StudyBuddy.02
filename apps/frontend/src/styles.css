@@ -2861,11 +2861,19 @@ a {
   cursor: pointer;
   transition: all 0.15s ease;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 2px;
   text-align: center;
-  line-height: 1.25;
+  line-height: 1.2;
   padding: 0 4px;
+}
+.ob-avail-day-date {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.6;
+  font-family: var(--font-mono);
 }
 .ob-avail-day:hover { background: rgba(255,255,255,0.07); color: var(--text); }
 .ob-avail-day--active {
