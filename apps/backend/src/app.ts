@@ -35,7 +35,7 @@ export function createApp() {
       }
     },
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Provider-Token', 'X-Admin-QA-Role'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Provider-Token', 'X-Admin-QA-Role', 'X-Account-Id'],
   }));
   app.use(express.json());
 
