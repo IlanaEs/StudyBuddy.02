@@ -24,8 +24,18 @@ export const TEACHING_LEVELS = [
 
 export type TeachingLevel = (typeof TEACHING_LEVELS)[number]['value'];
 
+// TEMPORARY (lecturer demo): the teacher subjects/levels picker offers school
+// levels only — the Academic teaching path is hidden until course mapping is
+// finished. Restore the full path by using TEACHING_LEVELS in Screen3 again.
+// NOTE: this is the teaching LEVEL only; a teacher's professional status
+// (student/academic-assistant, Screen 2) is unaffected.
+export const SCHOOL_TEACHING_LEVELS = TEACHING_LEVELS.filter((l) => l.value !== 'academic');
+
 export const SUBJECTS_BY_LEVEL: Record<TeachingLevel, string[]> = {
-  elementary: ['מתמטיקה', 'עברית', 'אנגלית', 'מדעים', 'תנ״ך', 'גיאוגרפיה', 'חינוך'],
+  // Elementary kept realistic for the demo (no off-band subjects like CS). All
+  // names must exist in the subjects taxonomy (scripts/taxonomy-data.mjs) or the
+  // teacher_subjects name→id lookup silently drops them and breaks matching.
+  elementary: ['חשבון', 'גאומטריה', 'אנגלית', 'עברית', 'קריאה וכתיבה', 'הבנת הנקרא', 'מדעים', 'עזרה בשיעורי בית'],
   middle: ['מתמטיקה', 'עברית', 'אנגלית', 'פיזיקה', 'כימיה', 'ביולוגיה', 'היסטוריה', 'אזרחות', 'מדעי המחשב', 'ספרות'],
   high: ['מתמטיקה', 'עברית', 'אנגלית', 'פיזיקה', 'כימיה', 'ביולוגיה', 'היסטוריה', 'אזרחות', 'מדעי המחשב', 'ספרות', 'גיאוגרפיה', 'אמנות', 'מוזיקה'],
   academic: ['מתמטיקה', 'פיזיקה', 'כימיה', 'ביולוגיה', 'מדעי המחשב', 'כלכלה', 'פסיכולוגיה', 'סוציולוגיה', 'חשבונאות', 'סטטיסטיקה', 'לינארית', 'חדו״א', 'הסתברות'],
