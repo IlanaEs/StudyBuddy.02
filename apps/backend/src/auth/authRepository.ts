@@ -1,6 +1,8 @@
 import { AppError } from '../errors/AppError.js';
 import { createSupabaseAdminClient } from '../supabase/supabaseClients.js';
-import type { LocalUser, MeProfile, UserRole } from './authTypes.js';
+import type { Account, LocalUser, MeProfile, UserRole } from './authTypes.js';
+
+const ACCOUNT_COLUMNS = 'id,role,onboarding_completed,status,is_default';
 
 type SyncLocalUserInput = {
   authUserId: string;
@@ -26,7 +28,7 @@ export async function findLocalUserByAuthId(authUserId: string): Promise<LocalUs
 }
 
 // Idempotent: creates the onboarding_drafts row for a teacher if it doesn't exist.
-async function ensureOnboardingDraftForTeacher(userId: string): Promise<void> {
+export async function ensureOnboardingDraftForTeacher(userId: string): Promise<void> {
   const { error } = await adminClient()
     .from('onboarding_drafts')
     .upsert(
@@ -101,6 +103,53 @@ export async function ensureAppUserForAuthUser(
     role: roleHint,
     fullName: fullNameHint,
   });
+}
+
+// All accounts owned by an identity, default account first, then oldest-first.
+export async function getAccountsByUserId(userId: string): Promise<Account[]> {
+  const { data, error } = await adminClient()
+    .from('accounts')
+    .select(ACCOUNT_COLUMNS)
+    .eq('user_id', userId)
+    .order('is_default', { ascending: false })
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    throw new AppError('Unable to load user accounts', 500);
+  }
+
+  return (data ?? []) as Account[];
+}
+
+// Idempotent: ensures the identity's PRIMARY (default) account for the given role
+// exists, and returns it. Only used to self-heal an identity that has no accounts
+// yet (created before the accounts backfill, or a brand-new signup) — so setting
+// is_default=true cannot collide with an existing default. Phase 3's "create
+// another account" uses a separate non-default path.
+export async function ensureDefaultAccount(userId: string, role: UserRole): Promise<Account> {
+  const { error: upsertError } = await adminClient()
+    .from('accounts')
+    .upsert(
+      { user_id: userId, role, is_default: true, status: 'active' },
+      { onConflict: 'user_id,role', ignoreDuplicates: true },
+    );
+
+  if (upsertError) {
+    throw new AppError('Unable to initialize account', 500);
+  }
+
+  const { data, error } = await adminClient()
+    .from('accounts')
+    .select(ACCOUNT_COLUMNS)
+    .eq('user_id', userId)
+    .eq('role', role)
+    .maybeSingle();
+
+  if (error || !data) {
+    throw new AppError('Unable to load initialized account', 500);
+  }
+
+  return data as Account;
 }
 
 // Returns a lightweight profile summary used by GET /api/auth/me.

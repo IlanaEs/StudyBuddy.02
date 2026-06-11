@@ -1,6 +1,7 @@
 import cors from 'cors';
 import express from 'express';
 
+import { accountsRouter } from './accounts/accounts.routes.js';
 import { academicRepositoriesRouter } from './academicRepositories/academicRepositories.routes.js';
 import { adminRouter } from './admin/admin.routes.js';
 import { allowedOrigins } from './config/env.js';
@@ -39,6 +40,7 @@ export function createApp() {
   app.use(express.json());
 
   app.use('/api/auth', authRouter);
+  app.use('/api/accounts', accountsRouter);
   app.use('/api', academicRepositoriesRouter);
   app.use('/health', healthRouter);
   app.use('/api/health', healthRouter);

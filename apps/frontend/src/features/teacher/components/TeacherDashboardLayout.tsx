@@ -5,6 +5,7 @@ import { LogOut } from 'lucide-react';
 import { FloatingTopNavbar, type NavTab } from '../../../design-system';
 import { sbTokens as sb } from '../../../design/tokens';
 import { useAuth } from '../../../auth/AuthProvider';
+import { AccountSwitcher } from '../../../auth/AccountSwitcher';
 import { useTeacherDashboardStore } from '../store/teacherDashboardStore';
 import { TEACHER_NAV_TABS } from '../teacherNav';
 
@@ -43,26 +44,29 @@ export function TeacherDashboardLayout({ children }: { children: ReactNode }) {
         onLogoClick={() => setActiveTab('overview')}
         tabs={tabs}
         actions={
-          <button
-            type="button"
-            onClick={handleSignOut}
-            aria-label="התנתקות (Sign Out)"
-            title="התנתקות (Sign Out)"
-            className="sb-focusable sb-navbar-icon sb-navbar-signout"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 38,
-              height: 38,
-              borderRadius: 999,
-              background: 'transparent',
-              border: 'none',
-              color: sb.textSecondary,
-            }}
-          >
-            <LogOut size={20} />
-          </button>
+          <>
+            <AccountSwitcher />
+            <button
+              type="button"
+              onClick={handleSignOut}
+              aria-label="התנתקות (Sign Out)"
+              title="התנתקות (Sign Out)"
+              className="sb-focusable sb-navbar-icon sb-navbar-signout"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 38,
+                height: 38,
+                borderRadius: 999,
+                background: 'transparent',
+                border: 'none',
+                color: sb.textSecondary,
+              }}
+            >
+              <LogOut size={20} />
+            </button>
+          </>
         }
       />
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: 'calc(1.5rem + 64px) 18px 64px' }}>{children}</div>

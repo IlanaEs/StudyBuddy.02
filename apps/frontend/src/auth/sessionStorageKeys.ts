@@ -3,6 +3,7 @@ export const APP_LOCAL_STORAGE_KEYS = [
   'sb_student_gcal_return',
   'sb_student_onboarding',
   'sb_student_onboarding_oauth_pending',
+  'sb_active_account_id',
 ] as const;
 
 export const GCAL_PROVIDER_TOKEN_KEY = 'sb_gcal_provider_token';

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Bell, LayoutDashboard, CalendarClock, History, MessageCircle, Settings, LogOut } from 'lucide-react';
 import { FloatingTopNavbar, type NavTab } from '../../../design-system';
 import { towTokens as T } from '../../../design/tokens';
+import { AccountSwitcher } from '../../../auth/AccountSwitcher';
 import type { StudentView } from '../types';
 
 export function StudentDashboardLayout({
@@ -30,7 +31,7 @@ export function StudentDashboardLayout({
 
   return (
     <div dir="rtl" lang="he" className="tow tow-bg-glow" style={{ minHeight: '100dvh', color: T.text }}>
-      <FloatingTopNavbar tabs={tabs} />
+      <FloatingTopNavbar tabs={tabs} actions={<AccountSwitcher />} />
       {/* Top padding clears the fixed floating navbar; generous bottom padding gives
           the last card (e.g. the "Full History" button) comfortable scroll-end space. */}
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: 'calc(1.5rem + 64px) 18px 96px' }}>

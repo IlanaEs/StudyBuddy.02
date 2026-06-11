@@ -11,6 +11,7 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   DATABASE_URL: z.string().min(1).optional(),
   ENABLE_ADMIN_QA_MODE: z.string().optional(),
+  ENABLE_MULTI_ACCOUNT: z.string().optional(),
   DEV_AUTH_BYPASS: z.string().optional(),
 });
 
@@ -43,6 +44,13 @@ export const allowedOrigins: string[] = (() => {
 
 /** True only when explicitly opted in via ENABLE_ADMIN_QA_MODE=true. Never on by default. */
 export const adminQaModeEnabled = env.ENABLE_ADMIN_QA_MODE === 'true';
+
+/**
+ * Gates multi-account creation (POST /api/accounts) — one Google login owning
+ * several teacher/student/parent accounts. Off by default; the schema + active-
+ * account resolution ship dormant, and only this flag exposes account creation.
+ */
+export const multiAccountEnabled = env.ENABLE_MULTI_ACCOUNT === 'true';
 
 /**
  * Local QA signup bypass: auto-confirms new sign-ups so onboarding/signup can be
