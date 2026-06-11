@@ -20,6 +20,8 @@ import { ReauthRequiredError } from '../auth/ensureActiveSession';
 import { consumeEarlyProviderToken } from '../auth/supabaseClient';
 
 import { useAuth } from '../auth/AuthProvider';
+import { multiAccountEnabled } from '../auth/activeAccount';
+import { createAccount } from '../api/accounts';
 import {
   fetchOnboardingDraft,
   saveOnboardingDraft,
@@ -833,7 +835,7 @@ type DraftStatus = 'idle' | 'saving' | 'saved' | 'save-error';
 
 export function TeacherOnboardingPage() {
   const navigate = useNavigate();
-  const { status, user, profile, session, refreshProfile } = useAuth();
+  const { status, user, profile, session, refreshProfile, effectiveRole, accounts, switchAccount } = useAuth();
   const [step, setStep] = useState(1);
   const [data, setData] = useState<TeacherOnboardingData>(INITIAL_DATA);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
@@ -853,6 +855,8 @@ export function TeacherOnboardingPage() {
   const completionSnapshotRef = useRef<{ data: TeacherOnboardingData; token: string } | null>(null);
   // Prevents loading the draft more than once even if session token rotates
   const hasFetchedDraftRef = useRef(false);
+  // Multi-account: guards the one-shot "activate/create the teacher account" below.
+  const teacherActivationRef = useRef(false);
   // Tracks whether the user has made any edits before the draft finishes loading
   const hasUserEditedRef = useRef(false);
   // Monotonically incrementing counter — stale save responses are discarded
@@ -1052,11 +1056,62 @@ export function TeacherOnboardingPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, session?.access_token]);
 
+  // ── Multi-account: ensure the TEACHER account is active before any teacher API
+  // call ──────────────────────────────────────────────────────────────────────
+  // If an already-authenticated identity reaches this page with a non-teacher
+  // active account (e.g. their default is Student and they're adding a Teacher
+  // account), activate the existing teacher account or create one, then switch to
+  // it. Until that resolves, the draft fetch below is held back so it never runs
+  // against the wrong account context (which 403'd: "cannot load draft"). The
+  // brand-new-signup flow is 'unauthenticated' here and is untouched — its teacher
+  // role is assigned by completeTeacherOAuthSignup on the post-auth effect above.
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    if (effectiveRole === 'teacher') return;
+    if (teacherActivationRef.current) return;
+    teacherActivationRef.current = true;
+
+    void (async () => {
+      const token = session?.access_token;
+      try {
+        const existingTeacher = accounts.find((a) => a.role === 'teacher');
+        if (existingTeacher) {
+          await switchAccount(existingTeacher.id);
+        } else if (multiAccountEnabled && token) {
+          const res = await createAccount('teacher', token);
+          if ('error' in res) {
+            teacherActivationRef.current = false; // allow retry
+            setDraftError('לא ניתן להפעיל חשבון מורה כרגע. נסו שוב.');
+            setDraftLoading(false);
+            return;
+          }
+          await switchAccount(res.data.id);
+        } else {
+          // No teacher account and creation is disabled — surface a clear error
+          // rather than spinning on a fetch that will 403.
+          teacherActivationRef.current = false;
+          setDraftError('החשבון המחובר אינו חשבון מורה.');
+          setDraftLoading(false);
+        }
+      } catch {
+        teacherActivationRef.current = false;
+        setDraftError('לא ניתן להפעיל חשבון מורה כרגע. נסו שוב.');
+        setDraftLoading(false);
+      }
+    })();
+  }, [status, effectiveRole, accounts, session?.access_token, switchAccount]);
+
   // Load existing draft once per page load. Depends on session token so it
   // fires after AuthProvider resolves even if that happens post-mount.
   useEffect(() => {
     const token = session?.access_token;
     if (!token || hasFetchedDraftRef.current) return;
+    // Multi-account: hold the TEACHER draft fetch until the teacher account is the
+    // active one. For an authenticated non-teacher active account the request would
+    // 403; the activation effect above switches/creates the teacher account, which
+    // flips effectiveRole and re-runs this effect. (Unauthenticated new-signup is
+    // unaffected — effectiveRole is null and this guard is skipped.)
+    if (status === 'authenticated' && effectiveRole !== 'teacher') return;
     hasFetchedDraftRef.current = true;
 
     setDraftLoading(true);
@@ -1105,7 +1160,7 @@ export function TeacherOnboardingPage() {
         setDraftError('לא ניתן לטעון את הטיוטה כרגע. בדקו את החיבור ונסו שוב.');
         setDraftLoading(false);
       });
-  }, [session?.access_token, draftRetryNonce]);
+  }, [session?.access_token, draftRetryNonce, status, effectiveRole]);
 
   // Silent background save — fires on each step advance, never blocks the user.
   // Uses a version counter so only the most recent response updates the status.
