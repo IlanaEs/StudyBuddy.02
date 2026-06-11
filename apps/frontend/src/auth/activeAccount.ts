@@ -11,6 +11,9 @@
 
 export const ACTIVE_ACCOUNT_KEY = 'sb_active_account_id';
 
+/** Gates the user-facing "create another account" affordance. Off by default. */
+export const multiAccountEnabled = import.meta.env.VITE_ENABLE_MULTI_ACCOUNT === 'true';
+
 let _activeAccountId: string | null = null;
 
 /** The user's last selected account id from a previous session (may be stale). */
