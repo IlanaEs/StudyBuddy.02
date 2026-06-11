@@ -28,6 +28,13 @@ import {
 } from '../src/matching/matching.repository.js';
 import type { IntakeWithContext, MatchCandidate } from '../src/matching/matching.types.js';
 
+// Captured ONCE at module load and shared by every candidate, so all candidates
+// tie on the lastActiveAt scoring key and the engine's deterministic
+// teacherProfileId tie-break governs rank order. A per-candidate `new Date()`
+// differs sub-ms per call, making the order — and these tests — flaky. Kept
+// "recent" (not a fixed past date) so the activity sub-score is unchanged.
+const FIXED_LAST_ACTIVE_AT = new Date().toISOString();
+
 // ── Auth fixtures ──────────────────────────────────────────────────────────────
 
 const STUDENT_AUTH = {
@@ -109,7 +116,7 @@ function makeCandidate(id: string, overrides: Partial<MatchCandidate> = {}): Mat
     ratingCount: 10,
     isVerified: true,
     isActive: true,
-    lastActiveAt: new Date().toISOString(),
+    lastActiveAt: FIXED_LAST_ACTIVE_AT, // shared across candidates — see note above
     userStatus: 'active',
     subjectMatches: [{ subjectId: SUBJECT_ID, level: 'high', yearsExperience: 5 }],
     availabilitySlots: [{ dayOfWeek: 1, startTime: '09:00', endTime: '17:00', isActive: true }],
