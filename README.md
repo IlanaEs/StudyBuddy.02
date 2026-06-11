@@ -108,8 +108,9 @@ npm run db:validate # assert migration filenames/order, tables, enums, RLS
 
 ## The product workflow
 
-1. **Auth** — `/signup` (choose role student / parent / teacher) or `/login` (email+password or
-   Google OAuth → `/auth/callback`). Backend verifies the Supabase JWT and resolves a local
+1. **Auth** — Google-only OAuth via `/login` → `/auth/callback`; role selection/provisioning happens
+   inside the student/parent and teacher onboarding flows through
+   `POST /api/auth/complete-oauth-signup`. Backend verifies the Supabase JWT and resolves a local
    `users` row + role profile.
 2. **Teacher onboarding** (`/teacher-onboarding`) — multi-step wizard: name + professional status,
    subjects & levels, **availability** (manual grid **or** Google Calendar sync), rate, and legal
@@ -140,7 +141,7 @@ academic-repository request approvals.
 | Path | Page | Access |
 |---|---|---|
 | `/` , `/teachers` | landing pages | public |
-| `/login` , `/signup` , `/auth/callback` | auth | public |
+| `/login` , `/auth/callback` | auth | public |
 | `/teacher-onboarding` | teacher onboarding wizard | guest→teacher |
 | `/onboarding/matching → results → booking → confirmation` | student/parent matching flow | guest/student/parent |
 | `/teacher/dashboard` , `/teacher/inbox` , `/teacher/lessons` | teacher area | `teacher` |
@@ -151,7 +152,7 @@ academic-repository request approvals.
 ## Testing & QA
 
 ```bash
-npm test                                 # 282 tests (271 backend + 11 frontend)
+npm test                                 # 287 tests (276 backend + 11 frontend)
 node scripts/qa-auth-flow-e2e.mjs        # real auth E2E vs live DB — expect 82/82 (needs DEV_AUTH_BYPASS=true)
 node scripts/verify-matching-e2e.mjs     # matching E2E (needs db:seed:demo)
 node scripts/verify-lifecycle-e2e.mjs    # FULL lifecycle: onboard→availability→intake→match→book→approve→lesson→complete→parent dashboard
