@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 
 import { FloatingTopNavbar, GhostButton, SecondaryButton } from '../../design-system';
+import { LandingAuthActions } from '../../components/landing/LandingAuthActions';
 import { LandingFoundation } from '../../components/landing/LandingFoundation';
 import { DynamicHeroLogo } from '../../components/landing/DynamicHeroLogo';
 import { LandingStage } from '../../components/landing/LandingStage';
@@ -30,12 +31,16 @@ export function MainLandingRoute() {
         variant="landing"
         tabs={[]}
         actions={
-          <>
-            <GhostButton onClick={() => navigate('/login')}>כניסה למערכת (Sign In)</GhostButton>
-            <SecondaryButton onClick={() => navigate('/teachers')}>
-              התחברות ל-Teacher OS (Teacher OS)
-            </SecondaryButton>
-          </>
+          <LandingAuthActions
+            loggedOut={
+              <>
+                <GhostButton onClick={() => navigate('/login')}>כניסה למערכת (Sign In)</GhostButton>
+                <SecondaryButton onClick={() => navigate('/teachers')}>
+                  התחברות ל-Teacher OS (Teacher OS)
+                </SecondaryButton>
+              </>
+            }
+          />
         }
       />
       <DynamicHeroLogo />

@@ -11,6 +11,10 @@ export type CreateCalendarEventInput = {
   description?: string;
   // When true, attaches a Google Meet conference (used by the teacher flow).
   createMeet?: boolean;
+  // Emails added as event attendees. When non-empty the request also sets
+  // sendUpdates=all so Google emails the invite to them (e.g. the student on the
+  // teacher-owned booking event).
+  attendeeEmails?: string[];
 };
 
 export type CalendarEventResult =
@@ -31,9 +35,14 @@ export async function createGoogleCalendarEvent(
   input: CreateCalendarEventInput,
 ): Promise<CalendarEventResult> {
   try {
-    const url = input.createMeet
-      ? 'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1'
-      : 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+    const attendeeEmails = (input.attendeeEmails ?? []).filter((e) => !!e && e.includes('@'));
+
+    const params = new URLSearchParams();
+    if (input.createMeet) params.set('conferenceDataVersion', '1');
+    // Email the invite to attendees (otherwise Google adds them silently).
+    if (attendeeEmails.length > 0) params.set('sendUpdates', 'all');
+    const query = params.toString();
+    const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events${query ? `?${query}` : ''}`;
 
     const body: Record<string, unknown> = {
       summary: input.summary,
@@ -41,6 +50,9 @@ export async function createGoogleCalendarEvent(
       end: { dateTime: input.endAt },
     };
     if (input.description) body['description'] = input.description;
+    if (attendeeEmails.length > 0) {
+      body['attendees'] = attendeeEmails.map((email) => ({ email }));
+    }
     if (input.createMeet) {
       body['conferenceData'] = {
         createRequest: {
@@ -60,9 +72,6 @@ export async function createGoogleCalendarEvent(
     });
 
     if (!response.ok) {
-      if (process.env['NODE_ENV'] !== 'production') {
-        console.debug('[createGoogleCalendarEvent] failed', response.status);
-      }
       return { ok: false, status: response.status };
     }
 

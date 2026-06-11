@@ -82,10 +82,13 @@ function scoreReliability(ratingAvg: number, ratingCount: number): number {
   return weightedRating / 5.0; // rating_avg is 0–5; normalize to 0–1
 }
 
-function scoreActivity(lastActiveAt: string | null): number {
+// `now` (epoch ms) is supplied by the caller and shared across all candidates in a
+// single ranking pass. Reading Date.now() per-candidate instead would give two
+// otherwise-identical candidates infinitesimally different decay scores depending on
+// sub-ms timing — enough to flip the ordering of a tie nondeterministically.
+function scoreActivity(lastActiveAt: string | null, now: number): number {
   if (!lastActiveAt) return 0.1; // no recorded activity → penalize conservatively
-  const daysSince =
-    (Date.now() - new Date(lastActiveAt).getTime()) / (1000 * 60 * 60 * 24);
+  const daysSince = (now - new Date(lastActiveAt).getTime()) / (1000 * 60 * 60 * 24);
   return Math.max(0, 1.0 - daysSince / ACTIVITY_DECAY_DAYS);
 }
 
@@ -160,6 +163,8 @@ export function scoreAndRankCandidates(
   intake: IntakeWithContext,
   fallbackPhase: FallbackPhase,
 ): ScoredMatch[] {
+  // One reference time for the whole pass → deterministic scores for equal inputs.
+  const now = Date.now();
   const scored: ScoredMatch[] = filtered.map((candidate) => {
     const subjectMatch = candidate._bestSubjectMatch;
     const overlap = candidate._availabilityOverlap;
@@ -168,7 +173,7 @@ export function scoreAndRankCandidates(
     const availability = scoreAvailability(overlap);
     const price        = scorePrice(candidate.hourlyRate, intake.budgetMin, intake.budgetMax);
     const reliability  = scoreReliability(candidate.ratingAvg, candidate.ratingCount);
-    const activity     = scoreActivity(candidate.lastActiveAt);
+    const activity     = scoreActivity(candidate.lastActiveAt, now);
 
     const total =
       expertise    * WEIGHTS.expertise +

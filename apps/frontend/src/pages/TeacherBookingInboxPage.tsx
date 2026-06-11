@@ -8,6 +8,7 @@ import {
 } from '../api/bookingRequests';
 import type { PendingBookingRequest } from '../api/bookingRequests';
 import { initiateCalendarConnect } from '../api/teacherCalendar';
+import { consumeEarlyProviderToken } from '../auth/supabaseClient';
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 
@@ -244,9 +245,12 @@ export function TeacherBookingInboxPage() {
     const token = auth.session?.access_token;
     if (!token) return;
 
-    // Teacher's Google OAuth provider token — present when the teacher logged in
-    // via Google (linkIdentity). Used for Meet link creation on approve (best-effort).
-    const providerToken = auth.session?.provider_token ?? undefined;
+    // Teacher's Google calendar-scoped provider token. Prefer the token freshly
+    // captured by supabaseClient on return from the calendar-connect OAuth redirect
+    // (Supabase does NOT persist provider_token on the session), falling back to the
+    // session token. This is what makes the real Google event + Meet get created on
+    // approve — reading only auth.session.provider_token left it perpetually empty.
+    const providerToken = consumeEarlyProviderToken() ?? auth.session?.provider_token ?? undefined;
 
     // Surface (don't silently fail): approving without a calendar-scoped Google
     // token means no Meet link. Offer to connect Google Calendar first; if the

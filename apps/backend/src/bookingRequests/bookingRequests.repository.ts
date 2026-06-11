@@ -759,6 +759,30 @@ export async function updateLessonCalendarFields(
   if (error) throw new AppError('Failed to update lesson calendar fields', 500);
 }
 
+// Resolves the email to invite as the lesson's calendar attendee for a student row:
+// the student's own email, or — for a parent-managed child (students.user_id is
+// null) — the managing parent's email, since that's the account that booked and
+// should receive the invite. Returns null when no contact email exists. Best-effort
+// (read-only); callers treat a null/throw as "no attendee".
+export async function getStudentContactEmailByStudentId(studentId: string): Promise<string | null> {
+  const { data: student, error } = await adminClient()
+    .from('students')
+    .select('user_id,parent_user_id')
+    .eq('id', studentId)
+    .maybeSingle();
+  if (error || !student) return null;
+
+  const contactUserId = (student.user_id as string | null) ?? (student.parent_user_id as string | null);
+  if (!contactUserId) return null;
+
+  const { data: user } = await adminClient()
+    .from('users')
+    .select('email')
+    .eq('id', contactUserId)
+    .maybeSingle();
+  return (user?.email as string | undefined) ?? null;
+}
+
 // Updates booking_request status to approved or rejected, persists the
 // optional teacher response message. updated_at is handled by DB trigger.
 export async function updateBookingRequestStatus(

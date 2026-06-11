@@ -1511,7 +1511,7 @@ export function TeacherOnboardingPage() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
           <Loader2 size={32} className="animate-spin" style={{ color: SB_ORANGE }} />
           <span style={{ fontSize: 14, color: 'var(--text-3)', fontWeight: 500 }}>
-            טוען טיוטה...
+            מכינים את פרופיל המורה שלך... (Preparing your teacher profile...)
           </span>
         </div>
       </div>

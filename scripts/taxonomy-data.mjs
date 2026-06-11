@@ -17,12 +17,14 @@ export const canonicalSubjects = [
   // School core / mathematics
   { name: 'מתמטיקה', category: 'school_core' },
   { name: 'חשבון', category: 'school_core' },
+  { name: 'גאומטריה', category: 'school_core' },
   { name: 'חדו״א', category: 'school_core' },
   { name: 'לינארית', category: 'school_core' },
   { name: 'הסתברות', category: 'school_core' },
   { name: 'סטטיסטיקה', category: 'school_core' },
   { name: 'חקר ביצועים', category: 'school_core' },
   { name: 'הכנה לכיתה א׳', category: 'school_core' },
+  { name: 'עזרה בשיעורי בית', category: 'school_core' },
   // Languages
   { name: 'אנגלית', category: 'languages' },
   { name: 'עברית', category: 'languages' },

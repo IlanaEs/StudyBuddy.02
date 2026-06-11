@@ -1,14 +1,20 @@
 import { ShieldCheck, Clock, BookOpen, Star, MapPin } from 'lucide-react';
-import { SB_ORANGE } from '../../content/teacherOnboardingContent';
+import { SB_ORANGE, TEACHING_STYLES } from '../../content/teacherOnboardingContent';
 import type { TeacherOnboardingData } from '../../pages/TeacherOnboardingPage';
 
 interface TeacherPreviewCardProps {
   data: TeacherOnboardingData;
 }
 
+// Map internal teaching-style values (e.g. 'very_patient') to their user-facing
+// Hebrew labels so the preview never shows raw enum keys. Unknown values fall back
+// to the value itself (defensive — shouldn't happen for known options).
+const STYLE_LABELS = new Map(TEACHING_STYLES.map((s) => [s.value, s.label]));
+const styleLabel = (value: string): string => STYLE_LABELS.get(value) ?? value;
+
 export function TeacherPreviewCard({ data }: TeacherPreviewCardProps) {
   const displaySubjects = data.selectedSubjects.slice(0, 4);
-  const displayStyles = data.teachingStyles.slice(0, 3);
+  const displayStyles = data.teachingStyles.slice(0, 3).map(styleLabel);
   const availDays = data.weeklyAvailability.slice(0, 3);
   const institution = data.institution || data.expertiseAreas || 'לא צוין';
   const rate = data.hourlyRate ? `₪${data.hourlyRate} / שעה` : 'טרם הוגדר';
@@ -298,7 +304,7 @@ export function TeacherPreviewCard({ data }: TeacherPreviewCardProps) {
           </div>
           <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
             {data.teachingStyles.length > 0
-              ? `מורה ${data.teachingStyles.slice(0, 2).join(', ')} עם מומחיות ב${data.selectedSubjects.slice(0, 2).join(' ו')}.`
+              ? `מורה ${data.teachingStyles.slice(0, 2).map(styleLabel).join(', ')} עם מומחיות ב${data.selectedSubjects.slice(0, 2).join(' ו')}.`
               : 'מורה מקצועי/ת עם ניסיון מוכח וזמינות גבוהה לתלמידים.'}
           </div>
         </div>
