@@ -1,6 +1,6 @@
 import type { TeacherOnboardingData } from '../../../../pages/TeacherOnboardingPage';
 import {
-  TEACHING_LEVELS,
+  SCHOOL_TEACHING_LEVELS,
   SUBJECTS_BY_LEVEL,
   TEACHING_STYLES,
   type TeachingLevel,
@@ -34,7 +34,7 @@ export function Screen3SubjectsStyle({ data, update, errors }: Screen3Props) {
 
       <SectionLabel>רמות הוראה (Teaching Levels)</SectionLabel>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-        {TEACHING_LEVELS.map((lvl) => (
+        {SCHOOL_TEACHING_LEVELS.map((lvl) => (
           <CardSelect
             key={lvl.value}
             label={lvl.label}
