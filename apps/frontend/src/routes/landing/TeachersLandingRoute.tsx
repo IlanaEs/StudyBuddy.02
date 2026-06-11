@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Shield, Lock, Star, Calendar, DollarSign, Award, Target, X } from 'lucide-react';
 
 import { FloatingTopNavbar, GhostButton, SecondaryButton } from '../../design-system';
+import { LandingAuthActions } from '../../components/landing/LandingAuthActions';
 import { LandingFoundation } from '../../components/landing/LandingFoundation';
 import { LandingShowcase } from '../../components/landing/LandingShowcase';
 import { DynamicHeroLogo } from '../../components/landing/DynamicHeroLogo';
@@ -56,10 +57,14 @@ export function TeachersLandingRoute() {
         variant="landing"
         tabs={[]}
         actions={
-          <>
-            <GhostButton onClick={() => navigate('/login')}>כניסה למערכת (Sign In)</GhostButton>
-            <SecondaryButton onClick={() => navigate('/')}>לתלמידים (For Students)</SecondaryButton>
-          </>
+          <LandingAuthActions
+            loggedOut={
+              <>
+                <GhostButton onClick={() => navigate('/login')}>כניסה למערכת (Sign In)</GhostButton>
+                <SecondaryButton onClick={() => navigate('/')}>לתלמידים (For Students)</SecondaryButton>
+              </>
+            }
+          />
         }
       />
 
