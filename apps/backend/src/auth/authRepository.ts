@@ -28,7 +28,7 @@ export async function findLocalUserByAuthId(authUserId: string): Promise<LocalUs
 }
 
 // Idempotent: creates the onboarding_drafts row for a teacher if it doesn't exist.
-async function ensureOnboardingDraftForTeacher(userId: string): Promise<void> {
+export async function ensureOnboardingDraftForTeacher(userId: string): Promise<void> {
   const { error } = await adminClient()
     .from('onboarding_drafts')
     .upsert(
