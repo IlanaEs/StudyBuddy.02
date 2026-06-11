@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Check } from 'lucide-react';
 
 // ── Constants ───────────────────────────────────────────────────────────────────
@@ -40,6 +41,43 @@ export function makeBlockKey(day: AvailDay, blockId: TimeBlockId): string {
   return `${day}-${blockId}`;
 }
 
+const ISRAEL_TZ = 'Asia/Jerusalem';
+const _DOW_MAP: Record<string, number> = {
+  Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6,
+};
+
+export type RollingDay = { day: AvailDay; dateLabel: string };
+
+/**
+ * The 7 upcoming days starting *today* (Asia/Jerusalem), each as its recurring
+ * weekday name + a short date label (e.g. "12.6"). Availability is stored by
+ * weekday name, so this is a pure display reorder: it anchors the grid on today
+ * and rolls forward, instead of a fixed ראשון→שבת layout that surfaces days that
+ * have already passed in the current week. Connect on Thursday → the grid leads
+ * with חמישי and the following days.
+ */
+export function rollingWeek(): RollingDay[] {
+  const now = new Date();
+  const ymd = new Intl.DateTimeFormat('en-CA', {
+    timeZone: ISRAEL_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(now);
+  const y = Number(ymd.find((p) => p.type === 'year')?.value);
+  const m = Number(ymd.find((p) => p.type === 'month')?.value);
+  const d = Number(ymd.find((p) => p.type === 'day')?.value);
+  // Noon UTC of the Jerusalem calendar date — safely clear of midnight/DST edges.
+  const base = Date.UTC(y, m - 1, d, 12);
+
+  const dowFmt = new Intl.DateTimeFormat('en-US', { timeZone: ISRAEL_TZ, weekday: 'long' });
+  const dateFmt = new Intl.DateTimeFormat('he-IL', { timeZone: ISRAEL_TZ, day: 'numeric', month: 'numeric' });
+
+  return Array.from({ length: 7 }, (_, i) => {
+    const dt = new Date(base + i * 86_400_000);
+    const weekday = dowFmt.formatToParts(dt).find((p) => p.type === 'weekday')?.value ?? 'Sunday';
+    const dow = _DOW_MAP[weekday] ?? 0;
+    return { day: AVAIL_DAYS[dow] as AvailDay, dateLabel: dateFmt.format(dt) };
+  });
+}
+
 // ── Component ───────────────────────────────────────────────────────────────────
 
 interface TeacherAvailabilityCalendarProps {
@@ -55,6 +93,8 @@ export function TeacherAvailabilityCalendar({
 }: TeacherAvailabilityCalendarProps) {
   const selectedSet = new Set(selectedBlocks);
   const busySet = new Set(busyBlocks);
+  // Days anchored on today, rolling forward (computed once per mount).
+  const orderedDays = useMemo(() => rollingWeek(), []);
 
   function toggleCell(day: AvailDay, blockId: TimeBlockId) {
     const key = makeBlockKey(day, blockId);
@@ -108,8 +148,8 @@ export function TeacherAvailabilityCalendar({
           </div>
         ))}
 
-        {/* Rows 1–7: one per day */}
-        {AVAIL_DAYS.map((day) => {
+        {/* Rows 1–7: one per day, anchored on today and rolling forward */}
+        {orderedDays.map(({ day, dateLabel }) => {
           const dayKeys = TIME_BLOCKS.map((b) => makeBlockKey(day, b.id)).filter(
             (k) => !busySet.has(k),
           );
@@ -123,7 +163,8 @@ export function TeacherAvailabilityCalendar({
               onClick={() => toggleDay(day)}
               className={`ob-avail-day${allDaySelected ? ' ob-avail-day--active' : ''}`}
             >
-              {day}
+              <span>{day}</span>
+              <span className="ob-avail-day-date">{dateLabel}</span>
             </button>,
 
             // Time block cells
