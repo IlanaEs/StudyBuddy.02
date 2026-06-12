@@ -52,7 +52,7 @@ export function AccountSwitcher() {
     try {
       const res = await createAccount(role, session.access_token);
       if ('error' in res) {
-        setError(res.error);
+        setError(res.status === 403 ? 'יצירת חשבון נוסף אינה זמינה כעת.' : res.error);
         return;
       }
       // Make the new account active first, so its role is authoritative downstream.

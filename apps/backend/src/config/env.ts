@@ -47,10 +47,12 @@ export const adminQaModeEnabled = env.ENABLE_ADMIN_QA_MODE === 'true';
 
 /**
  * Gates multi-account creation (POST /api/accounts) — one Google login owning
- * several teacher/student/parent accounts. Off by default; the schema + active-
- * account resolution ship dormant, and only this flag exposes account creation.
+ * several teacher/student/parent accounts. **Default ON** (opt-out): multi-account
+ * is the product behavior, so it's enabled unless explicitly disabled with
+ * ENABLE_MULTI_ACCOUNT=false. This avoids the "feature silently off because an env
+ * var wasn't set" failure mode.
  */
-export const multiAccountEnabled = env.ENABLE_MULTI_ACCOUNT === 'true';
+export const multiAccountEnabled = env.ENABLE_MULTI_ACCOUNT !== 'false';
 
 /**
  * Local QA signup bypass: auto-confirms new sign-ups so onboarding/signup can be
