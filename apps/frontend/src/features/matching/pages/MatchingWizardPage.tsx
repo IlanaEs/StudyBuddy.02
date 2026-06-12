@@ -307,6 +307,62 @@ export function MatchingWizardPage() {
     });
   }
 
+  // ── Already-authenticated "create a new account" continue ─────────────────────
+  // When the user is already signed in (e.g. an existing Student adding a Parent
+  // account via the switcher — the account is already created + active), we must
+  // NOT run the Google OAuth signup. completeOAuthSignup would see the existing
+  // identity, return isNewUser=false, and redirect to the EXISTING account's
+  // dashboard — dropping the pending new-account onboarding. Instead, create the
+  // ACTIVE account's profile and advance the wizard.
+  async function handleAuthenticatedContinue() {
+    if (!intake.accountType) return;
+    if (!intake.fullName.trim()) {
+      setAuthError('נא להכניס שם מלא כדי להמשיך.');
+      return;
+    }
+    if (isParent && !intake.childName.trim()) {
+      setAuthError('נא להכניס את שם הילד/ה כדי להמשיך.');
+      return;
+    }
+    if (hasRoleConflict) {
+      setAuthError('החשבון המחובר לא מתאים למסלול שנבחר.');
+      return;
+    }
+    const token = auth.session?.access_token;
+    if (!token) return;
+    if (intake.studentId) {
+      setStep(AUTH_STEP + 1);
+      return;
+    }
+    if (profileCreateStarted.current) return;
+    profileCreateStarted.current = true;
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      const profileResult = await createStudentProfile(
+        {
+          account_type: intake.accountType,
+          full_name: intake.fullName || auth.user?.full_name,
+          grade_level: intake.gradeLevel ?? null,
+          ...(isParent && intake.childName ? { child_name: intake.childName } : {}),
+        },
+        token,
+      );
+      if ('error' in profileResult) {
+        profileCreateStarted.current = false;
+        setAuthError(toHebrewOnboardingError(profileResult.error, profileResult.status));
+        return;
+      }
+      updateIntake({ studentId: profileResult.data.student_id });
+      setStep(AUTH_STEP + 1);
+    } catch {
+      profileCreateStarted.current = false;
+      setAuthError('שגיאה בעיבוד החשבון. נסו שנית.');
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
   // ── Submit: create intake + clear draft ───────────────────────────────────────
   async function submitIntake(): Promise<boolean> {
     const token = auth.session?.access_token;
@@ -781,14 +837,26 @@ export function MatchingWizardPage() {
           </div>
         )}
 
-        <button
-          onClick={() => void handleGoogleOAuth()}
-          className="w-full py-3 font-medium rounded-xl flex items-center justify-center gap-2 mb-4 wizard-cta-primary"
-          style={{ ...ctaPrimary, fontSize: 16 }}
-        >
-          <GoogleIcon />
-          המשך עם Google
-        </button>
+        {auth.status === 'authenticated' ? (
+          // Already signed in (e.g. adding a new account type) → continue WITHOUT a
+          // Google re-auth, which would redirect to the existing account's dashboard.
+          <button
+            onClick={() => void handleAuthenticatedContinue()}
+            className="w-full py-3 font-medium rounded-xl flex items-center justify-center gap-2 mb-4 wizard-cta-primary"
+            style={{ ...ctaPrimary, fontSize: 16 }}
+          >
+            המשך (Continue)
+          </button>
+        ) : (
+          <button
+            onClick={() => void handleGoogleOAuth()}
+            className="w-full py-3 font-medium rounded-xl flex items-center justify-center gap-2 mb-4 wizard-cta-primary"
+            style={{ ...ctaPrimary, fontSize: 16 }}
+          >
+            <GoogleIcon />
+            המשך עם Google
+          </button>
+        )}
 
         <button onClick={prevStep} className="w-full text-sm" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>חזור</button>
       </WizardShell>
