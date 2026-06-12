@@ -128,6 +128,9 @@ const plan = [
   ['onboarding_drafts', () => (uid ? base('onboarding_drafts').eq('user_id', uid) : null)],
   ['students', () => (studentIds.length ? base('students').in('id', studentIds) : null)],
   ['teacher_profiles', () => (uid ? base('teacher_profiles').eq('user_id', uid) : null)],
+  // Multi-account rows (migration 024). FK is on delete cascade from users, but
+  // delete explicitly so the dry-run shows them and the cleanup is provably complete.
+  ['accounts', () => (uid ? base('accounts').eq('user_id', uid) : null)],
   ['users', () => (uid ? base('users').eq('id', uid) : null)],
 ];
 
