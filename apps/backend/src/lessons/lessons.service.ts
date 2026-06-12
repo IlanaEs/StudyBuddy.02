@@ -4,6 +4,8 @@ import { AppError } from '../errors/AppError.js';
 import { withTransaction } from '../db/transaction.js';
 import { assertStudentAccess } from '../auth/ownership.js';
 import { createGoogleCalendarEvent } from '../calendar/googleCalendar.js';
+import { createGoogleCalendarEventWithMeet } from '../teachers/teacherCalendarService.js';
+import { getStudentContactEmailByStudentId, updateLessonCalendarFields } from '../bookingRequests/bookingRequests.repository.js';
 import type { LocalUser } from '../auth/authTypes.js';
 import type { UpdateLessonStatusBody, CompleteLessonBody } from './lessons.validation.js';
 import type { LessonRow, TeacherLessonListItem, CompleteLessonResult } from './lessons.types.js';
@@ -86,6 +88,71 @@ export async function addLessonToStudentCalendarService(
   }
 
   return { added: true };
+}
+
+// ── Teacher: create the Google Calendar event + Meet link for an EXISTING lesson ─
+// Backfills lessons that were approved without a calendar-scoped token (the event
+// is normally created on approval, best-effort). Triggered by a "Sync to Google
+// Calendar" button; the teacher grants a fresh token (full calendar scope) at click
+// time, delivered via X-Provider-Token. Idempotent: if the lesson already has a
+// Meet link it's returned unchanged (no duplicate event).
+export async function syncLessonToTeacherCalendarService(
+  lessonId: string,
+  currentUser: LocalUser,
+  providerToken: string,
+): Promise<{ meetingLink: string }> {
+  const lesson = await getLessonById(lessonId);
+  if (!lesson) {
+    throw new AppError('Lesson not found', 404);
+  }
+
+  // Ownership: the lesson must belong to the authenticated teacher.
+  const profile = await getTeacherProfileByUserId(currentUser.id);
+  if (!profile || profile.id !== lesson.teacherId) {
+    throw new AppError('Forbidden', 403);
+  }
+
+  if (lesson.status !== 'scheduled') {
+    throw new AppError('ניתן לסנכרן ליומן רק שיעורים מתוכננים.', 422);
+  }
+
+  // Already synced → return the existing link rather than creating a duplicate event.
+  if (lesson.meetingLink) {
+    return { meetingLink: lesson.meetingLink };
+  }
+
+  const subjectName = lesson.subjectId ? await getSubjectNameById(lesson.subjectId) : null;
+  const eventTitle = subjectName ? `שיעור StudyBuddy — ${subjectName}` : 'שיעור StudyBuddy';
+
+  // Invite the student (or managing parent) as an attendee — best-effort.
+  let attendeeEmails: string[] = [];
+  try {
+    const studentEmail = await getStudentContactEmailByStudentId(lesson.studentId);
+    if (studentEmail) attendeeEmails = [studentEmail];
+  } catch {
+    /* attendee lookup is non-fatal */
+  }
+
+  const event = await createGoogleCalendarEventWithMeet(
+    providerToken,
+    eventTitle,
+    lesson.scheduledStartAt,
+    lesson.scheduledEndAt,
+    attendeeEmails,
+  );
+
+  // Unlike the best-effort approval path, this is an explicit user action — surface
+  // failure so the teacher can reconnect/retry instead of silently doing nothing.
+  if (!event || !event.link) {
+    throw new AppError('לא ניתן ליצור אירוע ביומן Google כעת. ודא/י שחיברת מחדש את היומן ונסה/י שוב.', 502);
+  }
+
+  await updateLessonCalendarFields(lessonId, {
+    meetingLink: event.link,
+    calendarEventId: event.eventId,
+  });
+
+  return { meetingLink: event.link };
 }
 
 // ── Lesson status update (cancellation / no_show) ─────────────────────────────

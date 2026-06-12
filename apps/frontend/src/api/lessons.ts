@@ -48,3 +48,18 @@ export function completeLesson(
     accessToken,
   );
 }
+
+// ── Teacher: create the Google Calendar event + Meet link for an EXISTING lesson ─
+// Backfills a lesson that was approved without a calendar token. The teacher's
+// calendar-scoped Google token is passed via X-Provider-Token. Returns the Meet link.
+export function syncLessonToCalendar(
+  lessonId: string,
+  accessToken: string,
+  googleProviderToken: string,
+): Promise<ApiResponse<{ meetingLink: string }>> {
+  return apiRequest<{ meetingLink: string }>(
+    `/api/lessons/${lessonId}/calendar-sync`,
+    { method: 'POST', headers: { 'X-Provider-Token': googleProviderToken } },
+    accessToken,
+  );
+}

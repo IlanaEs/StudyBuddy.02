@@ -8,6 +8,7 @@ import {
   updateLessonStatusController,
   completeLessonController,
   addLessonToCalendarController,
+  syncLessonCalendarController,
 } from './lessons.controller.js';
 import { updateLessonStatusSchema, completeLessonSchema, addLessonToCalendarSchema } from './lessons.validation.js';
 
@@ -55,4 +56,15 @@ lessonsRouter.post(
   requireAnyRole(['student', 'parent']),
   validateRequest(addLessonToCalendarSchema),
   asyncHandler(addLessonToCalendarController),
+);
+
+// POST /api/lessons/:id/calendar-sync
+// Teacher backfill: creates the Google Calendar event + Meet link for an EXISTING
+// lesson (e.g. one approved without a calendar token) and saves calendar_event_id
+// + meeting_link. Requires X-Provider-Token (full calendar scope). Teacher-only,
+// own lesson; idempotent if already synced.
+lessonsRouter.post(
+  '/:id/calendar-sync',
+  requireAnyRole(['teacher']),
+  asyncHandler(syncLessonCalendarController),
 );

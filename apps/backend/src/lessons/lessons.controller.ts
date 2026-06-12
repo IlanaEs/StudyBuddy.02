@@ -6,6 +6,7 @@ import {
   updateLessonStatusService,
   completeLessonService,
   addLessonToStudentCalendarService,
+  syncLessonToTeacherCalendarService,
 } from './lessons.service.js';
 import type { UpdateLessonStatusBody, CompleteLessonBody } from './lessons.validation.js';
 
@@ -45,6 +46,20 @@ export async function addLessonToCalendarController(request: Request, response: 
   }
 
   const result = await addLessonToStudentCalendarService(id, currentUser, providerToken.trim());
+
+  response.status(200).json({ data: result });
+}
+
+export async function syncLessonCalendarController(request: Request, response: Response) {
+  const id = request.params['id'] as string;
+  const currentUser = request.auth!.user;
+
+  const providerToken = request.headers['x-provider-token'];
+  if (!providerToken || typeof providerToken !== 'string' || !providerToken.trim()) {
+    throw new AppError('חסר חיבור ל-Google Calendar. חברו את היומן ונסו שוב.', 400);
+  }
+
+  const result = await syncLessonToTeacherCalendarService(id, currentUser, providerToken.trim());
 
   response.status(200).json({ data: result });
 }
