@@ -1,7 +1,7 @@
 // DB access only. No business logic. No scoring. No filtering decisions.
 
 import { AppError } from '../errors/AppError.js';
-import { env } from '../config/env.js';
+import { hideDemoTeachersInMatching } from '../config/env.js';
 import { createSupabaseAdminClient } from '../supabase/supabaseClients.js';
 import type { TransactionSql } from '../db/transaction.js';
 import type {
@@ -99,7 +99,9 @@ export async function findInitialTeacherCandidates(
     .eq('onboarding_completed', true)
     .limit(MAX_CANDIDATE_POOL);
 
-  if (env.NODE_ENV === 'production') {
+  // Exclude demo/seed teachers only when explicitly opted in (real production with
+  // real teachers). Off by default so a seeded demo/staging DB still returns matches.
+  if (hideDemoTeachersInMatching) {
     profileQuery = profileQuery
       .eq('is_demo', false)
       .neq('professional_status', 'dev_seed_teacher');
