@@ -28,12 +28,10 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     return <Navigate replace to="/login" state={{ from: location }} />;
   }
 
-  // More than one account under this Google login and none chosen yet → send to
-  // the account picker first (don't route straight to a dashboard). Excludes
-  // /select-account itself so it can render without a redirect loop.
-  if (auth.needsAccountSelection && location.pathname !== '/select-account') {
-    return <Navigate replace to="/select-account" />;
-  }
+  // NOTE: account selection is intentionally NOT enforced here. The Netflix-style
+  // picker must appear only at the post-login entry (AuthCallbackRoute), never on
+  // protected-route navigation — otherwise it hijacks onboarding completion when
+  // a freshly-created second account navigates to its dashboard.
 
   if (allowedRoles && auth.effectiveRole && !allowedRoles.includes(auth.effectiveRole)) {
     // Wrong role for this route. Send the user to THEIR OWN dashboard rather than

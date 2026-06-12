@@ -37,9 +37,8 @@ export function LoginRoute() {
   const redirectTo = getRedirectPath(location.state);
 
   if (auth.status === 'authenticated') {
-    if (auth.needsAccountSelection) {
-      return <Navigate replace to="/select-account" />;
-    }
+    // Account selection is handled only at the post-login callback (AuthCallbackRoute),
+    // not here — an already-authenticated visit to /login goes straight to the dashboard.
     return <Navigate replace to={getDashboardPathByRole(auth.effectiveRole)} />;
   }
 
