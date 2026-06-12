@@ -1,0 +1,52 @@
+name: Keep backend warm
+
+# Belt-and-suspenders to the in-process self-ping (apps/backend/src/server.ts):
+# an EXTERNAL ping to the backend's /health so the free Render instance never
+# sleeps. External traffic is unambiguously counted by Render's idle detection and
+# can also WAKE a slept instance (which the in-process self-ping cannot).
+#
+# Setup: set a repository VARIABLE (Settings → Secrets and variables → Actions →
+# Variables) named HEALTH_CHECK_URL to the full health URL, e.g.
+#   https://<your-backend>.onrender.com/health
+# If it is unset, this workflow no-ops (never fails) so it stays quiet until configured.
+#
+# Notes: scheduled workflows run only on the default branch, may be delayed a few
+# minutes under GitHub load, and auto-disable after 60 days of repo inactivity.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *' # every 10 minutes (< Render's ~15min idle window)
+  workflow_dispatch: {} # allow manual runs for testing
+
+# Don't let a slow (cold-start) run overlap with the next scheduled tick.
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /health
+        env:
+          HEALTH_URL: ${{ vars.HEALTH_CHECK_URL }}
+        run: |
+          if [ -z "$HEALTH_URL" ]; then
+            echo "HEALTH_CHECK_URL repo variable is not set — skipping keep-alive ping."
+            echo "Configure it under Settings → Secrets and variables → Actions → Variables."
+            exit 0
+          fi
+          echo "Pinging $HEALTH_URL"
+          # Retry so a cold instance (~30–60s to wake) still gets warmed and we
+          # don't flap red. Each attempt waits up to 60s; up to 6 attempts.
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 "$HEALTH_URL" || echo "000")
+            echo "attempt $i -> HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "Backend is warm."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::warning::/health did not return 200 after retries."
+          exit 1
