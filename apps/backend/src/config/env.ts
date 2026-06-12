@@ -14,6 +14,11 @@ const envSchema = z.object({
   ENABLE_MULTI_ACCOUNT: z.string().optional(),
   HIDE_DEMO_TEACHERS: z.string().optional(),
   DEV_AUTH_BYPASS: z.string().optional(),
+  // Render auto-sets RENDER_EXTERNAL_URL for web services; KEEP_ALIVE_URL is an
+  // optional manual override. Used only to self-ping /health (keep the free-tier
+  // instance warm) — see server.ts.
+  RENDER_EXTERNAL_URL: z.string().url().optional(),
+  KEEP_ALIVE_URL: z.string().url().optional(),
 });
 
 export const env = envSchema.parse(process.env);
