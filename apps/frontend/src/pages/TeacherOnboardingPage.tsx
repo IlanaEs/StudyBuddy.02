@@ -898,17 +898,39 @@ export function TeacherOnboardingPage() {
     setData((prev) => ({ ...prev, ...patch }));
   }
 
+  // Load the academic reference lists with retry + backoff. These are public
+  // GETs, but on a cold/slow backend (free-tier spin-up) or under the multi-account
+  // request burst the first attempt can hit apiRequest's 15s timeout and be
+  // "canceled" — previously swallowed, leaving the autocomplete permanently empty.
+  // Retrying with backoff lets the list populate once the backend responds.
   useEffect(() => {
-    fetchAcademicInstitutions()
-      .then((response) => {
-        if (!('error' in response)) setAcademicInstitutions(response.data.institutions);
-      })
-      .catch(() => {});
-    fetchAcademicFields()
-      .then((response) => {
-        if (!('error' in response)) setAcademicFields(response.data.fields);
-      })
-      .catch(() => {});
+    let cancelled = false;
+
+    async function loadWithRetry<T>(
+      fetchFn: () => Promise<{ data: T } | { error: string }>,
+      apply: (data: T) => void,
+      attempts = 4,
+    ) {
+      for (let i = 0; i < attempts && !cancelled; i += 1) {
+        const response = await fetchFn();
+        if (cancelled) return;
+        if (!('error' in response)) {
+          apply(response.data);
+          return;
+        }
+        // Backoff before the next attempt: 1s, 2s, 4s (skip after the last).
+        if (i < attempts - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** i));
+        }
+      }
+    }
+
+    void loadWithRetry(fetchAcademicInstitutions, (d) => setAcademicInstitutions(d.institutions));
+    void loadWithRetry(fetchAcademicFields, (d) => setAcademicFields(d.fields));
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
