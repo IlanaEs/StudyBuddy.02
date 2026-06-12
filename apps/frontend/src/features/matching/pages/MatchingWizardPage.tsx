@@ -24,6 +24,7 @@ import { useAuth } from '../../../auth/AuthProvider';
 import { getSupabaseBrowserClient } from '../../../auth/supabaseClient';
 import { getDashboardPathByRole } from '../../../utils/getDashboardPathByRole';
 import { completeOAuthSignup, createStudentProfile, createStudentIntake, runMatching } from '../../../api/students';
+import { createAccount } from '../../../api/accounts';
 
 const TOTAL_STEPS = 10;
 const AUTH_STEP = 2;
@@ -226,12 +227,25 @@ export function MatchingWizardPage() {
         return;
       }
 
-      // Existing StudyBuddy account → this is a normal login, not a signup.
-      // Skip onboarding entirely and go straight to the correct dashboard. No
-      // error, no duplicate profile creation.
+      // Existing StudyBuddy identity (this email already has an account).
       if (!oauthResult.data.isNewUser) {
-        navigate(getDashboardPathByRole(oauthResult.data.user.role as 'teacher' | 'student' | 'parent' | 'admin'), { replace: true });
-        return;
+        const desiredRole = savedAccountType === 'parent_for_child' ? 'parent' : 'student';
+        // Re-login of the identity's PRIMARY account (same type) → its dashboard.
+        if (oauthResult.data.user.role === desiredRole) {
+          navigate(getDashboardPathByRole(desiredRole), { replace: true });
+          return;
+        }
+        // Adding a NEW account type under the same email → create + switch to that
+        // account and CONTINUE onboarding, instead of auto-redirecting to the
+        // existing account's dashboard (which discarded the new-account intent).
+        // createAccount is idempotent on (user_id, role). Fall through to profile
+        // creation for the now-active new account.
+        const created = await createAccount(desiredRole, auth.session.access_token);
+        if ('error' in created) {
+          setAuthError(toHebrewOnboardingError(created.error, created.status));
+          return;
+        }
+        await auth.switchAccount(created.data.id);
       }
 
       // Provisioning succeeded (role assigned + local user row created). Re-run
