@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Award, SearchX, RotateCcw } from 'lucide-react';
+import { Award, SearchX, RotateCcw, ShieldAlert } from 'lucide-react';
 import { useMatchingStore } from '../store/matchingStore';
+import { useAuth } from '../../../auth/AuthProvider';
 import { TeacherMatchCard } from '../components/TeacherMatchCard';
 import { TeacherPreviewModal } from '../components/TeacherPreviewModal';
 import { GlobalStateCard, SecondaryButton, GhostButton, sbTokens as sb } from '../../../design-system';
@@ -9,6 +10,7 @@ import type { MatchResult } from '../types/matching.types';
 
 export function MatchResultsPage() {
   const navigate = useNavigate();
+  const auth = useAuth();
   const { matchResults, intake, selectMatch, flow } = useMatchingStore();
   const [previewMatch, setPreviewMatch] = useState<MatchResult | null>(null);
   const userContext = intake.accountType === 'parent_for_child' ? 'parent' : 'student';
@@ -40,6 +42,30 @@ export function MatchResultsPage() {
       selectMatch(previewMatch.id);
       navigate('/onboarding/booking');
     }
+  }
+
+  // Auth/session failure (e.g. GET /api/auth/me → 403) must NOT be mistaken for an
+  // empty result set. Surface a clear "session expired" state with a sign-in CTA;
+  // "no tutors found" is reserved for a genuine, authenticated, zero-result match.
+  if (auth.status === 'loading') {
+    return (
+      <div dir="rtl" lang="he" style={{ minHeight: '100dvh', background: sb.bgCanvas, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
+        <GlobalStateCard variant="loading" title="טוען..." />
+      </div>
+    );
+  }
+  if (auth.status === 'unauthenticated') {
+    return (
+      <div dir="rtl" lang="he" style={{ minHeight: '100dvh', background: sb.bgCanvas, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '24px 16px' }}>
+        <GlobalStateCard
+          variant="error"
+          icon={<ShieldAlert size={32} />}
+          title="פג תוקף ההתחברות (Session Expired)"
+          description="ההתחברות שלך פגה או שאינה זמינה. התחבר/י מחדש כדי להמשיך."
+          cta={{ label: 'התחברות מחדש (Sign In)', onClick: () => navigate('/login') }}
+        />
+      </div>
+    );
   }
 
   if (matchResults.length === 0) {

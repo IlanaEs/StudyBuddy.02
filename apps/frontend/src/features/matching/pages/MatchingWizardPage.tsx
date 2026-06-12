@@ -335,12 +335,12 @@ export function MatchingWizardPage() {
       token,
     );
     if ('error' in result) {
-      setErrors({ submit: toHebrewOnboardingError(result.error) });
+      setErrors({ submit: toHebrewOnboardingError(result.error, result.status) });
       return false;
     }
     const matchingResult = await runMatching(result.data.intake_id, token);
     if ('error' in matchingResult) {
-      setErrors({ submit: toHebrewOnboardingError(matchingResult.error) });
+      setErrors({ submit: toHebrewOnboardingError(matchingResult.error, matchingResult.status) });
       return false;
     }
     setMatchResults(matchingResult.data.matches.map((match) => ({
@@ -979,9 +979,15 @@ function GoogleIcon() {
   );
 }
 
-function toHebrewOnboardingError(error: string) {
+function toHebrewOnboardingError(error: string, status?: number) {
   const normalized = error.toLowerCase();
+  // Role-conflict 403 keeps its specific message (checked before the generic 403).
   if (error.includes('החשבון המחובר לא מתאים למסלול שנבחר')) return 'החשבון המחובר לא מתאים למסלול שנבחר.';
+  // Distinguish HTTP failure classes so an auth/session error never reads as a
+  // generic failure (and the results screen never reads as "no tutors found").
+  if (status === 403) return 'ההתחברות שלך פגה. התחבר/י מחדש.';
+  if (status === 422) return 'חלק מהפרטים בשאלון חסרים או שגויים. חזרו ובדקו אותם.';
+  if (status === 500) return 'אירעה שגיאה בשרת. נסו שוב בעוד רגע.';
   if (normalized.includes('invalid account_type') || normalized.includes('account_type')) return 'יש לבחור סוג חשבון תקין.';
   if (normalized.includes('role mismatch') || normalized.includes('role')) return 'החשבון המחובר לא מתאים למסלול שנבחר.';
   if (normalized.includes('email') && normalized.includes('invalid')) return 'כתובת האימייל אינה תקינה.';

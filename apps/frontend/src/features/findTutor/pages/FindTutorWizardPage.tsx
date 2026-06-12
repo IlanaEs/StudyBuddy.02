@@ -315,12 +315,12 @@ export function FindTutorWizardPage() {
         token,
       );
       if ('error' in res) {
-        setError(res.error ?? 'שגיאה ביצירת החיפוש. נסו שוב.');
+        setError(res.status === 403 ? 'ההתחברות שלך פגה. התחבר/י מחדש.' : (res.error ?? 'שגיאה ביצירת החיפוש. נסו שוב.'));
         return;
       }
       const matching = await runMatching(res.data.intake_id, token);
       if ('error' in matching) {
-        setError(matching.error ?? 'שגיאה בהרצת ההתאמה. נסו שוב.');
+        setError(matching.status === 403 ? 'ההתחברות שלך פגה. התחבר/י מחדש.' : (matching.error ?? 'שגיאה בהרצת ההתאמה. נסו שוב.'));
         return;
       }
       store.setFlow('quick');
