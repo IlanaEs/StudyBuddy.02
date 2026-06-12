@@ -20,7 +20,6 @@ import { ReauthRequiredError } from '../auth/ensureActiveSession';
 import { consumeEarlyProviderToken } from '../auth/supabaseClient';
 
 import { useAuth } from '../auth/AuthProvider';
-import { multiAccountEnabled } from '../auth/activeAccount';
 import { createAccount } from '../api/accounts';
 import {
   fetchOnboardingDraft,
@@ -1076,21 +1075,29 @@ export function TeacherOnboardingPage() {
       try {
         const existingTeacher = accounts.find((a) => a.role === 'teacher');
         if (existingTeacher) {
+          // Already have a teacher account under this identity → just switch to it.
           await switchAccount(existingTeacher.id);
-        } else if (multiAccountEnabled && token) {
+        } else if (token) {
+          // No teacher account yet → create one for this same Google identity, then
+          // switch to it. The backend ENABLE_MULTI_ACCOUNT flag is the single source
+          // of truth for whether creation is allowed; a disabled backend returns 403,
+          // surfaced as a clear message below. (We intentionally do NOT gate this on
+          // the frontend flag — that only controls the "Add Account" switcher UI.)
           const res = await createAccount('teacher', token);
           if ('error' in res) {
             teacherActivationRef.current = false; // allow retry
-            setDraftError('לא ניתן להפעיל חשבון מורה כרגע. נסו שוב.');
+            setDraftError(
+              res.status === 403
+                ? 'יצירת חשבון מורה אינה זמינה כעת.'
+                : 'לא ניתן להפעיל חשבון מורה כרגע. נסו שוב.',
+            );
             setDraftLoading(false);
             return;
           }
           await switchAccount(res.data.id);
         } else {
-          // No teacher account and creation is disabled — surface a clear error
-          // rather than spinning on a fetch that will 403.
           teacherActivationRef.current = false;
-          setDraftError('החשבון המחובר אינו חשבון מורה.');
+          setDraftError('לא ניתן להפעיל חשבון מורה כרגע. נסו שוב.');
           setDraftLoading(false);
         }
       } catch {
