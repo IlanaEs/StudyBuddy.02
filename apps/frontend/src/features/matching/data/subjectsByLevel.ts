@@ -1,31 +1,33 @@
 // Subjects offered in the matching wizard, grouped by education level.
 //
-// IMPORTANT: every value here MUST exist (case-insensitive) in the canonical
-// `subjects` taxonomy, otherwise intake submission fails with 422
-// ("לא נמצא מקצוע מתאים במערכת"). The backend resolves subject_name via an
-// `ilike` match. The source of truth for the taxonomy is
-// `scripts/taxonomy-data.mjs` (canonicalSubjects); the subset relationship is
-// enforced by apps/backend/tests/taxonomySync.test.ts — keep the two in sync.
+// NOT defined here — a thin re-export of the canonical band→subjects map
+// (scripts/taxonomy-data.mjs), the single origin shared with teacher onboarding
+// (content/teacherOnboardingContent.ts) so a student and a teacher at the same
+// band always see the identical set (matching joins on subject_id — divergent
+// labels per band silently produce zero matches). Edit the catalog there.
+// Every value resolves (case-insensitive `ilike`) to a row in the canonical
+// `subjects` table, and is carried by >= 1 demo teacher; both invariants are
+// enforced by apps/backend/tests/taxonomySync.test.ts.
 //
 // Unit-level granularity (e.g. "3/4/5 יח״ל") is intentionally NOT encoded in
 // the subject name; it belongs in the intake `level` field. So "מתמטיקה 3 יח״ל"
 // folds to the canonical subject "מתמטיקה".
-export const subjectsByLevel: Record<string, string[]> = {
-  elementary: ['חשבון', 'עברית', 'אנגלית', 'מדעים', 'הכנה לכיתה א׳', 'קריאה וכתיבה', 'הבנת הנקרא'],
-  middle: ['מתמטיקה', 'אנגלית', 'לשון', 'מדעים', 'היסטוריה', 'ספרות', 'תנ״ך', 'גיאוגרפיה', 'אזרחות', 'תכנות בסיסי', 'רובוטיקה', 'מדעי המחשב'],
-  high: ['מתמטיקה', 'אנגלית', 'פיזיקה', 'כימיה', 'ביולוגיה', 'מדעי המחשב', 'לשון', 'ספרות', 'היסטוריה', 'תנ״ך', 'אזרחות', 'סייבר', 'פסיכולוגיה', 'כלכלה', 'תקשורת'],
-  academic: ['מבני נתונים', 'אלגוריתמים', 'OOP', 'Java', 'Python', 'בסיסי נתונים', 'מערכות הפעלה', 'רשתות', 'Full Stack', 'React', 'Node.js', 'הסתברות', 'סטטיסטיקה', 'חקר ביצועים', 'SQL', 'Data Analysis', 'מעגלים', 'חדו״א', 'לינארית', 'פיזיקה'],
-};
+//
+// No `academic` band: the academic teaching level is hidden teacher-side, so it
+// is removed from the student/parent level selectors too — no academic intake
+// can be created, closing the academic zero-match dead-end at the source.
+import { canonicalSubjectsByBand } from '../../../../../../scripts/taxonomy-data.mjs';
+
+export const subjectsByLevel: Record<string, string[]> = canonicalSubjectsByBand;
 
 export const gradesByLevel: Record<string, string[]> = {
   elementary: ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳'],
   middle: ['ז׳', 'ח׳', 'ט׳'],
   high: ['י׳', 'י״א', 'י״ב'],
-  academic: ['שנה א׳', 'שנה ב׳', 'שנה ג׳', 'שנה ד׳'],
 };
 
 /** The level bands, in order. Keys of subjectsByLevel / gradesByLevel. */
-export type LevelBand = 'elementary' | 'middle' | 'high' | 'academic';
+export type LevelBand = 'elementary' | 'middle' | 'high';
 
 /**
  * Resolve an effective level value to its band. The value may already be a band

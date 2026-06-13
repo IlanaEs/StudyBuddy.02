@@ -71,3 +71,27 @@ export const canonicalSubjects = [
   { name: 'SQL', category: 'technology' },
   { name: 'Data Analysis', category: 'technology' },
 ];
+
+// Canonical band → offered-subjects map — the SINGLE origin for which subjects
+// each education level offers in BOTH wizards. The two frontend catalogs
+// (teacher onboarding SUBJECTS_BY_LEVEL, student matching subjectsByLevel) are
+// thin re-exports of this object, so a teacher and a student at the same band
+// always see the identical set (matching joins on subject_id — divergent labels
+// per band silently produce zero matches).
+//
+// Invariants, enforced by apps/backend/tests/taxonomySync.test.ts:
+//   1. every name here exists in canonicalSubjects (above);
+//   2. both frontend catalogs are band-for-band identical to this map;
+//   3. every offered name is carried by >= 1 demo teacher
+//      (scripts/demo-teachers-data.mjs) — the catalog must never offer a
+//      subject no seeded teacher holds, or matching dead-ends.
+//
+// No `academic` band: the academic TEACHING level is intentionally hidden
+// (teacher side), so academic is removed from the student/parent level
+// selectors too — there is no academic offered-subjects set. The backend
+// LEVEL_BANDS capability stays (dormant); see apps/backend/src/studentIntakes/levelBand.ts.
+export const canonicalSubjectsByBand = {
+  elementary: ['חשבון', 'אנגלית', 'עברית', 'קריאה וכתיבה', 'הבנת הנקרא', 'מדעים', 'הכנה לכיתה א׳'],
+  middle: ['מתמטיקה', 'עברית', 'אנגלית', 'פיזיקה', 'כימיה', 'ביולוגיה', 'היסטוריה', 'אזרחות', 'מדעי המחשב', 'ספרות', 'לשון', 'מדעים', 'תנ״ך', 'גיאוגרפיה', 'תכנות בסיסי', 'רובוטיקה'],
+  high: ['מתמטיקה', 'עברית', 'אנגלית', 'פיזיקה', 'כימיה', 'ביולוגיה', 'היסטוריה', 'אזרחות', 'מדעי המחשב', 'ספרות', 'גיאוגרפיה', 'לשון', 'תנ״ך', 'סייבר', 'פסיכולוגיה', 'כלכלה', 'תקשורת'],
+};

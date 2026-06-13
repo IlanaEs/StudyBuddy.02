@@ -7,7 +7,6 @@ const BAND_LABELS: Record<string, string> = {
   elementary: 'יסודי',
   middle: 'חטיבת ביניים',
   high: 'תיכון',
-  academic: 'אקדמי',
 };
 
 /**

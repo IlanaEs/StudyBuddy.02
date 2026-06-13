@@ -10,5 +10,9 @@ export default defineConfig({
     // Allow public dev tunnels (e.g. *.trycloudflare.com) to reach the dev
     // server; Vite otherwise rejects non-localhost Host headers.
     allowedHosts: ['.trycloudflare.com', '.loca.lt', '.ngrok-free.app', '.ngrok.io'],
+    // The subject catalogs import the canonical taxonomy from the monorepo root
+    // (../../scripts/taxonomy-data.mjs), which sits outside the frontend root —
+    // allow the dev server to serve it.
+    fs: { allow: ['../..'] },
   },
 });

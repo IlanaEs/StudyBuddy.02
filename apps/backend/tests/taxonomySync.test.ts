@@ -4,14 +4,26 @@ import { describe, expect, it } from 'vitest';
 // taxonomy against the two frontend subject catalogs that feed subject-name
 // resolution. taxonomy-data.mjs is side-effect-free (no Supabase / env reads),
 // and both frontend files are pure constant modules, so importing them here is safe.
-import { canonicalSubjects } from '../../../scripts/taxonomy-data.mjs';
+import { canonicalSubjects, canonicalSubjectsByBand } from '../../../scripts/taxonomy-data.mjs';
+import { demoTeachers } from '../../../scripts/demo-teachers-data.mjs';
 import { subjectsByLevel } from '../../frontend/src/features/matching/data/subjectsByLevel';
 import { SUBJECTS_BY_LEVEL } from '../../frontend/src/content/teacherOnboardingContent';
 
 const canonicalNames = new Set(canonicalSubjects.map((subject) => subject.name));
 
+// Every subject any demo teacher carries (scripts/demo-teachers-data.mjs). The
+// roster teaches level=null (every band), so coverage is band-agnostic: an
+// offered subject is "covered" iff some teacher holds it.
+const seedTeacherSubjects = new Set(
+  demoTeachers.flatMap((teacher) => teacher.subjects.map((subject) => subject.name)),
+);
+
 function offeredSubjects(byLevel: Record<string, string[]>): string[] {
   return [...new Set(Object.values(byLevel).flat())];
+}
+
+function sortedUnique(values: string[]): string[] {
+  return [...new Set(values)].sort();
 }
 
 describe('taxonomy sync guard', () => {
@@ -32,6 +44,34 @@ describe('taxonomy sync guard', () => {
     expect(
       missing,
       `teacher onboarding subjects missing from canonicalSubjects (scripts/taxonomy-data.mjs): ${missing.join(', ')}`,
+    ).toEqual([]);
+  });
+
+  // The whole point of the single origin: a teacher and a student at the same
+  // band must see the IDENTICAL set, or matching (which joins on subject_id)
+  // silently returns zero. Both FE catalogs are thin re-exports of
+  // canonicalSubjectsByBand today; this fails CI if anyone re-forks them into a
+  // divergent literal.
+  it('both wizard catalogs are band-for-band identical to the canonical band map', () => {
+    const bands = sortedUnique([
+      ...Object.keys(canonicalSubjectsByBand),
+      ...Object.keys(subjectsByLevel),
+      ...Object.keys(SUBJECTS_BY_LEVEL),
+    ]);
+    for (const band of bands) {
+      const origin = sortedUnique(canonicalSubjectsByBand[band as keyof typeof canonicalSubjectsByBand] ?? []);
+      expect(sortedUnique(subjectsByLevel[band] ?? []), `student wizard differs from origin at band "${band}"`).toEqual(origin);
+      expect(sortedUnique(SUBJECTS_BY_LEVEL[band] ?? []), `teacher wizard differs from origin at band "${band}"`).toEqual(origin);
+    }
+  });
+
+  // Coverage floor: a band must never offer a subject no demo teacher carries,
+  // or that subject is a guaranteed zero-match dead-end in the seeded demo.
+  it('every offered subject is carried by >= 1 demo teacher', () => {
+    const uncovered = offeredSubjects(canonicalSubjectsByBand).filter((name) => !seedTeacherSubjects.has(name));
+    expect(
+      uncovered,
+      `offered subjects carried by no demo teacher (scripts/demo-teachers-data.mjs) — add seed coverage or drop them: ${uncovered.join(', ')}`,
     ).toEqual([]);
   });
 

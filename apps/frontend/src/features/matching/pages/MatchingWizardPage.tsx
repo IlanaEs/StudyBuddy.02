@@ -637,7 +637,6 @@ export function MatchingWizardPage() {
       { value: 'elementary', label: 'יסודי' },
       { value: 'middle', label: 'חטיבה' },
       { value: 'high', label: 'תיכון' },
-      { value: 'academic', label: 'אקדמיה' },
     ];
     const parentLevels = [
       { value: 'elementary', label: 'בית ספר יסודי' },
@@ -1026,7 +1025,7 @@ export function MatchingWizardPage() {
   }
 
   // ── STEP 10: Review / Summary ─────────────────────────────────────────────────
-  const levelLabels: Record<string, string> = { elementary: 'יסודי', middle: 'חטיבה', high: 'תיכון', academic: 'אקדמיה' };
+  const levelLabels: Record<string, string> = { elementary: 'יסודי', middle: 'חטיבה', high: 'תיכון' };
   const goalLabels: Record<string, string> = { single_session: 'שיעור חד-פעמי', ongoing: 'מורה קבוע', exam_prep: 'מרתון לבחינה' };
 
   if (isLoading) {

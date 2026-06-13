@@ -60,7 +60,6 @@ const LEVELS: { value: string; he: string; en: string }[] = [
   { value: 'elementary', he: 'יסודי', en: 'Elementary' },
   { value: 'middle', he: 'חטיבה', en: 'Middle' },
   { value: 'high', he: 'תיכון', en: 'High School' },
-  { value: 'academic', he: 'אקדמי', en: 'Academic' },
 ];
 function levelLabel(value: string | null): string {
   if (!value) return 'לא הוגדר (Not set)';

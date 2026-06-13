@@ -1,3 +1,6 @@
+// eslint-disable-next-line import/extensions -- root-level taxonomy origin (.mjs + sibling .d.mts)
+import { canonicalSubjectsByBand } from '../../../../scripts/taxonomy-data.mjs';
+
 export const SB_ORANGE = '#f97316';
 export const SB_ORANGE_SOFT = 'rgba(249,115,22,0.15)';
 /** Cyber-professional neon accent (spec: #00f6ff) — used on progress bars and active borders. */
@@ -31,15 +34,15 @@ export type TeachingLevel = (typeof TEACHING_LEVELS)[number]['value'];
 // (student/academic-assistant, Screen 2) is unaffected.
 export const SCHOOL_TEACHING_LEVELS = TEACHING_LEVELS.filter((l) => l.value !== 'academic');
 
-export const SUBJECTS_BY_LEVEL: Record<TeachingLevel, string[]> = {
-  // Elementary kept realistic for the demo (no off-band subjects like CS). All
-  // names must exist in the subjects taxonomy (scripts/taxonomy-data.mjs) or the
-  // teacher_subjects name→id lookup silently drops them and breaks matching.
-  elementary: ['חשבון', 'גאומטריה', 'אנגלית', 'עברית', 'קריאה וכתיבה', 'הבנת הנקרא', 'מדעים', 'עזרה בשיעורי בית'],
-  middle: ['מתמטיקה', 'עברית', 'אנגלית', 'פיזיקה', 'כימיה', 'ביולוגיה', 'היסטוריה', 'אזרחות', 'מדעי המחשב', 'ספרות'],
-  high: ['מתמטיקה', 'עברית', 'אנגלית', 'פיזיקה', 'כימיה', 'ביולוגיה', 'היסטוריה', 'אזרחות', 'מדעי המחשב', 'ספרות', 'גיאוגרפיה', 'אמנות', 'מוזיקה'],
-  academic: ['מתמטיקה', 'פיזיקה', 'כימיה', 'ביולוגיה', 'מדעי המחשב', 'כלכלה', 'פסיכולוגיה', 'סוציולוגיה', 'חשבונאות', 'סטטיסטיקה', 'לינארית', 'חדו״א', 'הסתברות'],
-};
+// Subjects offered per teaching level. NOT defined here — a thin re-export of the
+// canonical band→subjects map (scripts/taxonomy-data.mjs), the single origin
+// shared with the student wizard (matching/data/subjectsByLevel.ts) so a teacher
+// and a student at the same band always see the identical set. Edit the catalog
+// there. The taxonomy sync guard (apps/backend/tests/taxonomySync.test.ts) fails
+// CI if this diverges or offers a subject no demo teacher carries.
+// Keyed by band only (no `academic`); the teaching-level picker uses
+// SCHOOL_TEACHING_LEVELS, and consumers index with `?? []`.
+export const SUBJECTS_BY_LEVEL: Record<string, string[]> = canonicalSubjectsByBand;
 
 export const TEACHING_STYLES = [
   { value: 'very_patient', label: 'סבלני/ת מאוד' },
