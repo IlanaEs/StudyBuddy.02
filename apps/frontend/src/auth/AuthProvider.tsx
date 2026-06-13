@@ -9,6 +9,8 @@ import { clearAppSessionStorage } from './sessionStorageKeys';
 import {
   clearActiveAccount,
   setActiveAccountId,
+  getStoredActiveAccountId,
+  resolveRestorableAccountId,
   getAccountSelectionResolved,
   setAccountSelectionResolved,
 } from './activeAccount';
@@ -64,6 +66,14 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const PROVIDER_TOKEN_KEY = 'sb_provider_token';
+
+/** Payload of GET /api/auth/me (accounts/activeAccount are additive). */
+type MeData = {
+  user: LocalUser;
+  profile: MeProfile;
+  accounts?: Account[];
+  activeAccount?: Account | null;
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
@@ -174,12 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    const response = await apiRequest<{
-      user: LocalUser;
-      profile: MeProfile;
-      accounts?: Account[];
-      activeAccount?: Account | null;
-    }>('/api/auth/me', undefined, effectiveSession.access_token);
+    const response = await apiRequest<MeData>('/api/auth/me', undefined, effectiveSession.access_token);
 
     // A newer resolveSession started while this /me was in flight — its result is
     // the current truth, so discard this stale one rather than overwrite it.
@@ -234,6 +239,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    let resolved = response.data;
+
+    // Restore the persisted account selection. A full page load — including the
+    // return leg of every Google OAuth redirect (calendar connect/sync) — starts
+    // with an EMPTY header store, so the /me above resolved the identity's
+    // DEFAULT account and would silently flip a student/parent session back to
+    // teacher. If the stored choice differs and is still one of the identity's
+    // active accounts (validated against the server-fresh list — the raw stored
+    // id is never trusted and never sent unvalidated), pin it and re-resolve /me
+    // once as that account; the re-run resolves storedId === activeAccount.id,
+    // so this cannot recurse. On a transient failure of the restore round-trip,
+    // keep the first (default-account) response so login still succeeds.
+    const restorableId = resolveRestorableAccountId(
+      getStoredActiveAccountId(),
+      resolved.activeAccount ?? null,
+      resolved.accounts ?? [],
+    );
+    if (restorableId) {
+      setActiveAccountId(restorableId);
+      const restoredResponse = await apiRequest<MeData>('/api/auth/me', undefined, effectiveSession.access_token);
+      if (seq !== resolveSeqRef.current) return;
+      if (!('error' in restoredResponse)) {
+        resolved = restoredResponse.data;
+      }
+    }
+
     setSession((prev) => {
       const willPreserve = !effectiveSession.provider_token && !!prev?.provider_token && prev.user?.id === effectiveSession.user?.id;
       if (willPreserve) {
@@ -241,11 +272,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return effectiveSession;
     });
-    const resolvedUser = response.data.user;
+    const resolvedUser = resolved.user;
     setUser(resolvedUser);
-    setProfile(response.data.profile ?? null);
-    const resolvedAccounts = response.data.accounts ?? [];
-    const resolvedActiveAccount = response.data.activeAccount ?? null;
+    setProfile(resolved.profile ?? null);
+    const resolvedAccounts = resolved.accounts ?? [];
+    const resolvedActiveAccount = resolved.activeAccount ?? null;
     setAccounts(resolvedAccounts);
     setActiveAccount(resolvedActiveAccount);
     // Pin the resolved active account into the header store so subsequent data

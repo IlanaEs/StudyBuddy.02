@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { FloatingTopNavbar, GhostButton, SecondaryButton } from '../../design-system';
@@ -7,6 +8,8 @@ import { DynamicHeroLogo } from '../../components/landing/DynamicHeroLogo';
 import { LandingStage } from '../../components/landing/LandingStage';
 import { LandingSections } from '../../components/landing/LandingSections';
 import { mainLandingContent } from '../../content/landing/mainLandingContent';
+import { useAuth } from '../../auth/AuthProvider';
+import { getPendingOnboardingResumePath } from '../../auth/onboardingResume';
 
 // Student decorative element groups (atmosphere; dissolve during the Product beat).
 const STUDENT_DECORATIONS = [
@@ -22,7 +25,20 @@ const STUDENT_DECORATIONS = [
  */
 export function MainLandingRoute() {
   const navigate = useNavigate();
+  const auth = useAuth();
   const { hero } = mainLandingContent;
+
+  // Safety net for a misrouted onboarding OAuth return. When Supabase can't honor
+  // the wizard's redirectTo (its path isn't in the Auth "Redirect URLs" allowlist)
+  // it falls back to the Site URL ('/') — the token hash lands here, AuthProvider
+  // creates the session, but the wizard never mounts to finish provisioning, so
+  // the user is stranded on the landing page (and only a second attempt works).
+  // If an onboarding OAuth is pending and a session now exists, resume the wizard.
+  useEffect(() => {
+    if (auth.status === 'loading' || !auth.session) return;
+    const resumePath = getPendingOnboardingResumePath();
+    if (resumePath) navigate(resumePath, { replace: true });
+  }, [auth.status, auth.session, navigate]);
 
   return (
     <div className="landing-theme landing-redesign" dir="rtl" lang="he">

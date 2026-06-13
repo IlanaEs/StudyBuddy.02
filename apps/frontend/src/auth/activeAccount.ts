@@ -7,7 +7,13 @@
 // The module variable starts EMPTY (it is NOT auto-seeded from localStorage), so
 // the very first /api/auth/me on a fresh load carries no X-Account-Id and the
 // backend resolves the default account — avoiding a 403 if a stored id is stale.
-// AuthProvider sets it from the resolved active account after /me succeeds.
+// AuthProvider then RESTORES the persisted choice via resolveRestorableAccountId
+// (validated against the server-fresh accounts list) and re-resolves /me once, so
+// a full page load — including the return leg of a Google Calendar OAuth redirect
+// — keeps the user on the account they selected instead of snapping back to the
+// identity's default (usually teacher).
+
+import type { Account, UserRole } from './authTypes';
 
 export const ACTIVE_ACCOUNT_KEY = 'sb_active_account_id';
 
@@ -47,6 +53,53 @@ export function clearActiveAccount(): void {
 /** Header injected by client.ts. Empty until an active account is set post-/me. */
 export function getActiveAccountHeader(): Record<string, string> {
   return _activeAccountId ? { 'X-Account-Id': _activeAccountId } : {};
+}
+
+/**
+ * Decides whether a persisted account choice should be restored after the
+ * bootstrap /me resolved the DEFAULT account (the header store starts empty on
+ * every full page load). Returns the stored id only when it differs from the
+ * resolved active account AND still belongs to the identity's active accounts
+ * per the server-fresh list. A stale, foreign, or non-active stored id returns
+ * null — it is never sent to the backend, so the bootstrap's 401/403 semantics
+ * (see the OAuth provisioning contract) are untouched and a bad stored value can
+ * never 403-loop a valid session.
+ */
+export function resolveRestorableAccountId(
+  storedId: string | null,
+  resolvedActiveAccount: Pick<Account, 'id'> | null,
+  accounts: Array<Pick<Account, 'id' | 'status'>>,
+): string | null {
+  if (!storedId || !resolvedActiveAccount || storedId === resolvedActiveAccount.id) {
+    return null;
+  }
+  const owned = accounts.find((account) => account.id === storedId);
+  return owned?.status === 'active' ? storedId : null;
+}
+
+/**
+ * Picks the account to auto-activate when a role-gated route does not match the
+ * current effective role but the identity OWNS an account the route allows —
+ * e.g. /student/dashboard visited while the teacher account is active. Returns
+ * null when the route is unrestricted, the role already matches, or no owned
+ * ACTIVE account fits; callers then keep the existing redirect-to-own-dashboard
+ * behavior. When several allowed roles are owned, allowedRoles order wins.
+ */
+export function findAutoSelectAccount<T extends Pick<Account, 'id' | 'role' | 'status'>>(
+  allowedRoles: UserRole[] | undefined,
+  effectiveRole: UserRole | null,
+  accounts: T[],
+): T | null {
+  if (!allowedRoles || !effectiveRole || allowedRoles.includes(effectiveRole)) {
+    return null;
+  }
+  for (const role of allowedRoles) {
+    const owned = accounts.find((account) => account.role === role && account.status === 'active');
+    if (owned) {
+      return owned;
+    }
+  }
+  return null;
 }
 
 // "Has the user chosen which account to enter this session?" Session-scoped (not

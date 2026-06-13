@@ -25,10 +25,12 @@ import { getSupabaseBrowserClient } from '../../../auth/supabaseClient';
 import { getDashboardPathByRole } from '../../../utils/getDashboardPathByRole';
 import { completeOAuthSignup, createStudentProfile, createStudentIntake, runMatching } from '../../../api/students';
 import { createAccount } from '../../../api/accounts';
+import { ensureAccountForRole } from '../../../auth/ensureAccountForRole';
+import { STUDENT_OAUTH_PENDING_KEY } from '../../../auth/onboardingResume';
 
 const TOTAL_STEPS = 10;
 const AUTH_STEP = 2;
-const OAUTH_PENDING_KEY = 'sb_student_onboarding_oauth_pending';
+const OAUTH_PENDING_KEY = STUDENT_OAUTH_PENDING_KEY;
 
 const BUDGET_MIN = 0;
 const BUDGET_MAX = 500;
@@ -143,12 +145,18 @@ export function MatchingWizardPage() {
     const oauthPending = localStorage.getItem(OAUTH_PENDING_KEY);
     if (!oauthPending) return;
     if (!auth.session?.access_token) return;
+    // Wait for the saved draft to rehydrate before consuming the pending flag.
+    // handlePostOAuthReturn bails without provisioning if accountType is null, so
+    // firing before restoreFromStorage runs would silently drop the signup (auth
+    // user created, but no app user) and never retry. accountType is in the deps,
+    // so this re-fires once the store restores.
+    if (!intake.accountType) return;
 
     oauthReturnHandled.current = true;
     localStorage.removeItem(OAUTH_PENDING_KEY);
     void handlePostOAuthReturn();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.status, auth.session?.access_token]);
+  }, [auth.status, auth.session?.access_token, intake.accountType]);
 
   // ── Guard: unauthenticated user must not bypass auth step ─────────────────────
   useEffect(() => {
@@ -165,7 +173,11 @@ export function MatchingWizardPage() {
     if (!intake.accountType || !auth.session?.access_token) return;
 
     if (hasRoleConflict) {
-      setAuthError('החשבון המחובר לא מתאים למסלול שנבחר.');
+      // Not a dead-end under the multi-account model: the banner explains that
+      // Continue enters/creates the separate student/parent account. Resolving
+      // the conflict (createAccount + switchAccount) happens ONLY on the explicit
+      // Continue click (handleAuthenticatedContinue) — never passively here,
+      // where a restored draft could otherwise auto-create an account.
       return;
     }
 
@@ -338,12 +350,32 @@ export function MatchingWizardPage() {
       setAuthError('נא להכניס את שם הילד/ה כדי להמשיך.');
       return;
     }
-    if (hasRoleConflict) {
-      setAuthError('החשבון המחובר לא מתאים למסלול שנבחר.');
-      return;
-    }
     const token = auth.session?.access_token;
     if (!token) return;
+
+    // A role conflict (e.g. the active account is teacher but the user chose the
+    // student/parent track) is NOT a dead-end: the same Google identity enters
+    // its separate account of the intended role — switching to it if owned,
+    // creating it first (idempotent server-side) if not. Runs BEFORE the
+    // studentId early-advance so every subsequent wizard request carries the
+    // right X-Account-Id.
+    if (hasRoleConflict) {
+      setAuthLoading(true);
+      setAuthError(null);
+      const ensured = await ensureAccountForRole({
+        targetRole: expectedRole,
+        accounts: auth.accounts,
+        activeAccount: auth.activeAccount,
+        accessToken: token,
+        switchAccount: auth.switchAccount,
+      });
+      setAuthLoading(false);
+      if (!ensured.ok) {
+        setAuthError(toHebrewOnboardingError(ensured.error, ensured.status));
+        return;
+      }
+    }
+
     if (intake.studentId) {
       setStep(AUTH_STEP + 1);
       return;
@@ -796,22 +828,17 @@ export function MatchingWizardPage() {
         />
 
         {hasRoleConflict && (
-          <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: 'color-mix(in oklab, var(--coral) 15%, var(--surface-2))', color: 'var(--coral)', border: '1px solid color-mix(in oklab, var(--coral) 30%, transparent)' }}>
-            החשבון המחובר לא מתאים למסלול שנבחר.
-            <div className="flex gap-2 mt-3">
+          // Informational, not a dead-end: one Google identity can own separate
+          // accounts per role. Continue enters/creates the intended account.
+          <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: 'color-mix(in oklab, var(--cyan) 10%, var(--surface-2))', color: 'var(--text-2)', border: '1px solid color-mix(in oklab, var(--cyan) 25%, var(--line-2))' }}>
+            {`אתם מחוברים כרגע עם חשבון ${auth.user?.role === 'parent' ? 'הורה' : auth.user?.role === 'student' ? 'תלמיד/ה' : 'מורה'}. בלחיצה על "המשך" ניכנס לחשבון ה${isParent ? 'הורה' : 'תלמיד/ה'} הנפרד שלכם תחת אותו חשבון Google — וניצור אותו אם הוא עוד לא קיים.`}
+            <div className="mt-3">
               <button
                 onClick={() => { void auth.logout().then(() => window.location.reload()); }}
                 className="px-3 py-2 rounded-lg text-sm"
-                style={{ ...ctaPrimary, fontSize: 13 }}
-              >
-                התנתקות
-              </button>
-              <button
-                onClick={() => navigate(`/${auth.user?.role ?? ''}`)}
-                className="px-3 py-2 rounded-lg text-sm"
                 style={ctaBack}
               >
-                מעבר למסלול הנכון
+                התנתקות והרשמה עם חשבון אחר
               </button>
             </div>
           </div>
