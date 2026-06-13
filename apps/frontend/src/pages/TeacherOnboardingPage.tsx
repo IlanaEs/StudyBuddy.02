@@ -18,6 +18,7 @@ import {
 } from '../api/teacherCalendar';
 import { ReauthRequiredError } from '../auth/ensureActiveSession';
 import { consumeEarlyProviderToken } from '../auth/supabaseClient';
+import { TEACHER_OAUTH_PENDING_KEY as TEACHER_OAUTH_PENDING_KEY_SHARED } from '../auth/onboardingResume';
 
 import { useAuth } from '../auth/AuthProvider';
 import { createAccount } from '../api/accounts';
@@ -877,7 +878,7 @@ export function TeacherOnboardingPage() {
   const [authGateLoading, setAuthGateLoading] = useState(false);
   // Tracks whether a Google OAuth return is pending post-auth sync.
   const pendingPostAuthType = useRef<'oauth' | null>(null);
-  const TEACHER_OAUTH_PENDING_KEY = 'sb_teacher_onboarding_oauth_pending';
+  const TEACHER_OAUTH_PENDING_KEY = TEACHER_OAUTH_PENDING_KEY_SHARED;
   // Debounce timer for guest localStorage writes
   const guestSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

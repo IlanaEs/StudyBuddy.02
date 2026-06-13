@@ -1,3 +1,4 @@
+import { getActiveAccountHeader } from '../auth/activeAccount';
 import { ensureActiveSupabaseSession } from '../auth/ensureActiveSession';
 import { getSupabaseBrowserClient } from '../auth/supabaseClient';
 
@@ -65,7 +66,10 @@ export type CalendarStatusResult = {
 export async function fetchCalendarStatus(accessToken: string): Promise<CalendarStatusResult> {
   try {
     const res = await fetch(`${API}/api/teachers/me/calendar/status`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      // X-Account-Id keeps a multi-account identity resolved as its TEACHER
+      // account on these requireRole('teacher') endpoints (otherwise the
+      // backend falls back to the default account, which may be another role).
+      headers: { Authorization: `Bearer ${accessToken}`, ...getActiveAccountHeader() },
     });
     if (!res.ok) return { status: 'not_connected', lastSyncedAt: null };
     const body = (await res.json()) as { data?: { status?: string; lastSyncedAt?: string | null } };
@@ -87,6 +91,7 @@ export async function syncCalendar(accessToken: string, providerToken: string): 
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'X-Provider-Token': providerToken,
+      ...getActiveAccountHeader(),
     },
   });
   const body = (await res.json()) as { data?: { busySlots?: BusySlot[] }; error?: string };
@@ -102,7 +107,7 @@ export async function syncCalendar(accessToken: string, providerToken: string): 
 export async function disconnectCalendar(accessToken: string): Promise<void> {
   const res = await fetch(`${API}/api/teachers/me/calendar/disconnect`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: { Authorization: `Bearer ${accessToken}`, ...getActiveAccountHeader() },
   });
   if (!res.ok) {
     const body = (await res.json()) as { error?: string };
@@ -114,7 +119,7 @@ export async function disconnectCalendar(accessToken: string): Promise<void> {
 export async function fetchBusySlots(accessToken: string): Promise<BusySlot[]> {
   try {
     const res = await fetch(`${API}/api/teachers/me/calendar/busy-slots`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: { Authorization: `Bearer ${accessToken}`, ...getActiveAccountHeader() },
     });
     if (!res.ok) return [];
     const body = (await res.json()) as { data?: { busySlots?: BusySlot[] } };

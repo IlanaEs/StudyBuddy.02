@@ -1,3 +1,4 @@
+import { getActiveAccountHeader } from '../auth/activeAccount';
 import { ensureActiveSupabaseSession } from '../auth/ensureActiveSession';
 import { getSupabaseBrowserClient } from '../auth/supabaseClient';
 
@@ -40,6 +41,9 @@ export async function syncStudentCalendarAvailability(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
       'X-Provider-Token': providerToken,
+      // Without the active account the backend resolves the identity's DEFAULT
+      // account (often teacher) and this student/parent-guarded endpoint 403s.
+      ...getActiveAccountHeader(),
     },
     body: JSON.stringify(windowDays ? { windowDays } : {}),
   });
@@ -103,6 +107,7 @@ export async function addLessonToGoogleCalendar(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
       'X-Provider-Token': providerToken,
+      ...getActiveAccountHeader(),
     },
   });
 
