@@ -421,6 +421,24 @@ export function MatchingWizardPage() {
       setStep(AUTH_STEP);
       return false;
     }
+    // Defensive: a parent-for-child intake must POST under the PARENT account, or
+    // the backend resolves the identity's student/teacher account and 403s. The
+    // earlier handleAuthenticatedContinue already switches, but re-pin here so an
+    // account drift (reload, account-less re-resolve) between profile creation and
+    // submit can't send the wrong X-Account-Id.
+    if (isParent) {
+      const ensured = await ensureAccountForRole({
+        targetRole: 'parent',
+        accounts: auth.accounts,
+        activeAccount: auth.activeAccount,
+        accessToken: token,
+        switchAccount: auth.switchAccount,
+      });
+      if (!ensured.ok) {
+        setErrors({ submit: toHebrewOnboardingError(ensured.error, ensured.status) });
+        return false;
+      }
+    }
     const result = await createStudentIntake(
       {
         student_id: intake.studentId,

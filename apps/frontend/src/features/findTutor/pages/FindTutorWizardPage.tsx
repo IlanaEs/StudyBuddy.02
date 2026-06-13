@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { GraduationCap, CalendarHeart, Flame, KeyRound, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthProvider';
+import { ensureAccountForRole } from '../../../auth/ensureAccountForRole';
 import { useMatchingStore } from '../../matching/store/matchingStore';
 import { DualRangeSlider } from '../../matching/components/DualRangeSlider';
 import { AvailabilityGrid } from '../../matching/components/AvailabilityGrid';
@@ -290,6 +291,24 @@ export function FindTutorWizardPage() {
 
   async function runMatch() {
     if (!token || !studentId) return;
+    // A parent-scoped search (childId present) must run under the PARENT account,
+    // or POST /api/student-intakes resolves to the identity's student/teacher
+    // account and 403s (role guard or child-ownership). /find-tutor is shared by
+    // student+parent, so ProtectedRoute does NOT auto-switch when a student
+    // account is already active — pin the parent account here, before submit.
+    if (childId) {
+      const ensured = await ensureAccountForRole({
+        targetRole: 'parent',
+        accounts: auth.accounts,
+        activeAccount: auth.activeAccount,
+        accessToken: token,
+        switchAccount: auth.switchAccount,
+      });
+      if (!ensured.ok) {
+        setError('לא ניתן לעבור לחשבון ההורה. נסו שוב.');
+        return;
+      }
+    }
     if (subjectIsCustom) {
       // Off-taxonomy course → manual-match lead, not an automatic search.
       await submitManualMatch();
@@ -314,7 +333,7 @@ export function FindTutorWizardPage() {
         token,
       );
       if ('error' in res) {
-        setError(res.status === 403 ? 'ההתחברות שלך פגה. התחבר/י מחדש.' : (res.error ?? 'שגיאה ביצירת החיפוש. נסו שוב.'));
+        setError(res.status === 403 ? 'אין הרשאה לשלוח בקשה זו עבור החשבון הפעיל. נסו שוב.' : (res.error ?? 'שגיאה ביצירת החיפוש. נסו שוב.'));
         return;
       }
       const matching = await runMatching(res.data.intake_id, token);
