@@ -409,6 +409,27 @@ export function MatchingWizardPage() {
     }
   }
 
+  // Account boundaries are strict: ONE Google identity can own SEPARATE student
+  // and parent accounts. The matching draft (studentId) is persisted in shared
+  // localStorage, so a studentId from one account context — e.g. the independent
+  // student profile (students.user_id = the identity) — must NEVER carry into
+  // another (parent-for-child). Reusing it makes the intake POST a non-child row
+  // that 403s on ownership, and would wrongly treat the student profile as the
+  // parent's child. On an ACTUAL type change we drop the leaked studentId so the
+  // new flow creates/selects its OWN student row (a parent gets a real child:
+  // students.parent_user_id = the identity), and reset the create-once guard so
+  // that fresh creation can run. Re-selecting the same type is a no-op — it must
+  // never clear a studentId just created for the current flow (avoids duplicates).
+  function selectAccountType(next: 'independent_student' | 'parent_for_child') {
+    if (intake.accountType === next) return;
+    profileCreateStarted.current = false;
+    updateIntake(
+      next === 'independent_student'
+        ? { accountType: 'independent_student', childName: '', studentId: null }
+        : { accountType: 'parent_for_child', studentId: null },
+    );
+  }
+
   // ── Submit: create intake + clear draft ───────────────────────────────────────
   async function submitIntake(): Promise<boolean> {
     const token = auth.session?.access_token;
@@ -595,14 +616,14 @@ export function MatchingWizardPage() {
           label="אני התלמיד/ה"
           description="חשבון תלמיד/ה עצמאי למציאת מורה עבורי"
           selected={intake.accountType === 'independent_student'}
-          onClick={() => updateIntake({ accountType: 'independent_student', childName: '' })}
+          onClick={() => selectAccountType('independent_student')}
         />
         <WizardOptionCard
           icon={<Users size={20} />}
           label="אני הורה / אחראי/ת עבור תלמיד"
           description="חשבון הורה למציאת מורה לילד/ה"
           selected={intake.accountType === 'parent_for_child'}
-          onClick={() => updateIntake({ accountType: 'parent_for_child' })}
+          onClick={() => selectAccountType('parent_for_child')}
         />
         {errors.accountType && <div style={{ color: 'var(--coral)', fontSize: 13, marginTop: 8 }}>{errors.accountType}</div>}
         <div className="flex gap-3 mt-4">
