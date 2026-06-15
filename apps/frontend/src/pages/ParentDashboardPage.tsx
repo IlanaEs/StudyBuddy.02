@@ -10,6 +10,7 @@ import type { ParentDashboardPayload, HomeworkTaskStatus } from '../features/par
 import { AddLessonToCalendarButton } from '../components/AddLessonToCalendarButton';
 import { MonthlyCalendarAnchor } from '../features/parent/components/MonthlyCalendarAnchor';
 import { DayAgenda } from '../features/parent/components/DayAgenda';
+import { ParentDashboardLayout } from '../features/parent/components/ParentDashboardLayout';
 
 // ── Canonical accents (consume --sb tokens; zero raw hex) ───────────────────────
 // No canonical purple exists; the family schedule uses the active accent.
@@ -682,16 +683,20 @@ export function ParentDashboardPage() {
   }
   if (error) {
     return (
-      <FullPageState>
-        <GlobalStateCard variant="error" title="שגיאה בטעינת הדשבורד" description={error} cta={{ label: 'נסה שוב', onClick: () => window.location.reload() }} />
-      </FullPageState>
+      <ParentDashboardLayout>
+        <FullPageState>
+          <GlobalStateCard variant="error" title="שגיאה בטעינת הדשבורד" description={error} cta={{ label: 'נסה שוב', onClick: () => window.location.reload() }} />
+        </FullPageState>
+      </ParentDashboardLayout>
     );
   }
   if (!data || data.children.length === 0) {
     return (
-      <FullPageState>
-        <GlobalStateCard variant="empty" icon={<Users size={32} />} title="לא נמצאו ילדים מקושרים לחשבונך" description="פנה לתמיכה להוספת ילד." />
-      </FullPageState>
+      <ParentDashboardLayout>
+        <FullPageState>
+          <GlobalStateCard variant="empty" icon={<Users size={32} />} title="לא נמצאו ילדים מקושרים לחשבונך" description="פנה לתמיכה להוספת ילד." />
+        </FullPageState>
+      </ParentDashboardLayout>
     );
   }
 
@@ -703,19 +708,10 @@ export function ParentDashboardPage() {
   const { upcomingLesson, pendingApproval, latestLessonUpdate, previousLessons, weeklyGroups, pendingRequests } = transformPayload(data);
 
   return (
-    <div dir="rtl" className="parent-dashboard" style={{ minHeight: '100dvh', background: sb.bgCanvas, color: sb.textPrimary, display: 'flex', flexDirection: 'column' }}>
-      {/* Brand header — shell chrome (navbar canonization is a separate task). */}
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', borderBottom: `1px solid ${sb.borderCyber}`, background: sb.glassBase, position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(12px)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ width: 32, height: 32, borderRadius: sb.radiusSmall, background: `color-mix(in oklab, ${ACCENT} 12%, transparent)`, border: `1.5px solid color-mix(in oklab, ${ACCENT} 30%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: ACCENT }}>
-            <BookOpen size={16} />
-          </span>
-          <span style={{ fontSize: 15, fontWeight: 800, color: sb.textPrimary, letterSpacing: '-0.02em' }}>StudyBuddy</span>
-          <span style={{ fontSize: 11, fontWeight: 600, color: sb.textMuted, paddingRight: 8, borderRight: `1px solid ${sb.borderCyber}` }}>דשבורד הורה (Parent Dashboard)</span>
-        </div>
-      </header>
-
-      <main style={{ flex: 1, maxWidth: 1200, width: '100%', margin: '0 auto', padding: '32px 20px 64px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <ParentDashboardLayout>
+      {/* Top padding clears the fixed floating navbar (≈64px), matching the
+          teacher/student dashboard content offset. */}
+      <main className="parent-dashboard" style={{ maxWidth: 1200, width: '100%', margin: '0 auto', padding: 'calc(32px + 64px) 20px 64px', display: 'flex', flexDirection: 'column', gap: 24 }}>
         <div>
           <h1 style={{ margin: '0 0 4px', fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 900, color: sb.textPrimary, letterSpacing: '-0.025em' }}>
             היי {parentName}, איזה כיף לראות אותך.
@@ -743,6 +739,6 @@ export function ParentDashboardPage() {
           </div>
         </div>
       </main>
-    </div>
+    </ParentDashboardLayout>
   );
 }

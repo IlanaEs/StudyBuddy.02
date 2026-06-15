@@ -5,6 +5,7 @@ import { Plus, Check, ChevronLeft, Loader2 } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthProvider';
 import { GlobalStateCard, sbTokens as sb } from '../../../design-system';
 import { GradeSelect } from '../components/GradeSelect';
+import { ParentDashboardLayout } from '../components/ParentDashboardLayout';
 import { getParentChildren, type ParentChild } from '../api/getParentChildren';
 import { createParentChild } from '../api/createParentChild';
 
@@ -51,7 +52,8 @@ export function ParentFindTutorPage() {
   };
 
   return (
-    <div dir="rtl" lang="he" style={{ minHeight: '100dvh', background: sb.bgCanvas, color: sb.textPrimary, fontFamily: sb.fontUi, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px' }}>
+    <ParentDashboardLayout>
+    <div dir="rtl" lang="he" style={{ minHeight: '100dvh', background: sb.bgCanvas, color: sb.textPrimary, fontFamily: sb.fontUi, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'calc(40px + 64px) 20px 40px' }}>
       <div className="sb-card sb-find-tutor-card" style={{ padding: 'clamp(28px, 4vw, 40px) clamp(24px, 3vw, 36px)', display: 'flex', flexDirection: 'column', gap: 26 }}>
         <button
           type="button"
@@ -109,6 +111,7 @@ export function ParentFindTutorPage() {
         )}
       </div>
     </div>
+    </ParentDashboardLayout>
   );
 }
 
