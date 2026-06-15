@@ -442,14 +442,17 @@ export function MatchingWizardPage() {
       setStep(AUTH_STEP);
       return false;
     }
-    // Defensive: a parent-for-child intake must POST under the PARENT account, or
-    // the backend resolves the identity's student/teacher account and 403s. The
-    // earlier handleAuthenticatedContinue already switches, but re-pin here so an
-    // account drift (reload, account-less re-resolve) between profile creation and
-    // submit can't send the wrong X-Account-Id.
-    if (isParent) {
+    // Defensive: the intake must POST under the account matching the chosen flow
+    // (independent student → student account, parent-for-child → parent account),
+    // or the backend resolves the identity's DEFAULT account (often teacher) and
+    // 403s on role/ownership. handleAuthenticatedContinue already switched, but the
+    // active account can drift back to the default between then and submit — e.g.
+    // the availability-step Google-Calendar redirect or a refresh re-resolves with
+    // an empty header store. Re-pin the expected-role account here so the POST
+    // always carries the correct X-Account-Id. No-op when it's already active.
+    if (intake.accountType) {
       const ensured = await ensureAccountForRole({
-        targetRole: 'parent',
+        targetRole: expectedRole,
         accounts: auth.accounts,
         activeAccount: auth.activeAccount,
         accessToken: token,
