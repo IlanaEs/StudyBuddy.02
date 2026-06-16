@@ -463,9 +463,43 @@ export function MatchingWizardPage() {
         return false;
       }
     }
+    // The shared onboarding draft can carry a studentId from a DIFFERENT account
+    // context on the same identity — a parent's child (parent_user_id) vs the
+    // identity's own student (user_id). The intake must target the profile KIND
+    // matching the active account's role (student → own profile; parent → child),
+    // or assertStudentAccess 403s. Re-resolve it server-side under the now-active
+    // role account instead of trusting the persisted id: createStudentProfile
+    // (ensureStudentProfile) is role-scoped + idempotent, so this heals a
+    // cross-context leak AND creates the profile if the upstream studentId
+    // skip-guard short-circuited its creation. Fixes the 403 in BOTH directions
+    // (add-student-to-parent and add-parent-to-student).
+    let studentId = intake.studentId;
+    if (intake.accountType) {
+      const profile = await createStudentProfile(
+        isParent
+          ? {
+              account_type: 'parent_for_child',
+              full_name: auth.user?.full_name ?? intake.fullName,
+              child_name: intake.childName,
+              grade_level: intake.gradeLevel ?? null,
+            }
+          : {
+              account_type: 'independent_student',
+              full_name: auth.user?.full_name ?? intake.fullName,
+              grade_level: intake.gradeLevel ?? null,
+            },
+        token,
+      );
+      if ('error' in profile) {
+        setErrors({ submit: toHebrewOnboardingError(profile.error, profile.status) });
+        return false;
+      }
+      studentId = profile.data.student_id;
+      if (studentId !== intake.studentId) updateIntake({ studentId });
+    }
     const result = await createStudentIntake(
       {
-        student_id: intake.studentId,
+        student_id: studentId,
         subject_name: intake.subjectName,
         level: intake.subLevel,
         goal: intake.learningGoal,

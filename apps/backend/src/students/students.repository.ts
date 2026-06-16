@@ -21,6 +21,27 @@ export async function findStudentByUserId(userId: string): Promise<string | null
   return (data?.[0]?.id as string) ?? null;
 }
 
+// A CHILD of this parent matching `name` (parent-context profile: parent_user_id
+// set, user_id NULL). Role-scoped on purpose — must NEVER return the identity's
+// own independent-student profile. Used by ensureStudentProfile's parent branch so
+// a parent flow reuses the right child (and a parent can hold several children, so
+// we match by name) instead of conflating it with an own-student row.
+export async function findChildByParentAndName(parentUserId: string, name: string): Promise<string | null> {
+  const { data, error } = await adminClient()
+    .from('students')
+    .select('id')
+    .eq('parent_user_id', parentUserId)
+    .eq('full_name', name)
+    .order('created_at', { ascending: true })
+    .limit(1);
+
+  if (error) {
+    console.error('[findChildByParentAndName]', error);
+    throw new AppError('Unable to query children', 500);
+  }
+  return (data?.[0]?.id as string) ?? null;
+}
+
 export interface StudentProfileRow {
   id: string;
   full_name: string;
@@ -71,8 +92,10 @@ export async function insertStudentProfile(
     // violation — resolve it to the existing row instead of failing. This makes
     // duplicate creation impossible even under the signup race that produced it.
     if (error?.code === '23505') {
-      const existing = await findStudentByUserId(userId);
-      if (existing) return existing;
+      // Resolve to the identity's OWN profile (user_id), never a child — the
+      // unique violation is on students_user_id_unique, so an own row exists.
+      const existing = await getStudentProfileByUserId(userId);
+      if (existing) return existing.id;
     }
     console.error('[insertStudentProfile]', error);
     throw new AppError('Unable to create student profile', 500);

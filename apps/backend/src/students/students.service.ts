@@ -1,6 +1,6 @@
 import { AppError } from '../errors/AppError.js';
 import {
-  findStudentByUserId,
+  findChildByParentAndName,
   getStudentProfileByUserId,
   insertChildProfile,
   insertStudentProfile,
@@ -42,19 +42,25 @@ export async function ensureStudentProfile(
     throw new AppError('החשבון המחובר לא מתאים למסלול שנבחר.', 403);
   }
 
-  // Idempotent: return existing profile if one already exists for this user
-  const existingId = await findStudentByUserId(userId);
-  if (existingId) return { student_id: existingId };
-
-  let studentId: string;
+  // Idempotency MUST be role-scoped, or one identity's accounts cross-contaminate:
+  // a generic user_id-OR-parent_user_id lookup hands a parent's child to the
+  // student flow (and an own-student to the parent flow), so the intake then
+  // targets the wrong KIND of profile for the active role and 403s on ownership.
   if (role === 'parent') {
     if (!body.child_name) {
       throw new AppError('child_name is required for parent accounts', 422);
     }
-    studentId = await insertChildProfile(userId, body.child_name, body.grade_level ?? null);
-  } else {
-    studentId = await insertStudentProfile(userId, body.full_name ?? '', body.grade_level ?? null);
+    // Parent context: a CHILD (parent_user_id) — never the identity's own student.
+    // Match by name so a parent can hold several children and re-runs are idempotent.
+    const existingChild = await findChildByParentAndName(userId, body.child_name);
+    if (existingChild) return { student_id: existingChild };
+    const childId = await insertChildProfile(userId, body.child_name, body.grade_level ?? null);
+    return { student_id: childId };
   }
 
+  // Student context: the identity's OWN profile (user_id) — never a child.
+  const own = await getStudentProfileByUserId(userId);
+  if (own) return { student_id: own.id };
+  const studentId = await insertStudentProfile(userId, body.full_name ?? '', body.grade_level ?? null);
   return { student_id: studentId };
 }
