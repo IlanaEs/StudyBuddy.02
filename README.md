@@ -75,6 +75,19 @@ isn't available, so students always get meaningful options.
 3. **Lesson** — the lesson runs; the teacher records a shared summary and homework afterward.
 4. **Follow-up** — students and parents see the summary and homework, and parents confirm the lesson.
 
+## Application routes
+
+| Path | Page | Access |
+|---|---|---|
+| `/` , `/teachers` | landing pages | public |
+| `/login` , `/auth/callback` | auth | public |
+| `/teacher-onboarding` | teacher onboarding wizard | guest→teacher |
+| `/onboarding/matching → results → booking → confirmation` | student/parent matching flow | guest/student/parent |
+| `/teacher/dashboard` , `/teacher/inbox` , `/teacher/lessons` | teacher area | `teacher` |
+| `/parent/dashboard` , `/parent/find-tutor` | parent area | `parent` |
+| `/student/dashboard` | student area | `student` |
+| `/admin/dashboard` | admin area | `admin` |
+
 ## Technology stack
 
 - **Frontend:** React, TypeScript, Vite, Mantine + Tailwind, Zustand, Framer Motion (Hebrew / RTL).
@@ -82,6 +95,31 @@ isn't available, so students always get meaningful options.
 - **Database & Auth:** Supabase (PostgreSQL + authentication) with Google sign-in.
 - **Integrations:** Google Calendar & Google Meet.
 - **Deployment:** Vercel (frontend) · Render (backend) · Supabase (data & auth).
+
+## Technical overview
+
+StudyBuddy is a TypeScript application with a clean separation of concerns:
+
+- **Frontend** — a **React + TypeScript** single-page app (Vite), Hebrew-first and RTL, with
+  role-based dashboards and a guided onboarding & matching experience.
+- **Backend** — an **Express** REST API organized in layered domains (routing → controller →
+  service → data access), with all permissions enforced server-side.
+- **Data & authentication** — **Supabase** provides **PostgreSQL** and authentication, with
+  **Google OAuth** as the sign-in method.
+- **Google Calendar integration** — teacher availability syncs with Google Calendar, busy times
+  block scheduling, and approved lessons generate calendar events with meeting links.
+- **Multi-account architecture** — one authenticated identity can own separate Teacher, Student, and
+  Parent accounts, switchable in-app with the active context preserved across sessions and data kept
+  cleanly separated per role.
+- **Deployment split** — the **frontend runs on Vercel**, the **backend on Render**, and **data &
+  auth on Supabase**.
+
+## Quality & testing
+
+- **Backend:** 287 automated tests passing.
+- **Frontend:** 52 automated tests passing.
+- **Production flows manually verified** end-to-end across all roles — onboarding, matching, booking,
+  lessons, and multi-account switching.
 
 ---
 
