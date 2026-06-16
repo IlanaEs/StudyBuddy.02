@@ -5,9 +5,15 @@ A **CRM-driven matchmaking platform for private education** (Hebrew / RTL). It c
 marketplace), then runs the full operational lifecycle: booking → lesson → post-lesson notes,
 homework, and parent confirmation. Roles: **teacher, student, parent, admin**.
 
-> Status: the app is feature-complete on the core flows and verified end-to-end against live
-> Supabase (see [`FEATURE_STATUS.md`](FEATURE_STATUS.md)). One database migration must be applied
-> for the parent-dashboard / lesson-completion features — see [Setup](#setup).
+> **Status: READY FOR FINAL SUBMISSION.** Feature-complete on the core flows and verified
+> end-to-end against the **live production deployment** (Vercel frontend + Render backend + Supabase).
+> The **multi-account architecture** (one Google identity → separate Teacher / Student / Parent
+> accounts) is complete and QA-passed in both directions. Final tested-flows matrix, the E2E runbook,
+> and the demo script live in [`docs/QA_FINAL.md`](docs/QA_FINAL.md); the per-feature verification
+> matrix in [`FEATURE_STATUS.md`](FEATURE_STATUS.md).
+>
+> **Production:** frontend `https://study-buddy-fawn.vercel.app` · backend
+> `https://studybuddy-02.onrender.com` (Render free tier — first request after idle is a cold start).
 
 ## Table of contents
 - [Architecture](#architecture) · [Tech stack](#tech-stack) · [Setup](#setup) · [Run](#run)
@@ -24,7 +30,7 @@ npm-workspaces monorepo:
 apps/
   backend/    Node + Express + TypeScript (ESM) REST API, Supabase Auth + Postgres
   frontend/   React 19 + Vite + TypeScript SPA (Mantine + Tailwind, Hebrew/RTL)
-supabase/migrations/   SQL schema (001–023), gated by db:validate
+supabase/migrations/   SQL schema (001–026), gated by db:validate
 scripts/               seed + QA/E2E verification scripts
 agents/                product/architecture source-of-truth docs (governance)
 docs/                  env setup, QA users, runbooks
@@ -46,6 +52,31 @@ is the source of truth, and every auth change resolves the local user+profile vi
 `{ data } | { error }`.
 
 See [`CLAUDE.md`](CLAUDE.md) for the deeper architecture notes.
+
+### Multi-account architecture
+
+One Google sign-in (one Supabase `auth.users` / local `users` **identity**) can own **multiple
+separate StudyBuddy accounts** — a Teacher, a Student, and a Parent under the **same email** — each
+with its own role, onboarding, dashboard, and data. The **only** shared thing is the auth identity.
+
+- **`users`** = the identity (1:1 with `auth.users`; `email` is unique here). **`accounts`** = one row
+  per `(identity, role)` (migrations `024`–`026`); a `is_default` account preserves single-account
+  behavior.
+- **Active account is chosen per request** via the **`X-Account-Id`** header (mirrors the
+  `x-admin-qa-role` convention). No header → the default account. The backend
+  (`verifyAccessToken` → `resolveActiveAccount`) validates the header belongs to the identity (else
+  403) and mirrors the active account's **role** onto the request, so every role guard/ownership
+  check branches on the *selected* account. `X-Account-Id` is in the CORS `allowedHeaders`.
+- **Frontend**: `auth/activeAccount.ts` is the header store (localStorage + in-memory, read by
+  `api/client.ts`); `AuthProvider.switchAccount(id)` switches and re-resolves `/me`; the choice is
+  **persisted across refresh** (`resolveRestorableAccountId`, validated against the server-fresh
+  account list so a stale/foreign id is never sent). `AccountSwitcher` adds/switches accounts; a
+  post-login picker appears only when an identity owns >1 account.
+- **Ownership is role-scoped, not identity-wide.** Student/child profiles are resolved by the
+  **active account's role** — a Student flow resolves the identity's **own** profile (`students.user_id`),
+  a Parent flow resolves a **child** (`students.parent_user_id`). This prevents one identity's
+  accounts from cross-using each other's profiles. (Permissions remain backend-enforced; the intake
+  insert uses the service-role client, so the ownership gate is `assertStudentAccess`, not RLS.)
 
 ## Tech stack
 
@@ -81,11 +112,13 @@ cp apps/frontend/.env.example apps/frontend/.env
 **`apps/frontend/.env`**: `VITE_API_BASE_URL` (`http://localhost:4000`), `VITE_SUPABASE_URL`,
 `VITE_SUPABASE_ANON_KEY`. Details in [`docs/local-env-setup.md`](docs/local-env-setup.md).
 
-**Database**: apply **all** migrations `001–023` to your Supabase project (SQL Editor or
-`supabase db push`) — the app expects the full set. ⚠️ `014_parent_dashboard.sql` is required for the
-parent dashboard + lesson completion (if those 500, apply it and run `notify pgrst, 'reload schema';`),
-and `023_teacher_approval_status.sql` gates teacher matchability. Verify the migration *files* are
-well-formed with `npm run db:validate`.
+**Database**: apply **all** migrations `001–026` to your Supabase project (SQL Editor or
+`supabase db push`) — the app expects the full set. Notes: `014_parent_dashboard.sql` is required for
+the parent dashboard + lesson completion (if those 500, apply it and run
+`notify pgrst, 'reload schema';`), `023_teacher_approval_status.sql` gates teacher matchability, and
+**`024`–`026` add the multi-account schema** (the `accounts` table + `account_id` backfill) — required
+for the multi-account flows. Verify the migration *files* are well-formed with `npm run db:validate`.
+Migrations are applied **manually** (the prod deploy can't reach the direct PG host from CI).
 
 ## Run
 
@@ -145,9 +178,12 @@ academic-repository request approvals.
 | `/teacher-onboarding` | teacher onboarding wizard | guest→teacher |
 | `/onboarding/matching → results → booking → confirmation` | student/parent matching flow | guest/student/parent |
 | `/teacher/dashboard` , `/teacher/inbox` , `/teacher/lessons` | teacher area | `teacher` |
-| `/parent/dashboard` | parent area | `parent` |
+| `/parent/dashboard` , `/parent/find-tutor` | parent area | `parent` |
 | `/student/dashboard` | student area | `student` |
 | `/admin/dashboard` | admin area | `admin` |
+
+A user who owns multiple accounts switches roles in-app via the **account switcher** in the floating
+top navbar (no re-login); the active account is sent as `X-Account-Id` and persists across refresh.
 
 ## Testing & QA
 
@@ -166,7 +202,9 @@ STUDYBUDDY_ENV=development npm run qa:seed-users      # 10 logins (password QaPa
 STUDYBUDDY_ENV=development node scripts/seed-parent-dashboard.mjs --allow-remote-dev-seed  # parent demo (needs migration 014)
 ```
 QA logins (`docs/QA_USERS.md`): `qa.{student,parent,teacher}.{a,b,c}@studybuddy.local`,
-`qa.admin@studybuddy.local`, all password `QaPass123!`.
+`qa.admin@studybuddy.local`, all password `QaPass123!`. ⚠️ These password logins work **only locally
+with `DEV_AUTH_BYPASS=true`** — **production auth is Google-only**, so live/demo accounts must be real
+Google accounts (see [`docs/QA_FINAL.md`](docs/QA_FINAL.md) → Demo preparation).
 
 ## Database
 
@@ -191,9 +229,18 @@ enablement, and that no RLS policy is unrestricted or granted to `anon`.
 
 ## Known gaps
 
-See [`FEATURE_STATUS.md`](FEATURE_STATUS.md) for the full verification matrix. Open items:
-- **Apply all migrations `001–023`** to your DB (e.g. parent dashboard + lesson completion need 014; teacher matchability needs the approval gate in 023).
+See [`FEATURE_STATUS.md`](FEATURE_STATUS.md) for the full verification matrix and
+[`docs/QA_FINAL.md`](docs/QA_FINAL.md) for the final tested-flows list. The core flows (incl.
+parent dashboard, lesson completion, and the full multi-account matrix) are **verified passing in
+production**. Remaining minor / non-blocking items:
+- **Apply all migrations `001–026`** to your DB (parent dashboard + lesson completion need 014;
+  teacher matchability needs 023; multi-account needs 024–026). Done on the production DB.
+- **In-app chat** is scaffolded (DB tables + RLS) but not built — intentionally out of MVP scope.
 - `/api/teachers` is mounted twice in `app.ts` (onboarding routes shadowed; JWT verified twice per
   request) — recommend consolidating.
 - Onboarding legal declarations are optional, and lesson-complete has no idempotency guard — review
   whether intended.
+
+> **Frozen for submission:** the multi-account architecture (`users` / `accounts` / `students` /
+> `student_intakes` / `ensureStudentProfile` / `switchAccount` / `X-Account-Id` / active-account
+> persistence) is locked — do not modify unless a critical bug is found.

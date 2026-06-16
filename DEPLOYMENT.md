@@ -45,7 +45,7 @@ Because the frontend bakes the backend URL at build time, you should know the ba
 ## Step 0 — Supabase (production project)
 
 1. Confirm your production Supabase project (or create one).
-2. Apply the schema. Run **all** the migrations under `supabase/migrations/` **in order** against the prod database. The current set is **`001`–`023`** (the later ones add Google-only auth, online-only location, lesson calendar/file links, the find-tutor quick wizard, and the admin teacher-approval flow in `023_teacher_approval_status.sql`). Then run the hard gate locally:
+2. Apply the schema. Run **all** the migrations under `supabase/migrations/` **in order** against the prod database. The current set is **`001`–`026`** (the later ones add Google-only auth, online-only location, lesson calendar/file links, the find-tutor quick wizard, the admin teacher-approval flow in `023_teacher_approval_status.sql`, and the **multi-account schema in `024`–`026`** — the `accounts` table + `account_id` backfill, required for one identity to own multiple role accounts). Then run the hard gate locally:
    ```bash
    npm run db:validate
    ```
@@ -86,6 +86,9 @@ The backend `build` runs `tsc -p tsconfig.json`, emitting compiled ESM to `apps/
 | `SUPABASE_SERVICE_ROLE_KEY` | from Step 0 | |
 | `DATABASE_URL` | from Step 0 | Session pooler / direct connection |
 | `ADMIN_GOOGLE_EMAIL` | the admin's Google email | Identifies the single admin account for the `scripts/bootstrap-admin.mjs` promotion (Step 6). Not a login secret — the admin still signs in with Google. |
+| `ENABLE_MULTI_ACCOUNT` | *(leave unset)* | Multi-account is **on by default** (opt-out: set to `false` to disable). Controls whether `POST /api/accounts` can create a second role account for an identity. |
+
+> The frontend sends a custom **`X-Account-Id`** request header to select the active account; it is already in the backend CORS `allowedHeaders` (`app.ts`). If you ever fork the CORS config, keep that header — without it the browser preflight blocks every authenticated request.
 
 If you use the Google Calendar integration, also set:
 

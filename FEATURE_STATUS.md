@@ -15,7 +15,14 @@ via the running backend (`http://localhost:4000`) + the Supabase REST client, pl
 | REST domain checks (parallel verification) | ✅ **42 / 49** (the 7 non-passes are a fixture limit, not bugs — see below) |
 | `node scripts/verify-lifecycle-e2e.mjs` | ✅ **steps 1–12 pass** through booking → lesson creation; ⛔ step 13+ blocked by **migration 014** |
 
-**One thing blocks "everything works": migration `014_parent_dashboard.sql` is not applied to the
+> **UPDATE (final submission):** the blocker below is **resolved**. Migrations `001`–`026` (incl.
+> `014_parent_dashboard.sql` and the multi-account schema `024`–`026`) are applied on the production
+> database, and the **full lifecycle + multi-account matrix is verified passing in production** —
+> lesson completion, parent dashboard, both add-a-role directions, account switching, refresh
+> persistence, matching, and booking. See [`docs/QA_FINAL.md`](docs/QA_FINAL.md) for the final
+> tested-flows list and runbook. The note below is the *pre-handoff* snapshot, kept for history.
+
+**[Historical] One thing blocks "everything works": migration `014_parent_dashboard.sql` is not applied to the
 live database** (the `lesson_confirmations` and `homework_tasks` tables are missing). That breaks
 lesson **completion** and the **parent dashboard** only. Everything up to and including
 booking-approval → lesson-creation is verified working end-to-end. Apply 014 (Supabase SQL Editor or
